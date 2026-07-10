@@ -34,7 +34,8 @@ EXPECTED_TABLES = {
 
 async def test_all_migrations_recorded(superuser_conn: asyncpg.Connection[Any]) -> None:
     on_disk = sorted(p.name for p in MIGRATIONS_DIR.glob("*.sql"))
-    assert len(on_disk) == 8, "phase 1 ships exactly migrations 0001-0008"
+    # 0001-0008 per phase 1 (T-002); 0009 adds T-004's auth pre-context resolvers.
+    assert len(on_disk) == 9, "expected migrations 0001-0009"
     applied = await superuser_conn.fetch("select version from schema_migrations order by version")
     assert [r["version"] for r in applied] == on_disk
 

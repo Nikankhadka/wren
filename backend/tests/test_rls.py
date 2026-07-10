@@ -18,14 +18,13 @@ import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import quote, urlsplit, urlunsplit
 
 import asyncpg
 import pytest
 import pytest_asyncio
 
 from app.core import db
-from app.core.config import get_settings
+from tests.conftest import _app_dsn_for
 
 pytestmark = pytest.mark.db
 
@@ -156,21 +155,6 @@ async def seeded_tenants(migrated_db: str) -> SeedTenants:
     finally:
         await conn.close()
     return SeedTenants(a_id=a_id, a_slug=a_slug, b_id=b_id, b_slug=b_slug)
-
-
-def _app_dsn_for(base_dsn: str) -> str:
-    """The same database as ``base_dsn``, but as the wren_app role.
-
-    Swaps credentials only (host/port/dbname come from ``base_dsn``, i.e. from
-    ``migrated_db`` - so this always targets wren_test, never the dev database);
-    the password comes from settings, never hardcoded.
-    """
-    settings = get_settings()
-    parts = urlsplit(base_dsn)
-    netloc = f"wren_app:{quote(settings.wren_app_db_password, safe='')}@{parts.hostname}"
-    if parts.port:
-        netloc = f"{netloc}:{parts.port}"
-    return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
 
 
 @pytest_asyncio.fixture

@@ -9,6 +9,10 @@
 - 2026-07-10 (T-002): quote protection strengthened slightly beyond database.md's sample trigger - id/created_at also frozen, and wren_app holds no DELETE on quotes (revoked; FK cascades still work because they run as the table owner) - why: principle 5 "tamper-proof once sent" taken literally after review.
 - 2026-07-10 (T-002): wren_resolver gets column-level grants only (tenants: id/slug/name/status; tenant_config: tenant_id/brand) - why: the privilege boundary of the single sanctioned RLS bypass must match resolve_tenant_slug's four-column contract, so a future resolver-owned function cannot widen the pre-auth surface.
 
+- 2026-07-11 (T-004): auth dependencies return the authed principal and each route opens `tenant_context(tenant_id, role)` itself, instead of the ticket's "dependency yields the connection" - why: avoids holding a transaction/pooled connection for the whole request; acceptance (API-level cross-tenant isolation) proven in test_auth_api.py. Flagged for founder confirmation.
+- 2026-07-11 (T-004): pre-context user/platform-admin lookups go through SECURITY DEFINER resolvers `resolve_user_tenant` / `resolve_platform_admin` (migration 0009, wren_resolver-owned, column-level grants) mirroring resolve_tenant_slug - why: keeps the sanctioned RLS bypass surface narrow and auditable.
+- 2026-07-11 (T-004): frontend ui kit is hand-built per frontend.md section 6 (no shadcn - its own color-variable layer conflicts with the theme.css token system + check-tokens CI guard); no client state lib yet (supabase-js session + React state suffice; revisit at T-006 if the onboarding panel needs shared state).
+
 ## Gotchas
 <!-- <thing that will bite you> - <what to do instead> -->
 - Supabase's `postgres` role owns tables and would bypass RLS - every tenant table needs FORCE ROW LEVEL SECURITY and the API must connect as the dedicated `wren_app` role (docs/design/database.md section 2).
@@ -20,6 +24,10 @@
 - psql-based RLS experiments must wrap `set_config(..., true)` and the queries in one `begin/commit` - autocommit makes transaction-local settings vanish per statement and everything looks denied.
 - `tenant_context` (app/core/db.py) is the ONLY place tenant context is set; do not nest it per task (each level acquires another pooled connection; acquire has a 30s timeout). Tests prove no context leaks across pool reuse (commit and rollback paths, test_rls.py).
 - asyncpg.Pool/PoolConnectionProxy are generic only in asyncpg-stubs - subscripting them at runtime is a TypeError; keep such aliases under TYPE_CHECKING (see app/core/db.py).
+- Supabase JWT verification MUST pass `options={"require": ["exp"]}` to jwt.decode - PyJWT validates exp only if present, so a token minted without exp would otherwise never expire (app/core/auth.py; regression test in test_auth_api.py).
+- INSERT ... RETURNING enforces the table's SELECT policies even for pure inserts - the service role (Shape C, INSERT-only) cannot use RETURNING; generate ids client-side instead (app/api/tenants.py signup).
+- SECURITY DEFINER functions here use `set search_path = public` without trailing `pg_temp` (0003 and 0009, deliberately matching); harden both together in a future migration rather than diverging.
+- Local dev needs a non-empty SUPABASE_JWT_SECRET in backend/.env (any 64-hex string); the hosted Supabase project is NOT created yet - real email/password login from the frontend is blocked on founder creating it and filling SUPABASE_*/NEXT_PUBLIC_SUPABASE_* values. Backend auth is fully testable with locally minted HS256 tokens.
 
 ## Conventions learned
 <!-- <convention> - <where observed> -->

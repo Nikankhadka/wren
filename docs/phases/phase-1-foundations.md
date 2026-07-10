@@ -62,7 +62,7 @@ Done in phase 0 (planning/scaffolding session). `/frontend` (Next.js + TS + Tail
 
 ---
 
-### T-004 `[ ]` Supabase Auth + FastAPI tenant-context middleware (4h)
+### T-004 `[x]` Supabase Auth + FastAPI tenant-context middleware (4h)
 **Deps:** T-003. **Stories:** US-001.
 **Read:** `design/database.md` sections 2-3 (roles, users, platform_admins).
 **Files:** `backend/app/core/auth.py`, `backend/app/core/config.py`, `frontend/src/lib/supabase.ts`, `frontend/src/app/(tenant-admin)/login/page.tsx`, `.env.example` additions.
