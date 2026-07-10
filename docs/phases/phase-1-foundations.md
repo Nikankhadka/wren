@@ -49,7 +49,7 @@ Done in phase 0 (planning/scaffolding session). `/frontend` (Next.js + TS + Tail
 
 ---
 
-### T-003 `[ ]` RLS enforcement + schema audit (3h)
+### T-003 `[x]` RLS enforcement + schema audit (3h)
 **Deps:** T-002. **Stories:** US-001, US-003.
 **Read:** `design/database.md` sections 2 and 11.
 **Files:** `backend/app/core/db.py`, `backend/tests/test_rls.py`, `backend/tests/test_schema_audit.py`.

@@ -18,6 +18,8 @@
 - Postgres roles are cluster-global: 0002_roles.sql guards `create role` with if-not-exists checks so the wren_test database can be migrated in the same cluster; the wren_app password is set by whichever database migrates first.
 - pytest-asyncio: session-scoped async fixtures need `@pytest_asyncio.fixture(scope="session", loop_scope="session")` and must yield plain data only (tests run on per-function loops - a yielded connection would be bound to the wrong loop).
 - psql-based RLS experiments must wrap `set_config(..., true)` and the queries in one `begin/commit` - autocommit makes transaction-local settings vanish per statement and everything looks denied.
+- `tenant_context` (app/core/db.py) is the ONLY place tenant context is set; do not nest it per task (each level acquires another pooled connection; acquire has a 30s timeout). Tests prove no context leaks across pool reuse (commit and rollback paths, test_rls.py).
+- asyncpg.Pool/PoolConnectionProxy are generic only in asyncpg-stubs - subscripting them at runtime is a TypeError; keep such aliases under TYPE_CHECKING (see app/core/db.py).
 
 ## Conventions learned
 <!-- <convention> - <where observed> -->
