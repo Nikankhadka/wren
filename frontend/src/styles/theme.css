@@ -1,0 +1,176 @@
+/*
+ * WREN theme - THE single source of visual truth.
+ * Spec: docs/design/frontend.md sections 1-4.
+ *
+ * Rules (CI-enforced by frontend/scripts/check-tokens.mjs):
+ *  - Raw color values (hex/rgb/hsl) may exist ONLY in this file.
+ *  - Components use LAYER 2 (semantic) or LAYER 3 (component) tokens, never LAYER 1 primitives.
+ *  - Dark mode, tenant branding, and future themes are variable overrides, never component changes.
+ */
+
+/* ============ LAYER 1: PRIMITIVES (the only place raw values may live) ============ */
+:root {
+  /* sand - warm paper neutrals */
+  --sand-50:  #FAF9F5;
+  --sand-100: #F5F3EC;
+  --sand-200: #EBE8DE;
+  --sand-300: #DDD9CB;
+  --sand-400: #B8B5AA;
+  --sand-500: #8E8B80;
+  --sand-600: #5E5D55;
+  --sand-700: #3A3935;
+  --sand-800: #2B2A27;
+  --sand-900: #1F1E1B;
+
+  /* clay - the terracotta accent ramp */
+  --clay-100: #FAEDE6;
+  --clay-300: #EBA285;
+  --clay-500: #D97757;
+  --clay-600: #C05F3C;
+  --clay-700: #9D4A2D;
+
+  /* functional ramps (muted, warm-leaning) */
+  --green-100: #E8F0E9;
+  --green-300: #8FB89A;
+  --green-500: #4E7E5B;
+  --amber-100: #F7EEDC;
+  --amber-300: #D9B36A;
+  --amber-500: #B07C24;
+  --red-100:   #F8E8E5;
+  --red-300:   #DE9187;
+  --red-500:   #BC4B3C;
+  --blue-100:  #E8EEF3;
+  --blue-300:  #9AB4C9;
+  --blue-500:  #5A7D9A;
+
+  /* dark-surface primitives */
+  --ink-900: #1F1E1B;
+  --ink-800: #262624;
+  --ink-700: #30302E;
+  --ink-600: #3A3937;
+  --ink-500: #45443F;
+  --ink-400: #55534C;
+  --clay-subtle-dark: #4A3327;
+
+  --white: #FFFFFF;
+  --scrim: rgb(0 0 0 / 0.4);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, ui-sans-serif, sans-serif;
+  --font-display: "New York", ui-serif, Georgia, serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+}
+
+/* ============ LAYER 2: SEMANTIC - LIGHT (default) ============ */
+:root {
+  --color-bg:             var(--sand-50);
+  --color-surface:        var(--white);
+  --color-surface-sunken: var(--sand-100);
+  --color-surface-raised: var(--white);
+  --color-border:         var(--sand-200);
+  --color-border-strong:  var(--sand-300);
+  --color-text:           var(--sand-900);
+  --color-text-secondary: var(--sand-600);
+  --color-text-tertiary:  var(--sand-500);
+  --color-text-inverse:   var(--sand-50);
+
+  --color-accent:         var(--clay-500);
+  --color-accent-hover:   var(--clay-600);
+  --color-accent-active:  var(--clay-700);
+  --color-accent-subtle:  var(--clay-100);
+  --color-focus-ring:     var(--clay-500);
+
+  --color-success:        var(--green-500);
+  --color-success-subtle: var(--green-100);
+  --color-warning:        var(--amber-500);
+  --color-warning-subtle: var(--amber-100);
+  --color-danger:         var(--red-500);
+  --color-danger-subtle:  var(--red-100);
+  --color-info:           var(--blue-500);
+  --color-info-subtle:    var(--blue-100);
+
+  --color-scrim:          var(--scrim);
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 9999px;
+
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.05);
+  --shadow-2: 0 2px 8px rgb(0 0 0 / 0.07);
+  --shadow-3: 0 8px 24px rgb(0 0 0 / 0.10);
+
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* ============ LAYER 2 OVERRIDES - DARK ============ */
+/* Applied when the user's stored preference is dark, or when the system prefers dark
+   and no explicit light preference is stored. Components never know which is active. */
+:root[data-theme="dark"] {
+  --color-bg:             var(--ink-800);
+  --color-surface:        var(--ink-700);
+  --color-surface-sunken: var(--ink-900);
+  --color-surface-raised: var(--ink-600);
+  --color-border:         var(--ink-500);
+  --color-border-strong:  var(--ink-400);
+  --color-text:           var(--sand-50);
+  --color-text-secondary: var(--sand-400);
+  --color-text-tertiary:  var(--sand-500);
+  --color-text-inverse:   var(--sand-900);
+
+  --color-accent:         var(--clay-300);
+  --color-accent-hover:   var(--clay-500);
+  --color-accent-active:  var(--clay-600);
+  --color-accent-subtle:  var(--clay-subtle-dark);
+  --color-focus-ring:     var(--clay-300);
+
+  --color-success:        var(--green-300);
+  --color-warning:        var(--amber-300);
+  --color-danger:         var(--red-300);
+  --color-info:           var(--blue-300);
+  /* subtle fills keep their light values' role via darker mixes */
+  --color-success-subtle: color-mix(in srgb, var(--green-500) 22%, var(--ink-700));
+  --color-warning-subtle: color-mix(in srgb, var(--amber-500) 22%, var(--ink-700));
+  --color-danger-subtle:  color-mix(in srgb, var(--red-500) 22%, var(--ink-700));
+  --color-info-subtle:    color-mix(in srgb, var(--blue-500) 22%, var(--ink-700));
+
+  /* depth from surface steps, not shadows */
+  --shadow-1: none;
+  --shadow-2: 0 0 0 1px var(--ink-500);
+  --shadow-3: 0 8px 24px rgb(0 0 0 / 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --color-bg:             var(--ink-800);
+    --color-surface:        var(--ink-700);
+    --color-surface-sunken: var(--ink-900);
+    --color-surface-raised: var(--ink-600);
+    --color-border:         var(--ink-500);
+    --color-border-strong:  var(--ink-400);
+    --color-text:           var(--sand-50);
+    --color-text-secondary: var(--sand-400);
+    --color-text-tertiary:  var(--sand-500);
+    --color-text-inverse:   var(--sand-900);
+
+    --color-accent:         var(--clay-300);
+    --color-accent-hover:   var(--clay-500);
+    --color-accent-active:  var(--clay-600);
+    --color-accent-subtle:  var(--clay-subtle-dark);
+    --color-focus-ring:     var(--clay-300);
+
+    --color-success:        var(--green-300);
+    --color-warning:        var(--amber-300);
+    --color-danger:         var(--red-300);
+    --color-info:           var(--blue-300);
+    --color-success-subtle: color-mix(in srgb, var(--green-500) 22%, var(--ink-700));
+    --color-warning-subtle: color-mix(in srgb, var(--amber-500) 22%, var(--ink-700));
+    --color-danger-subtle:  color-mix(in srgb, var(--red-500) 22%, var(--ink-700));
+    --color-info-subtle:    color-mix(in srgb, var(--blue-500) 22%, var(--ink-700));
+
+    --shadow-1: none;
+    --shadow-2: 0 0 0 1px var(--ink-500);
+    --shadow-3: 0 8px 24px rgb(0 0 0 / 0.5);
+  }
+}

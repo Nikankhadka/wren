@@ -1,0 +1,29 @@
+# env / secrets
+.env
+.env.local
+.env.*.local
+
+# node / next
+node_modules/
+.next/
+out/
+next-env.d.ts
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# uploads (local knowledge files, T-007)
+backend/var/
+
+# terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+
+# os / editor
+.DS_Store

@@ -1,0 +1,19 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: wren
+    ports:
+      - "5432:5432"
+    volumes:
+      - wren-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d wren"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  wren-pgdata:
