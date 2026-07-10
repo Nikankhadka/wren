@@ -27,3 +27,6 @@ backend/var/
 
 # os / editor
 .DS_Store
+
+# gnhf run logs (transient; objective + handoff in .agents/ are tracked)
+.agents/gnhf-logs/
