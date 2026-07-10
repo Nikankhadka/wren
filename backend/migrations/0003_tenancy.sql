@@ -71,6 +71,10 @@ $$ select t.id, t.name, t.status, coalesce(c.brand, '{}'::jsonb)
      from tenants t left join tenant_config c on c.tenant_id = t.id
     where t.slug = p_slug $$;
 alter function resolve_tenant_slug(text) owner to wren_resolver;
-grant select on tenants, tenant_config to wren_resolver;
+-- Column-level grants only: the privilege boundary matches the function's four-column
+-- contract, so a future resolver-owned function cannot quietly widen the pre-auth
+-- surface to system_prompt/config/etc.
+grant select (id, slug, name, status) on tenants to wren_resolver;
+grant select (tenant_id, brand) on tenant_config to wren_resolver;
 revoke all on function resolve_tenant_slug(text) from public;
 grant execute on function resolve_tenant_slug(text) to wren_app;

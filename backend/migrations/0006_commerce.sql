@@ -63,9 +63,15 @@ alter table quotes force row level security;
 create policy tenant_isolation    on quotes for all
   using (tenant_id = app_tenant_id()) with check (tenant_id = app_tenant_id());
 create policy platform_admin_read on quotes for select using (app_is_platform_admin());
-grant select, insert, update, delete on quotes to wren_app;
+-- No DELETE for the app role: quotes are tamper-proof records (principle 5). Tenant
+-- offboarding still works - FK cascades run as the table owner, not wren_app.
+grant select, insert, update on quotes to wren_app;
+revoke delete on quotes from wren_app;   -- undo the 0002 default privilege
 
 -- Quotes are immutable once created; only draft->sent->expired status may change.
+-- id/created_at are guarded too (with the DELETE revoke above, principle 5 of
+-- database.md taken literally - slightly stronger than the doc's sample trigger;
+-- recorded in .agents/memory.md).
 create or replace function quotes_immutable() returns trigger language plpgsql as
 $$
 begin
@@ -74,7 +80,9 @@ begin
   or new.tax_cents       is distinct from old.tax_cents
   or new.total_cents     is distinct from old.total_cents
   or new.tenant_id       is distinct from old.tenant_id
-  or new.conversation_id is distinct from old.conversation_id then
+  or new.conversation_id is distinct from old.conversation_id
+  or new.id              is distinct from old.id
+  or new.created_at      is distinct from old.created_at then
     raise exception 'quotes are immutable except status';
   end if;
   if not ((old.status, new.status) in (('draft','sent'), ('draft','expired'), ('sent','expired'), (old.status, old.status))) then

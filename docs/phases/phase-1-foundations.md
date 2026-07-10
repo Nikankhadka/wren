@@ -36,7 +36,7 @@ Done in phase 0 (planning/scaffolding session). `/frontend` (Next.js + TS + Tail
 
 ---
 
-### T-002 `[ ]` Full schema + migrations (4h)
+### T-002 `[x]` Full schema + migrations (4h)
 **Deps:** T-001. **Stories:** US-001.
 **Read:** `design/database.md` sections 1-2 and 9 fully; sections 3-7 as the DDL source; section 8 (triggers).
 **Files:** `backend/migrations/0001..0008_*.sql`, `backend/app/core/migrate.py` (runner), `backend/tests/test_migrations.py`.

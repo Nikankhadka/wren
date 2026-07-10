@@ -30,9 +30,12 @@ select = ["E", "F", "I", "UP", "B", "ASYNC"]
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
+# Session-scoped async fixtures must not await after yield (they run on the first
+# requesting test's function-scoped loop); see tests/conftest.py.
+asyncio_default_fixture_loop_scope = "function"
 markers = ["db: tests that require a live Postgres (docker compose up -d db)"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["app"]
+files = ["app", "tests"]

@@ -1,5 +1,8 @@
 -- 0002_roles.sql - the two application roles.
--- The runner substitutes ${WREN_APP_DB_PASSWORD} from the environment before executing.
+-- The runner substitutes the WREN_APP_DB_PASSWORD placeholder (dollar-brace syntax,
+-- spelled out below only inside the create-role literal so the secret appears exactly
+-- once in the executed statement text) from the environment before executing. The
+-- runner validates the value fail-closed: no quotes, backslashes, or dollar signs.
 
 -- Roles are cluster-global (not per-database), so guard creation: a second database
 -- in the same cluster (e.g. the test database) reuses the roles created by the first.
