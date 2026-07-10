@@ -81,7 +81,7 @@ Done in phase 0 (planning/scaffolding session). `/frontend` (Next.js + TS + Tail
 **Read:** `design/database.md` section 3 (`resolve_tenant_slug`); `design/frontend.md` section 7 (route groups).
 **Files:** `frontend/src/middleware.ts`, `frontend/src/lib/tenant.ts`, `backend/app/api/public.py`.
 **Steps:**
-1. Next.js middleware: parse `host`; map `admin.*` -> `(platform)`, `app.*` -> `(tenant-admin)`, `{slug}.*` -> `(customer)` with the slug in a request header/rewrite param. Local dev: `{slug}.localhost:3000` plus an `X-Wren-Slug` header override for tests; production-ready for a Vercel wildcard domain.
+1. Next.js middleware: parse `host`; map `admin.*` -> `(platform)`, `app.*` -> `(tenant-admin)`, `{slug}.*` -> `(customer)` with the slug in a request header/rewrite param. Local dev: `{slug}.localhost:3000` plus an `X-Wren-Slug` header override for tests; production-ready for a Vercel wildcard domain. **Delete the phase-0 placeholder `src/app/page.tsx` when `(customer)/page.tsx` lands** - route groups do not segment URLs, so both would resolve to `/` and break the build.
 2. Backend `GET /api/public/tenant/{slug}` -> `resolve_tenant_slug` (id, name, status, brand from tenant_config); 404 unknown, 200-with-status for suspended (frontend shows the suspended state, frontend.md 7.1).
 3. Customer-surface API calls carry the slug; backend resolves and sets `tenant_context(tenant_id, 'customer')` per request. Resolution result cached in-process for 60s.
 **Accept:** `bytefix.localhost:3000` renders Tenant 1's branded shell; unknown slug shows the calm 404; suspended shows the unavailable state; resolved requests are RLS-scoped (leakage case added to API tests).

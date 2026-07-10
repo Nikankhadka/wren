@@ -26,7 +26,7 @@ When documents seem to disagree:
 |---|---|---|---|
 | **0. Planning & scaffolding** (this phase) | Design docs, phase files, monorepo scaffold, /health green | done by the planning session; see git history | `[x]` |
 | **1. Foundations** (Week 1) | Tenancy, RLS, subdomain resolution, onboarding skeleton, ingestion, hybrid RAG, retrieval eval | `INDEX.md` + `phases/phase-1-foundations.md` + per-ticket sections of `design/database.md` and `design/frontend.md` | `[ ]` |
-| **2. Agents & pricing** (Week 2) | LangGraph supervisor + specialists, deterministic pricing engine, validation gate, inspection layer, leakage test | `INDEX.md` + `phases/phase-2-agents-pricing.md` + per-ticket sections of `design/database.md` | `[ ]` |
+| **2. Agents & pricing** (Week 2) | LangGraph supervisor + specialists, deterministic pricing engine, validation gate, inspection layer, leakage test | `INDEX.md` + `phases/phase-2-agents-pricing.md` + per-ticket sections of `design/database.md` and `design/frontend.md` (section 6: T-017, T-020) | `[ ]` |
 | **3. Eval, CI & console** (Week 3) | Three-layer eval, judge calibration, injection defense, CI gate, tracing/cost, tenant admin console | `INDEX.md` + `phases/phase-3-eval-console.md` + per-ticket sections of both design docs | `[ ]` |
 | **4. Ship** (Week 4) | Customer + platform surfaces, dashboards, Terraform/AWS + Vercel deploy, Tenant 2 generalization proof, artifacts | `INDEX.md` + `phases/phase-4-ship.md` + per-ticket sections of both design docs | `[ ]` |
 

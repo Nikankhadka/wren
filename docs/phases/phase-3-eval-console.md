@@ -62,7 +62,7 @@
 **Read:** root `AGENTS.md` Commands table (the commands CI runs must be exactly these).
 **Files:** `.github/workflows/ci.yml`, `backend/evals/run_gate.py`.
 **Steps:**
-1. CI jobs: lint (frontend eslint + `check-tokens.mjs`, backend ruff), typecheck (tsc, pyright/mypy - whichever root AGENTS.md lists), unit/integration tests (pgvector service container, migrations from scratch), then the **eval gate**: retrieval + generation + trajectory + injection subsets with `--gate` thresholds, plus the leakage test at 100%.
+1. CI jobs: lint (frontend eslint + `check-tokens.mjs`, backend ruff), typecheck (`tsc --noEmit`, `uv run mypy` - per root AGENTS.md Commands), unit/integration tests (pgvector service container, migrations from scratch), then the **eval gate**: retrieval + generation + trajectory + injection subsets with `--gate` thresholds, plus the leakage test at 100%.
 2. `run_gate.py` orchestrates eval subsets against a seeded CI database, compares against thresholds (absolute) and last main-branch run (regression tolerance where thresholds are judged: generation/trajectory 3 points; leakage and price-provenance zero tolerance).
 3. **Prove the gate:** open a scratch branch with a deliberate retrieval break; CI must go red; close it. Note the run link in `.agents/memory.md`.
 **Accept:** green on main; the deliberate break was caught; secrets via GitHub Actions secrets (provider keys), LLM-dependent evals use pinned models + cached seeds to control flake and cost.

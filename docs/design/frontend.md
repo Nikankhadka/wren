@@ -19,10 +19,10 @@ Layer 3 COMPONENT    --button-primary-bg, --chat-bubble-user-bg, ...      option
                                                                           needs to deviate; references layer 2
 ```
 
-Rules, all CI-enforced (T-001 adds the check):
+Rules:
 
-1. Components and pages reference **semantic or component tokens only** - never primitives, never hex.
-2. Hex/rgb/hsl literals are allowed **only** in `theme.css`. A CI grep test (`frontend/scripts/check-tokens.mjs`) fails the build if a color literal appears in any other file under `src/`.
+1. Components and pages reference **semantic or component tokens only** - never primitives, never raw values. This covers colors, font sizes/leading (use the `text-*` utilities from the type-scale tokens), radii, shadows, and durations alike.
+2. Hex/rgb/hsl literals are allowed **only** in `theme.css`. A CI check (`frontend/scripts/check-tokens.mjs`, wired as `npm run check:tokens`) fails the build if a color literal appears in any other file under `src/`. The check machine-enforces colors only; the rest of rule 1 is enforced in review.
 3. Dark mode, tenant branding, and any future theme are **variable overrides**, never component changes.
 
 ## 2. Theme file skeleton (`frontend/src/styles/theme.css`)
@@ -124,7 +124,7 @@ Components then use `bg-surface`, `text-text-secondary`, `border-border`, `bg-ac
 
 ## 4. Typography, spacing, motion
 
-- **Type scale** (Apple-ish, sizes in px with line-height): 12/16 caption, 13/18 footnote, 15/22 body-sm, 17/26 **body (default)**, 20/28 title-3, 24/32 title-2, 28/36 title-1, 34/42 display. Display and title-1 may use `--font-display`; everything else `--font-sans`. Traces, ids, code: `--font-mono` at 13/18.
+- **Type scale** (Apple-ish, sizes in px with line-height, defined as tokens in theme.css and exposed as Tailwind `text-caption` ... `text-display` utilities): 12/16 caption, 13/18 footnote, 15/22 body-sm, 17/26 **body (default)**, 20/28 title-3, 24/32 title-2, 28/36 title-1, 34/42 display. Display and title-1 may use `--font-display`; everything else `--font-sans`. Traces, ids, code: `--font-mono` at 13/18.
 - **Weight discipline:** regular for prose, medium for labels/buttons, semibold for titles. Never bold-everything.
 - **Spacing:** 4px base grid - allowed steps 4, 8, 12, 16, 24, 32, 48, 64, 96. Section padding defaults: cards 24, page gutters 32 (16 on mobile), stack gaps 16.
 - **Depth (Apple deference):** flat by default; `--shadow-1` for cards, `--shadow-2` for popovers, `--shadow-3` for modals only. In dark mode depth comes from surface steps, not shadows.
@@ -148,7 +148,7 @@ Build these once, use everywhere; every component takes only semantic tokens. Ea
 | `Input`, `Textarea`, `Select` | label above, help/error text below | default, focus, error (danger border + text), disabled |
 | `Card` | surface + border + radius-lg + shadow-1; optional header/footer | default, interactive (hover raise) |
 | `Table` | admin data tables; sticky header, row hover | loading (skeleton rows), empty (EmptyState inside), error |
-| `Badge` | status pill; maps status strings -> functional tokens (open=info, escalated/claimed=warning, resolved/closed/active=success, failed/suspended=danger, pending/draft=neutral) | n/a |
+| `Badge` | status pill; maps every status vocabulary in database.md -> functional tokens: info = open/sent; warning = escalated/claimed/processing/provisioning; success = resolved/closed/active/ready; danger = failed/suspended; neutral = pending/draft/expired | n/a |
 | `Tabs` | underline style, accent indicator | active, hover, focus |
 | `Modal` / `Sheet` | shadow-3, scrim `rgb(0 0 0/0.4)`; Sheet for mobile | open/close transition, focus trap |
 | `Toast` | bottom-right, auto-dismiss, functional-token left edge | success/error/info |

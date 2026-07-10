@@ -4,15 +4,9 @@
 
 ## Project Context
 
-Wren is a domain-agnostic, multi-tenant SaaS where any small business (dentist, butcher, phone repair shop, online store) self-onboards through a conversation and gets its own private, branded AI support-and-sales agent at `{slug}.wren.app` that recommends, answers from the business's own knowledge, produces deterministic quotes, and escalates to a human when it should. Solo portfolio venture (Ronin Khadka) on a 30-day build clock for a polished end-to-end core. **The project is currently at the planning stage: `docs/` holds the full work-order package (Charter/PRD, Architecture, Sprint Plan, Agent Conventions, Research) and no code exists yet - T-001 in the Sprint Plan scaffolds the monorepo.**
+Wren is a domain-agnostic, multi-tenant SaaS where any small business (dentist, butcher, phone repair shop, online store) self-onboards through a conversation and gets its own private, branded AI support-and-sales agent at `{slug}.wren.app` that recommends, answers from the business's own knowledge, produces deterministic quotes, and escalates to a human when it should. Solo portfolio venture (Ronin Khadka) on a 30-day build clock for a polished end-to-end core. **Phase 0 (docs + scaffold) is complete; implementation proceeds phase by phase through `docs/phases/`.**
 
-Read the docs in this order before substantive work:
-
-1. `docs/Wren_P0P1_CharterAndPRD.md` - what to build and why (three-surface model, MoSCoW scope, user stories E0-E14)
-2. `docs/Wren_P3_ArchitectureDoc.md` - stack, tenancy, data model, agent architecture, pricing engine
-3. `docs/Wren_P3_SprintPlanAndBacklog.md` - the 30-day plan, tickets T-001+, phase-2 line
-4. `docs/Wren_AGENTS.md` - binding conventions for how work gets done (see Conventions below)
-5. `docs/Wren_Research_CloningAndLearningPlan.md` - market grounding and learning roadmap
+**Do not load the PRD/Architecture/Sprint docs into context.** Start at `docs/INDEX.md` - it routes each phase to exactly the documents it needs (design docs, phase ticket files) and states the precedence rules. The only doc that always binds in full is `docs/Wren_AGENTS.md` (summarized under Conventions below).
 
 ## Stack
 
@@ -39,6 +33,7 @@ All verified. Frontend commands run in `frontend/`, backend commands in `backend
 | Dev server (frontend) | `npm run dev` |
 | Lint (backend) | `uv run ruff check .` |
 | Format check (backend) | `uv run ruff format --check .` |
+| Typecheck (backend) | `uv run mypy` (strict) |
 | Test (backend) | `uv run pytest` |
 | Dev server (backend) | `uv run uvicorn app.main:app --reload` |
 | Local database | `docker compose up -d db` (repo root) |

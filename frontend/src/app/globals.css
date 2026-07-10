@@ -4,7 +4,12 @@
 /*
  * Map semantic tokens (theme.css LAYER 2) into Tailwind utilities.
  * Components use bg-surface, text-text-secondary, border-border, bg-accent,
- * rounded-md, shadow-1, etc. - never raw values (CI: scripts/check-tokens.mjs).
+ * text-body, rounded-md, shadow-1, etc. - never raw values (CI: scripts/check-tokens.mjs).
+ *
+ * NOTE: several mappings are deliberately self-referential (--color-bg: var(--color-bg)).
+ * This works because theme.css is imported UNLAYERED and therefore wins the cascade
+ * over Tailwind's layered theme declarations. Do not move the theme.css import into
+ * a @layer, and do not "simplify" these into the layer - either change breaks every token.
  */
 @theme inline {
   --color-bg: var(--color-bg);
@@ -36,6 +41,23 @@
   --font-display: var(--font-display);
   --font-mono: var(--font-mono);
 
+  --text-caption: var(--text-caption-size);
+  --text-caption--line-height: var(--text-caption-leading);
+  --text-footnote: var(--text-footnote-size);
+  --text-footnote--line-height: var(--text-footnote-leading);
+  --text-body-sm: var(--text-body-sm-size);
+  --text-body-sm--line-height: var(--text-body-sm-leading);
+  --text-body: var(--text-body-size);
+  --text-body--line-height: var(--text-body-leading);
+  --text-title-3: var(--text-title-3-size);
+  --text-title-3--line-height: var(--text-title-3-leading);
+  --text-title-2: var(--text-title-2-size);
+  --text-title-2--line-height: var(--text-title-2-leading);
+  --text-title-1: var(--text-title-1-size);
+  --text-title-1--line-height: var(--text-title-1-leading);
+  --text-display: var(--text-display-size);
+  --text-display--line-height: var(--text-display-leading);
+
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-lg);
@@ -50,8 +72,8 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-sans);
-  font-size: 17px;
-  line-height: 26px;
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-leading);
 }
 
 :focus-visible {

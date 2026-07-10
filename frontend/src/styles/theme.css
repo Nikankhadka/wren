@@ -58,6 +58,17 @@
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, ui-sans-serif, sans-serif;
   --font-display: "New York", ui-serif, Georgia, serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+
+  /* type scale (docs/design/frontend.md section 4) - exposed as Tailwind
+     text-* utilities via the @theme mapping in globals.css */
+  --text-caption-size: 12px;   --text-caption-leading: 16px;
+  --text-footnote-size: 13px;  --text-footnote-leading: 18px;
+  --text-body-sm-size: 15px;   --text-body-sm-leading: 22px;
+  --text-body-size: 17px;      --text-body-leading: 26px;
+  --text-title-3-size: 20px;   --text-title-3-leading: 28px;
+  --text-title-2-size: 24px;   --text-title-2-leading: 32px;
+  --text-title-1-size: 28px;   --text-title-1-leading: 36px;
+  --text-display-size: 34px;   --text-display-leading: 42px;
 }
 
 /* ============ LAYER 2: SEMANTIC - LIGHT (default) ============ */

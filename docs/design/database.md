@@ -23,13 +23,19 @@
 |---|---|---|
 | `postgres` (Supabase-managed) | migrations only | table owner; FORCE RLS still applies to it |
 | `wren_app` | the FastAPI backend (its only DB identity) | `LOGIN`, no `BYPASSRLS`, granted CRUD on app tables |
+| `wren_resolver` | owns `resolve_tenant_slug` only | `NOLOGIN`, `BYPASSRLS` - the single, audited RLS bypass in the system (section 2.4) |
 
 ```sql
-create role wren_app login password :'wren_app_password';
+-- 0002_roles.sql. The migration runner substitutes ${WREN_APP_DB_PASSWORD} from env
+-- before executing (plain-text placeholder substitution; this file is the only one
+-- that needs it) - psql-style :'var' interpolation is NOT available in the runner.
+create role wren_app login password '${WREN_APP_DB_PASSWORD}';
 grant usage on schema public to wren_app;
 -- per-table grants are in each table's migration; default privileges:
 alter default privileges in schema public
   grant select, insert, update, delete on tables to wren_app;
+
+create role wren_resolver nologin bypassrls;
 ```
 
 ### 2.2 Tenant context (the RLS key)
@@ -41,6 +47,8 @@ select set_config('app.tenant_id', :tenant_id, true);      -- '' when none resol
 select set_config('app.role',      :role,      true);      -- 'customer' | 'tenant_admin' | 'platform_admin' | 'service'
 ```
 
+`'service'` is the backend acting on its own behalf in exactly one flow: the signup transaction (T-004). Its powers are defined by the Shape C policies below and nothing else - it is not a general-purpose superrole.
+
 Helper functions every policy uses:
 
 ```sql
@@ -51,9 +59,13 @@ $$ select nullif(current_setting('app.tenant_id', true), '')::uuid $$;
 create or replace function app_is_platform_admin() returns boolean
   language sql stable as
 $$ select current_setting('app.role', true) = 'platform_admin' $$;
+
+create or replace function app_is_service() returns boolean
+  language sql stable as
+$$ select current_setting('app.role', true) = 'service' $$;
 ```
 
-### 2.3 The two standard policy shapes
+### 2.3 The three standard policy shapes
 
 ```sql
 -- Shape A: tenant-scoped table (the default for everything below)
@@ -74,7 +86,15 @@ Platform-admin access is **read-only through policies** plus explicit writes on 
 
 ```sql
 -- Shape B: platform-global table (no tenant_id): platform_admins, tenants (special-cased below)
+
+-- Shape C: the service role (signup transaction only). Applied to exactly three
+-- tables - tenants, tenant_config, users - and only for INSERT:
+create policy service_signup_insert on <t>
+  for insert
+  with check (app_is_service());
 ```
+
+The signup endpoint (T-004) runs its one transaction with `app.role = 'service'` and logs it as an audited service action; no other code path may set that role.
 
 **Rule for the leakage test (T-022):** with `app.tenant_id` set to tenant A, every query against every tenant-scoped table must return zero tenant-B rows - including through joins, retrieval, and tool paths.
 
@@ -95,12 +115,25 @@ alter table tenants force row level security;
 create policy tenant_self_read   on tenants for select using (id = app_tenant_id());
 create policy platform_admin_all on tenants for all
   using (app_is_platform_admin()) with check (app_is_platform_admin());
--- slug -> tenant_id resolution (T-005) runs as a SECURITY DEFINER function so the
--- unauthenticated customer surface can resolve without a tenant context yet:
+create policy service_signup_insert on tenants for insert with check (app_is_service());
+-- slug -> tenant_id resolution (T-005): the unauthenticated customer surface must
+-- resolve a slug BEFORE any tenant context exists, and FORCE RLS binds even the
+-- table owner - so the resolver function is owned by wren_resolver (NOLOGIN,
+-- BYPASSRLS; section 2.1), the single audited RLS bypass in the system. It is
+-- SECURITY DEFINER, takes only a slug, and returns only the public columns below
+-- (including brand, which the customer shell needs before any auth):
 create or replace function resolve_tenant_slug(p_slug text)
-  returns table (id uuid, name text, status text)
+  returns table (id uuid, name text, status text, brand jsonb)
   language sql stable security definer set search_path = public as
-$$ select id, name, status from tenants where slug = p_slug $$;
+$$ select t.id, t.name, t.status, coalesce(c.brand, '{}'::jsonb)
+     from tenants t left join tenant_config c on c.tenant_id = t.id
+    where t.slug = p_slug $$;
+alter function resolve_tenant_slug(text) owner to wren_resolver;
+revoke all on function resolve_tenant_slug(text) from public;
+grant execute on function resolve_tenant_slug(text) to wren_app;
+-- The leakage test must include fishing attempts through this function (it is the
+-- one path that crosses RLS): assert it never returns anything beyond these four
+-- columns for the requested slug.
 
 create table tenant_config (
   tenant_id             uuid primary key references tenants(id) on delete cascade,
@@ -108,11 +141,13 @@ create table tenant_config (
   tone                  text not null default 'friendly',
   enabled_tools         jsonb not null default '["search_knowledge","recommend_items","lookup_order_or_ticket","get_quote_inputs","create_escalation"]',
   escalation_threshold  real not null default 0.5 check (escalation_threshold between 0 and 1),
-  brand                 jsonb not null default '{}',   -- see frontend.md section 8: {"accent":"#RRGGBB","logo_url":...,"display_name":...}
+  brand                 jsonb not null default '{}',   -- see frontend.md section 5: {"accent":"#RRGGBB","logo_url":...,"display_name":...}
   config                jsonb not null default '{}',   -- everything else: tax {"rate_bps":int,"label":text}, hours, locale...
   updated_at            timestamptz not null default now()
 );
--- Shape A policies, using tenant_id column.
+-- Shape A policies, using tenant_id column, plus Shape C (service_signup_insert).
+-- Anonymous customers never read this table directly; the brand value they need
+-- pre-auth arrives via resolve_tenant_slug above.
 
 create table users (
   id          uuid primary key,                        -- = Supabase auth.users.id
@@ -120,7 +155,7 @@ create table users (
   role        text not null default 'owner' check (role in ('owner', 'staff')),
   created_at  timestamptz not null default now()
 );
--- Shape A policies.
+-- Shape A policies, plus Shape C (service_signup_insert).
 
 create table platform_admins (
   user_id     uuid primary key,                        -- = Supabase auth.users.id
@@ -205,7 +240,9 @@ create index pricing_rules_tenant_idx on pricing_rules (tenant_id, active);
 create table quotes (
   id               uuid primary key default gen_random_uuid(),
   tenant_id        uuid not null references tenants(id) on delete cascade,
-  conversation_id  uuid not null references conversations(id) on delete cascade,
+  conversation_id  uuid not null,
+  -- composite FK (same tenant-drift protection as messages; see section 6)
+  foreign key (tenant_id, conversation_id) references conversations (tenant_id, id) on delete cascade,
   line_items       jsonb not null,     -- engine output verbatim: [{"kind":"rule"|"item","code"|"item_id":..,"label":..,"quantity":n,"unit_amount_cents":n,"line_total_cents":n}]
   subtotal_cents   integer not null check (subtotal_cents >= 0),
   tax_cents        integer not null default 0 check (tax_cents >= 0),
@@ -227,14 +264,21 @@ create table conversations (
   customer_ref  text,                                   -- anonymous session id or customer-provided handle; no auth at core scope
   channel       text not null default 'web' check (channel in ('web')),  -- phase 2 adds more
   status        text not null default 'open' check (status in ('open', 'escalated', 'closed')),
-  created_at    timestamptz not null default now()
+  created_at    timestamptz not null default now(),
+  unique (tenant_id, id)     -- composite-FK target: children prove they belong to the same tenant
 );
 create index conversations_tenant_idx on conversations (tenant_id, status, created_at desc);
 
+-- Denormalized tenant_id (principle 4) is only safe if it cannot drift from the
+-- parent row's tenant: FK checks bypass RLS, so without this a buggy insert under
+-- tenant A's context could attach a message to tenant B's conversation and make it
+-- visible to A. The composite FKs below make that impossible at the schema level.
 create table messages (
   id               uuid primary key default gen_random_uuid(),
-  tenant_id        uuid not null references tenants(id) on delete cascade,   -- denormalized (principle 4)
-  conversation_id  uuid not null references conversations(id) on delete cascade,
+  tenant_id        uuid not null references tenants(id) on delete cascade,
+  conversation_id  uuid not null,
+  foreign key (tenant_id, conversation_id) references conversations (tenant_id, id) on delete cascade,
+  unique (tenant_id, id),
   role             text not null check (role in ('customer', 'assistant', 'system', 'human_agent')),
   content          text not null,
   agent_node       text,                                -- which graph node authored it: 'supervisor','knowledge','quoting',...
@@ -245,8 +289,9 @@ create index messages_tenant_idx       on messages (tenant_id);
 
 create table tool_calls (
   id          uuid primary key default gen_random_uuid(),
-  tenant_id   uuid not null references tenants(id) on delete cascade,        -- denormalized (principle 4)
-  message_id  uuid not null references messages(id) on delete cascade,
+  tenant_id   uuid not null references tenants(id) on delete cascade,
+  message_id  uuid not null,
+  foreign key (tenant_id, message_id) references messages (tenant_id, id) on delete cascade,
   tool_name   text not null,
   arguments   jsonb not null default '{}',
   result      jsonb,
@@ -275,7 +320,8 @@ create table orders (
 create table escalations (
   id               uuid primary key default gen_random_uuid(),
   tenant_id        uuid not null references tenants(id) on delete cascade,
-  conversation_id  uuid not null references conversations(id) on delete cascade,
+  conversation_id  uuid not null,
+  foreign key (tenant_id, conversation_id) references conversations (tenant_id, id) on delete cascade,
   reason           text not null,
   status           text not null default 'open' check (status in ('open', 'claimed', 'resolved')),
   created_at       timestamptz not null default now(),

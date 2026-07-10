@@ -3,11 +3,16 @@
  * Token guard (docs/design/frontend.md section 1, rule 2):
  * raw color literals (hex / rgb() / hsl() / oklch()) are allowed ONLY in
  * src/styles/theme.css. Anything else under src/ fails the build.
+ *
+ * Known limits (deliberate - strict beats clever): hex-looking anchors like
+ * href="#abc" will trip it (name anchors non-hexy); named CSS colors and
+ * lab()/lch()/hwb() are not caught - the design system never uses them.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = new URL("..", import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const SRC = join(ROOT, "src");
 const ALLOWED = new Set(["src/styles/theme.css"]);
 const EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".css", ".mjs"]);
