@@ -39,7 +39,7 @@
 **Accept:** parity with T-011 behavior through the graph; provenance lands in state.
 **Tests:** node test with stubbed retrieval/provider.
 
-### T-015 `[ ]` Recommendation Agent (4h)
+### T-015 `[x]` Recommendation Agent (4h)
 **Deps:** T-013. **Stories:** US-041.
 **Read:** `design/database.md` section 5 (catalog_items); phase-1 T-008 note that catalog items exist as chunks with `metadata.kind='catalog_item'`.
 **Files:** `backend/app/agents/recommendation.py`.

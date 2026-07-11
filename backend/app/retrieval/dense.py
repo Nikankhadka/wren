@@ -26,15 +26,30 @@ async def dense_search(
     tenant_id: UUID,
     query_embedding: list[float],
     limit: int = DEFAULT_LIMIT,
+    metadata_kind: str | None = None,
 ) -> list[RetrievedChunk]:
-    rows = await conn.fetch(
-        "select id, content, metadata, 1 - (embedding <=> $2) as score "
-        "from knowledge_chunks where tenant_id = $1 "
-        "order by embedding <=> $2 limit $3",
-        tenant_id,
-        query_embedding,
-        limit,
-    )
+    """``metadata_kind`` scopes results to chunks whose ``metadata.kind``
+    matches exactly (T-015: the Recommendation Agent searches only
+    ``catalog_item`` chunks, never prose)."""
+    if metadata_kind is None:
+        rows = await conn.fetch(
+            "select id, content, metadata, 1 - (embedding <=> $2) as score "
+            "from knowledge_chunks where tenant_id = $1 "
+            "order by embedding <=> $2 limit $3",
+            tenant_id,
+            query_embedding,
+            limit,
+        )
+    else:
+        rows = await conn.fetch(
+            "select id, content, metadata, 1 - (embedding <=> $2) as score "
+            "from knowledge_chunks where tenant_id = $1 and metadata->>'kind' = $4 "
+            "order by embedding <=> $2 limit $3",
+            tenant_id,
+            query_embedding,
+            limit,
+            metadata_kind,
+        )
     return [
         RetrievedChunk(
             id=row["id"],
