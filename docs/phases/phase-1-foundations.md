@@ -76,7 +76,7 @@ Done in phase 0 (planning/scaffolding session). `/frontend` (Next.js + TS + Tail
 
 ---
 
-### T-005 `[ ]` Tenant resolution by subdomain (4h)
+### T-005 `[x]` Tenant resolution by subdomain (4h)
 **Deps:** T-004. **Stories:** US-002.
 **Read:** `design/database.md` section 3 (`resolve_tenant_slug`); `design/frontend.md` section 7 (route groups).
 **Files:** `frontend/src/middleware.ts`, `frontend/src/lib/tenant.ts`, `backend/app/api/public.py`.

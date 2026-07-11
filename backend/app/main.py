@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import platform, tenants
+from app.api import platform, public, tenants
 from app.core import db
 
 
@@ -34,6 +34,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="Wren", version="0.1.0", lifespan=lifespan)
 app.include_router(tenants.router)
 app.include_router(platform.router)
+app.include_router(public.router)
 
 
 @app.get("/health")

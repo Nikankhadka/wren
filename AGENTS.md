@@ -30,6 +30,7 @@ All verified. Frontend commands run in `frontend/`, backend commands in `backend
 | Lint (frontend) | `npm run lint` |
 | Token guard (frontend) | `npm run check:tokens` |
 | Typecheck (frontend) | `npm run typecheck` |
+| Test (frontend) | `npm run test` (vitest) |
 | Dev server (frontend) | `npm run dev` |
 | Lint (backend) | `uv run ruff check .` |
 | Format check (backend) | `uv run ruff format --check .` |
