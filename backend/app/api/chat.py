@@ -1,21 +1,14 @@
-"""T-011: bare customer chat - one straight LLM call, no agents yet.
+"""T-011/T-012: bare customer chat, now routed through the agent graph.
 
 ``POST /api/chat`` is unauthenticated (the customer surface has no login) -
 tenant scope comes entirely from the slug, resolved the same way T-005's
-public tenant lookup does, then everything else runs under
-``tenant_context(tenant_id, 'customer')``.
-
-Grounding is deterministic at the boundary: if reranking finds nothing above
-``REFUSAL_SCORE_THRESHOLD``, the customer gets a canned refusal message and
-no LLM call happens at all - the model is never given the chance to invent
-an answer from nothing. When there is relevant context, the model is
-instructed to cite every claim with a bracket number keyed to the numbered
-context block, and citations are sent to the client before any tokens so it
-can resolve `[1]`-style markers as they stream in.
-
-The DB connection is only held for the two short-lived steps (retrieval,
-and the final persist) - not for the whole duration of the LLM stream -
-so a slow generation doesn't tie up a pooled connection.
+public tenant lookup does. As of T-012 the actual retrieval/generation logic
+lives in app/agents/graph.py's compiled graph (supervisor -> knowledge ->
+inspection for now, since the supervisor stub always routes to knowledge) -
+this module just resolves the tenant/conversation, invokes the graph, and
+translates its custom-streamed events into SSE. Behavior is unchanged from
+T-011 (same event shape, same refusal-on-no-context rule, same
+conversation/message persistence) - only the internals moved.
 """
 
 from __future__ import annotations
@@ -29,20 +22,15 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from app.agents.graph import get_graph
+from app.agents.state import AgentState, GraphContext
 from app.core import db
 from app.llm.dependency import get_llm_provider
-from app.llm.provider import ChatMessage, LLMProvider
+from app.llm.provider import LLMProvider
 from app.retrieval.dependency import get_reranker_dependency
 from app.retrieval.rerank import Reranker
-from app.retrieval.service import retrieve
-from app.retrieval.types import RetrievedChunk
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
-
-REFUSAL_SCORE_THRESHOLD = 0.0
-REFUSAL_MESSAGE = (
-    "I don't have information about that. Please contact the business directly for help."
-)
 
 
 class ChatRequest(BaseModel):
@@ -65,25 +53,20 @@ def _sse(event: dict[str, object]) -> str:
     return f"data: {json.dumps(event)}\n\n"
 
 
-def _citation_source(chunk: RetrievedChunk) -> str:
-    if chunk.metadata.get("kind") == "catalog_item":
-        return "catalog"
-    source = chunk.metadata.get("source")
-    return str(source) if source else "knowledge base"
-
-
-def _build_system_prompt(chunks: list[RetrievedChunk], *, tenant_prompt: str, tone: str) -> str:
-    context_block = "\n\n".join(f"[{i + 1}] {chunk.content}" for i, chunk in enumerate(chunks))
-    base = tenant_prompt or "You are the AI support and sales assistant for this business."
-    return (
-        f"{base}\n"
-        f"Tone: {tone or 'friendly'}.\n"
-        "Answer the customer's question using ONLY the numbered context below. "
-        "Cite every factual claim with its bracket number, e.g. [1]. If the "
-        "context doesn't fully answer the question, say what you don't know - "
-        "never invent information.\n\n"
-        f"Context:\n{context_block}"
-    )
+def _initial_state(*, conversation_id: UUID, tenant_id: UUID, message: str) -> AgentState:
+    return {
+        "conversation_id": str(conversation_id),
+        "tenant_id": str(tenant_id),
+        "messages": [{"role": "customer", "content": message}],
+        "route": None,
+        "route_confidence": None,
+        "retrieved_chunks": [],
+        "selections": [],
+        "engine_quote": None,
+        "draft_response": "",
+        "inspection": None,
+        "escalated": False,
+    }
 
 
 async def _stream_chat_response(
@@ -94,50 +77,21 @@ async def _stream_chat_response(
     provider: LLMProvider,
     reranker: Reranker,
 ) -> AsyncIterator[str]:
-    async with db.tenant_context(tenant_id, "customer") as conn:
-        config_row = await conn.fetchrow(
-            "select system_prompt, tone from tenant_config where tenant_id = $1", tenant_id
-        )
-        results = await retrieve(
-            conn, tenant_id=tenant_id, query=message, provider=provider, reranker=reranker, top_k=5
-        )
-
     yield _sse({"type": "conversation", "conversation_id": str(conversation_id)})
 
-    relevant = [chunk for chunk in results if chunk.score > REFUSAL_SCORE_THRESHOLD]
-    if not relevant:
-        async with db.tenant_context(tenant_id, "customer") as conn:
-            await conn.execute(
-                "insert into messages (tenant_id, conversation_id, role, content) "
-                "values ($1, $2, 'assistant', $3)",
-                tenant_id,
-                conversation_id,
-                REFUSAL_MESSAGE,
-            )
-        yield _sse({"type": "refusal", "text": REFUSAL_MESSAGE})
-        yield _sse({"type": "done"})
-        return
-
-    citations = [
-        {"index": i + 1, "source": _citation_source(chunk), "snippet": chunk.content[:200]}
-        for i, chunk in enumerate(relevant)
-    ]
-    yield _sse({"type": "citations", "citations": citations})
-
-    system_prompt = _build_system_prompt(
-        relevant,
-        tenant_prompt=config_row["system_prompt"] if config_row else "",
-        tone=config_row["tone"] if config_row else "",
+    graph = get_graph()
+    context = GraphContext(tenant_id=tenant_id, provider=provider, reranker=reranker)
+    initial_state = _initial_state(
+        conversation_id=conversation_id, tenant_id=tenant_id, message=message
     )
-    messages: list[ChatMessage] = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": message},
-    ]
 
     full_text = ""
-    async for delta in provider.chat_stream(messages):
-        full_text += delta
-        yield _sse({"type": "token", "text": delta})
+    async for event in graph.astream(initial_state, context=context, stream_mode="custom"):
+        if event["type"] == "token":
+            full_text += event["text"]
+        elif event["type"] == "refusal":
+            full_text = str(event["text"])
+        yield _sse(event)
 
     async with db.tenant_context(tenant_id, "customer") as conn:
         await conn.execute(

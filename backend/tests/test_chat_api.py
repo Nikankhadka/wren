@@ -20,7 +20,7 @@ import httpx
 import pytest
 import pytest_asyncio
 
-from app.api.chat import REFUSAL_MESSAGE
+from app.agents.knowledge import REFUSAL_MESSAGE
 from app.core import db
 from app.llm.dependency import get_llm_provider
 from app.main import app
