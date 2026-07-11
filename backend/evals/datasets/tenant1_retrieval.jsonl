@@ -1,0 +1,50 @@
+{"query": "My phone got wet, how much to check it?", "expected_chunks": [{"catalog_item_name": "Water Damage Diagnostic"}]}
+{"query": "What's the cost for a water damage assessment?", "expected_chunks": [{"catalog_item_name": "Water Damage Diagnostic"}]}
+{"query": "How much for an original OEM screen replacement on my iPhone?", "expected_chunks": [{"catalog_item_name": "Screen Repair - Flagship (OEM)"}]}
+{"query": "What does a genuine display replacement cost for a flagship phone?", "expected_chunks": [{"catalog_item_name": "Screen Repair - Flagship (OEM)"}]}
+{"query": "How much to replace the battery on a regular phone?", "expected_chunks": [{"catalog_item_name": "Battery Replacement - Standard"}]}
+{"query": "What's the price for a standard battery swap?", "expected_chunks": [{"catalog_item_name": "Battery Replacement - Standard"}]}
+{"query": "How much is a battery replacement for my Galaxy S21?", "expected_chunks": [{"catalog_item_name": "Battery Replacement - Flagship"}]}
+{"query": "What's the cost of a flagship battery replacement?", "expected_chunks": [{"catalog_item_name": "Battery Replacement - Flagship"}]}
+{"query": "My charging port is loose, how much to fix it?", "expected_chunks": [{"catalog_item_name": "Charging Port Repair"}]}
+{"query": "What does charging port repair cost?", "expected_chunks": [{"catalog_item_name": "Charging Port Repair"}]}
+{"query": "How much is a refurbished iPhone 11?", "expected_chunks": [{"catalog_item_name": "iPhone 11 (Refurbished, 64GB)"}]}
+{"query": "What's the price of a used 64GB iPhone 11?", "expected_chunks": [{"catalog_item_name": "iPhone 11 (Refurbished, 64GB)"}]}
+{"query": "How much does a refurbished iPhone 12 128GB cost?", "expected_chunks": [{"catalog_item_name": "iPhone 12 (Refurbished, 128GB)"}]}
+{"query": "What's the price for a used iPhone 12?", "expected_chunks": [{"catalog_item_name": "iPhone 12 (Refurbished, 128GB)"}]}
+{"query": "How much is a refurbished Galaxy S21?", "expected_chunks": [{"catalog_item_name": "Samsung Galaxy S21 (Refurbished)"}]}
+{"query": "What's the price of a used Samsung Galaxy S21?", "expected_chunks": [{"catalog_item_name": "Samsung Galaxy S21 (Refurbished)"}]}
+{"query": "How much is a refurbished Pixel 6?", "expected_chunks": [{"catalog_item_name": "Google Pixel 6 (Refurbished)"}]}
+{"query": "What's the cost of a used Google Pixel 6?", "expected_chunks": [{"catalog_item_name": "Google Pixel 6 (Refurbished)"}]}
+{"query": "How much is a phone case?", "expected_chunks": [{"catalog_item_name": "Phone Case - Universal"}]}
+{"query": "What's the price of a universal phone case?", "expected_chunks": [{"catalog_item_name": "Phone Case - Universal"}]}
+{"query": "How much is a screen protector?", "expected_chunks": [{"catalog_item_name": "Tempered Glass Screen Protector"}]}
+{"query": "What's the price of a tempered glass protector?", "expected_chunks": [{"catalog_item_name": "Tempered Glass Screen Protector"}]}
+{"query": "How much is a USB-C charging cable?", "expected_chunks": [{"catalog_item_name": "USB-C Charging Cable"}]}
+{"query": "What's the price of a replacement charging cable?", "expected_chunks": [{"catalog_item_name": "USB-C Charging Cable"}]}
+{"query": "How much is a wall charger?", "expected_chunks": [{"catalog_item_name": "Wall Charger Adapter"}]}
+{"query": "What's the price of a fast-charging wall adapter?", "expected_chunks": [{"catalog_item_name": "Wall Charger Adapter"}]}
+{"query": "How much to fix a cracked screen on a budget Android phone?", "expected_chunks": [{"catalog_item_name": "Screen Repair - Budget/Mid-range Android"}]}
+{"query": "What's the cost of a mid-range Android screen replacement?", "expected_chunks": [{"catalog_item_name": "Screen Repair - Budget/Mid-range Android"}]}
+{"query": "How much for an aftermarket screen replacement on a flagship phone?", "expected_chunks": [{"catalog_item_name": "Screen Repair - Flagship (Aftermarket)"}]}
+{"query": "What's the price of a non-OEM flagship screen repair?", "expected_chunks": [{"catalog_item_name": "Screen Repair - Flagship (Aftermarket)"}]}
+{"query": "Do you require an appointment for a repair?", "expected_chunks": [{"source": "faq.md", "chunk_index": 0}]}
+{"query": "What happens to my personal data during a repair?", "expected_chunks": [{"source": "faq.md", "chunk_index": 0}]}
+{"query": "Are your repair technicians certified?", "expected_chunks": [{"source": "faq.md", "chunk_index": 0}]}
+{"query": "Do you offer loaner phones while mine is being repaired?", "expected_chunks": [{"source": "faq.md", "chunk_index": 0}]}
+{"query": "How long is the warranty on a repair?", "expected_chunks": [{"source": "policy.md", "chunk_index": 0}]}
+{"query": "How long does a screen repair usually take?", "expected_chunks": [{"source": "policy.md", "chunk_index": 0}]}
+{"query": "Does the warranty transfer if I sell my phone?", "expected_chunks": [{"source": "policy.md", "chunk_index": 0}]}
+{"query": "Can I get after-hours pickup for my device?", "expected_chunks": [{"source": "policy.md", "chunk_index": 1}]}
+{"query": "What's your refund policy if I change my mind after a repair?", "expected_chunks": [{"source": "policy.md", "chunk_index": 1}]}
+{"query": "Is there a storage fee if I don't pick up my phone right away?", "expected_chunks": [{"source": "policy.md", "chunk_index": 1}]}
+{"query": "How much extra does rush service cost?", "expected_chunks": [{"source": "price_list.md", "chunk_index": 0}]}
+{"query": "What's the general diagnostic fee?", "expected_chunks": [{"source": "price_list.md", "chunk_index": 0}]}
+{"query": "How much is a back glass replacement?", "expected_chunks": [{"source": "price_list.md", "chunk_index": 0}]}
+{"query": "What does speaker or microphone repair cost?", "expected_chunks": [{"source": "price_list.md", "chunk_index": 0}]}
+{"query": "How much is a camera module replacement?", "expected_chunks": [{"source": "price_list.md", "chunk_index": 0}]}
+{"query": "What's the weather like today?", "expected_chunks": [], "negative": true}
+{"query": "Can you recommend a good pizza place nearby?", "expected_chunks": [], "negative": true}
+{"query": "How do I file my income taxes this year?", "expected_chunks": [], "negative": true}
+{"query": "What's the capital of France?", "expected_chunks": [], "negative": true}
+{"query": "Can I book a haircut appointment for Saturday?", "expected_chunks": [], "negative": true}

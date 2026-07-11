@@ -44,4 +44,4 @@ markers = ["db: tests that require a live Postgres (docker compose up -d db)"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["app", "tests"]
+files = ["app", "tests", "seeds", "evals"]

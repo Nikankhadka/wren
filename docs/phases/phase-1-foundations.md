@@ -141,7 +141,7 @@ Done in phase 0 (planning/scaffolding session). `/frontend` (Next.js + TS + Tail
 
 ---
 
-### T-010 `[ ]` [EDD] Golden retrieval set + eval script (5h)
+### T-010 `[x]` [EDD] Golden retrieval set + eval script (5h)
 **Deps:** T-008. **Stories:** US-030.
 **Read:** `design/database.md` section 7 (eval_cases/eval_runs).
 **Files:** `backend/evals/datasets/tenant1_retrieval.jsonl`, `backend/evals/retrieval_eval.py`.
