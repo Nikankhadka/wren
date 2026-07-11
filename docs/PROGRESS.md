@@ -2,7 +2,7 @@
 
 **The one page to check to know where the build is.** Every ticket in the project is listed below with its status, the commit that delivered it, and a one-line plain-English summary of what that commit actually did.
 
-**Right now:** Phase 1 is fully done. Phase 2 is in progress - T-016 through T-018 are committed; the next ticket is **T-019 (mock orders + lookup tool)**.
+**Right now:** Phase 1 is fully done. Phase 2 is in progress - T-016 through T-019 are committed; the next ticket is **T-020 (Escalation Agent + state)**.
 
 ## How to read this file
 
@@ -49,7 +49,7 @@ Goal: replace the single straight-line chat with a team of specialist agents (a 
 | T-016 Deterministic pricing engine | done | `eda876f` | The pure-math quote calculator: agents pick rule codes/item ids and quantities, this module reads the tenant's real prices from the database and computes every total in integer cents - no LLM can ever touch a number. Bad selections raise a typed error instead of guessing. |
 | T-017 Quoting Agent | done | `8e6b9e5` | Customers can now ask "how much for X?" and get a real quote: the model only picks which services/items match (it never sees prices), the pricing engine computes the totals, and the quote is saved and shown in a QuoteCard rendered straight from engine output. Budget questions ("under $120?") get a yes/no comparison against the computed total, never model math. |
 | T-018 Validation gate: price provenance | done | `7247a1c` | The safety net behind the pricing rule: every dollar figure in a generated reply (even spelled-out ones like "twelve hundred") is checked against what the pricing engine actually computed. An unexplained figure gets one rewrite; a second offense hands the conversation to a human. Its tests are a release criterion - never skipped. |
-| T-019 Mock orders seed + lookup tool | not started | - | |
+| T-019 Mock orders seed + lookup tool | done | `pending` | "Where's my repair R-1042?" now gets a real answer pulled from the seeded orders table - the code lookup is a plain database query (never guessed), and the status/details shown are always exactly what's in the database. An unknown code gets a polite "double-check the code" instead of an error. The 20 seed orders already existed from an earlier ticket. |
 | T-020 Escalation Agent + state | not started | - | |
 | T-021 Reasoning-inspection layer | not started | - | |
 | T-022 Cross-tenant leakage test | not started | - | |

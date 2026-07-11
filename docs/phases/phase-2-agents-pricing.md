@@ -80,7 +80,7 @@
 **Accept:** a deliberately planted model-authored "$99" is caught, re-prompted away or escalated - demonstrate in a test; zero false-positive on clean engine-derived responses in the existing suite.
 **Tests:** `test_validation_gate.py` (extraction cases incl. "$1,299.00", "1299 dollars", "twelve hundred"), graph-level violation path test. **This test is a release criterion - it never gets deleted or skipped.**
 
-### T-019 `[ ]` Mock orders seed + lookup tool (4h)
+### T-019 `[x]` Mock orders seed + lookup tool (4h) - seed part already existed from T-010; net-new work was the lookup tool + order_status node
 **Deps:** T-002. **Stories:** part of E4.
 **Read:** `design/database.md` section 6 (orders).
 **Files:** `backend/seeds/seed_tenant1_phoneshop.py` (orders part), `backend/app/agents/tools.py::lookup_order_or_ticket`.
