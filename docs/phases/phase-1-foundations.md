@@ -127,7 +127,7 @@ Done in phase 0 (planning/scaffolding session). `/frontend` (Next.js + TS + Tail
 
 ---
 
-### T-009 `[ ]` Hybrid retrieval: dense + sparse + RRF + rerank (5h)
+### T-009 `[x]` Hybrid retrieval: dense + sparse + RRF + rerank (5h)
 **Deps:** T-008. **Stories:** US-021.
 **Read:** `design/database.md` section 4 (query shapes, index notes).
 **Files:** `backend/app/retrieval/dense.py`, `sparse.py`, `fuse.py`, `rerank.py`, `service.py`.
