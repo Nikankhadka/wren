@@ -20,17 +20,18 @@ import pytest
 import pytest_asyncio
 
 from app.core import db
+from app.llm.embedder import Embedder
 from app.retrieval.dense import dense_search
 from app.retrieval.rerank import Reranker
 from app.retrieval.service import retrieve
 from app.retrieval.sparse import sparse_search
 from app.retrieval.types import RetrievedChunk
 from tests.conftest import _app_dsn_for
-from tests.fakes import BaseFakeProvider
+from tests.fakes import EMBEDDING_DIM
 
 pytestmark = pytest.mark.db
 
-DIMENSIONS = 1536
+DIMENSIONS = EMBEDDING_DIM
 
 
 def _basis_vector(index: int) -> list[float]:
@@ -42,7 +43,7 @@ def _basis_vector(index: int) -> list[float]:
     return vector
 
 
-class FakeEmbedProvider(BaseFakeProvider):
+class FakeEmbedProvider(Embedder):
     """Always embeds a query as basis vector 0 - paired with seeding the
     "right" chunk at basis vector 0 too, so dense search has an unambiguous
     correct answer to converge on."""
@@ -213,14 +214,14 @@ async def test_retrieve_end_to_end_is_tenant_scoped(
         embedding=_basis_vector(0),
     )
 
-    provider = FakeEmbedProvider()
+    embedder = FakeEmbedProvider()
     reranker = FakeReranker()
     async with db.tenant_context(tenant_a, "customer") as conn:
         results = await retrieve(
             conn,
             tenant_id=tenant_a,
             query="screen repair",
-            provider=provider,
+            embedder=embedder,
             reranker=reranker,
             top_k=5,
         )

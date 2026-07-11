@@ -25,11 +25,27 @@ class Settings(BaseSettings):
     supabase_anon_key: str = ""
     supabase_jwt_secret: str = ""
 
-    # LLM provider (wired in T-008)
+    # Chat LLM provider: 'azure' | 'openai_compat'. 'openai_compat' speaks the
+    # OpenAI wire format against any base URL (OpenRouter, Groq, Ollama, ...),
+    # so swapping hosted vendors is a config change, never a code change.
+    llm_provider: str = "azure"
+    llm_base_url: str = ""
+    llm_api_key: str = ""
+    llm_model: str = ""
+
+    # Azure OpenAI (used when llm_provider='azure' and/or embedder='azure')
     azure_openai_endpoint: str = ""
     azure_openai_api_key: str = ""
     azure_openai_chat_deployment: str = "gpt-4o-mini"
     azure_openai_embed_deployment: str = "text-embedding-3-small"
+
+    # Embedder: 'local' | 'azure' - independent of llm_provider on purpose
+    # (local embeddings + hosted chat is the default $0 stack). embedding_dim
+    # must match knowledge_chunks.embedding's vector(N) (migration 0010);
+    # pointing at a model with a different dimension needs a migration + re-ingest.
+    embedder: str = "local"
+    local_embed_model: str = "BAAI/bge-small-en-v1.5"
+    embedding_dim: int = 384
 
     # Reranker (T-009): 'cohere' | 'local'
     reranker: str = "local"

@@ -1,6 +1,6 @@
 # WREN - Frontend Design System & Surface Specs
 
-> **Derived from:** PRD section 2 (three surfaces), MUSTs M16/M17/M18; Architecture Doc section 2. **Precedence:** this file is the implementation truth for UI. The pixel standard of `Wren_AGENTS.md` section 6 applies to everything here.
+> **Derived from:** PRD section 2 (three surfaces), MUSTs M16/M17/M18; Architecture Doc section 2. **Precedence:** this file is the implementation truth for UI. The pixel standard of `docs/conventions.md` section 6 applies to everything here.
 > Design language: **Anthropic warmth x Apple clarity** - warm paper-like neutrals, one confident terracotta accent, generous whitespace, system typography, restrained depth, no decoration that doesn't earn its place.
 
 ---
@@ -205,6 +205,6 @@ Deliberately minimal, protected by `platform_admins` membership: one Tenants pag
 - Full keyboard navigation; `:focus-visible` ring (`--color-focus-ring`, 2px offset 2px) on every interactive element; focus traps in modals.
 - `aria-live` for streaming and toasts; labeled form fields; table semantics.
 - Responsive: all admin tables collapse gracefully at 768px (horizontal scroll within the card, never the page); chat is mobile-first.
-- The `Wren_AGENTS.md` section 6 standard applies: if a screen looks off while you're in there - fix it in the shared component/token, not with a local patch.
+- The `docs/conventions.md` section 6 standard applies: if a screen looks off while you're in there - fix it in the shared component/token, not with a local patch.
 
 *End of frontend design. Screens not specced here don't exist at core scope - if a ticket seems to need one, flag it.*

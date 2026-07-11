@@ -25,7 +25,8 @@ from pydantic import BaseModel, Field
 from app.agents.graph import get_graph
 from app.agents.state import AgentState, GraphContext
 from app.core import db
-from app.llm.dependency import get_llm_provider
+from app.llm.dependency import get_embedder_dependency, get_llm_provider
+from app.llm.embedder import Embedder
 from app.llm.provider import LLMProvider
 from app.retrieval.dependency import get_reranker_dependency
 from app.retrieval.rerank import Reranker
@@ -75,12 +76,15 @@ async def _stream_chat_response(
     conversation_id: UUID,
     message: str,
     provider: LLMProvider,
+    embedder: Embedder,
     reranker: Reranker,
 ) -> AsyncIterator[str]:
     yield _sse({"type": "conversation", "conversation_id": str(conversation_id)})
 
     graph = get_graph()
-    context = GraphContext(tenant_id=tenant_id, provider=provider, reranker=reranker)
+    context = GraphContext(
+        tenant_id=tenant_id, provider=provider, embedder=embedder, reranker=reranker
+    )
     initial_state = _initial_state(
         conversation_id=conversation_id, tenant_id=tenant_id, message=message
     )
@@ -108,6 +112,7 @@ async def _stream_chat_response(
 async def chat(
     body: ChatRequest,
     provider: Annotated[LLMProvider, Depends(get_llm_provider)],
+    embedder: Annotated[Embedder, Depends(get_embedder_dependency)],
     reranker: Annotated[Reranker, Depends(get_reranker_dependency)],
 ) -> StreamingResponse:
     tenant_id = await _resolve_active_tenant(body.slug)
@@ -142,6 +147,7 @@ async def chat(
             conversation_id=conversation_id,
             message=body.message,
             provider=provider,
+            embedder=embedder,
             reranker=reranker,
         ),
         media_type="text/event-stream",

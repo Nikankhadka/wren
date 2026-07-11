@@ -23,7 +23,7 @@ from app.core import db
 from app.retrieval.rerank import Reranker
 from app.retrieval.types import RetrievedChunk
 from tests.conftest import _app_dsn_for
-from tests.fakes import BaseFakeProvider
+from tests.fakes import BaseFakeProvider, ZeroEmbedder
 
 pytestmark = pytest.mark.db
 
@@ -52,9 +52,6 @@ class FakeProvider(BaseFakeProvider):
             return schema.model_validate({"needs": [], "constraints": []})
         return schema.model_validate({"route": "knowledge", "confidence": 1.0, "reason": "test"})
 
-    async def embed(self, texts: list[str]) -> list[list[float]]:
-        return [[0.0] * 1536 for _ in texts]
-
 
 def _initial_state() -> AgentState:
     return {
@@ -81,7 +78,9 @@ def _forced_route(route: str) -> Callable[[AgentState], Awaitable[dict[str, Any]
 
 async def _run_and_collect_node_order(route: str) -> list[str]:
     graph = build_graph(supervisor_node=_forced_route(route))
-    context = GraphContext(tenant_id=uuid4(), provider=FakeProvider(), reranker=FakeReranker())
+    context = GraphContext(
+        tenant_id=uuid4(), provider=FakeProvider(), embedder=ZeroEmbedder(), reranker=FakeReranker()
+    )
     order: list[str] = []
     async for update in graph.astream(_initial_state(), context=context, stream_mode="updates"):
         order.extend(update.keys())
@@ -96,7 +95,9 @@ async def test_forced_route_runs_supervisor_specialist_inspection(route: str) ->
 
 async def test_escalation_route_sets_escalated_flag() -> None:
     graph = build_graph(supervisor_node=_forced_route("escalation"))
-    context = GraphContext(tenant_id=uuid4(), provider=FakeProvider(), reranker=FakeReranker())
+    context = GraphContext(
+        tenant_id=uuid4(), provider=FakeProvider(), embedder=ZeroEmbedder(), reranker=FakeReranker()
+    )
     final_state = await graph.ainvoke(_initial_state(), context=context)
     assert final_state["escalated"] is True
 

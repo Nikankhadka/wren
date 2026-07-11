@@ -21,7 +21,7 @@ from pydantic import BaseModel
 
 from app.core import db
 from app.core.config import get_settings
-from app.llm.dependency import get_llm_provider
+from app.llm.dependency import get_embedder_dependency, get_llm_provider
 from app.llm.provider import SchemaT
 from app.main import app
 from app.onboarding.flow import (
@@ -32,7 +32,7 @@ from app.onboarding.flow import (
     ToneDraft,
 )
 from tests.conftest import _app_dsn_for
-from tests.fakes import BaseFakeProvider
+from tests.fakes import BaseFakeProvider, ZeroEmbedder
 
 pytestmark = pytest.mark.db
 
@@ -47,10 +47,6 @@ class FakeProvider(BaseFakeProvider):
         self, *, system_prompt: str, user_input: str, schema: type[SchemaT]
     ) -> SchemaT:
         return self._responses[schema]  # type: ignore[return-value]
-
-    async def embed(self, texts: list[str]) -> list[list[float]]:
-        # Dummy but dimensionally correct (knowledge_chunks.embedding is vector(1536)).
-        return [[0.0] * 1536 for _ in texts]
 
 
 FAKE_RESPONSES: dict[type[BaseModel], BaseModel] = {
@@ -98,12 +94,14 @@ def _supabase_jwt_secret_env() -> Iterator[None]:
 async def client(migrated_db: str) -> AsyncIterator[httpx.AsyncClient]:
     await db.create_pool(dsn=_app_dsn_for(migrated_db), min_size=1, max_size=4)
     app.dependency_overrides[get_llm_provider] = lambda: FakeProvider(FAKE_RESPONSES)
+    app.dependency_overrides[get_embedder_dependency] = ZeroEmbedder
     try:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
             yield ac
     finally:
         app.dependency_overrides.pop(get_llm_provider, None)
+        app.dependency_overrides.pop(get_embedder_dependency, None)
         await db.close_pool()
 
 

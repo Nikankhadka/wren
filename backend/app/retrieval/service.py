@@ -17,7 +17,7 @@ from app.retrieval.types import RetrievedChunk
 
 if TYPE_CHECKING:
     from app.core.db import AppConnection
-    from app.llm.provider import LLMProvider
+    from app.llm.embedder import Embedder
     from app.retrieval.rerank import Reranker
 
 DEFAULT_TOP_K = 5
@@ -28,7 +28,7 @@ async def retrieve(
     *,
     tenant_id: UUID,
     query: str,
-    provider: LLMProvider,
+    embedder: Embedder,
     reranker: Reranker,
     top_k: int = DEFAULT_TOP_K,
     metadata_kind: str | None = None,
@@ -36,7 +36,7 @@ async def retrieve(
     """``metadata_kind`` scopes both dense and sparse search to chunks whose
     ``metadata.kind`` matches exactly - e.g. ``'catalog_item'`` for the
     Recommendation Agent (T-015), which must never recommend from prose."""
-    query_embedding = (await provider.embed([query]))[0]
+    query_embedding = (await embedder.embed([query]))[0]
 
     dense_results = await dense_search(
         conn, tenant_id=tenant_id, query_embedding=query_embedding, metadata_kind=metadata_kind

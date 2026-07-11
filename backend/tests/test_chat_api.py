@@ -22,14 +22,14 @@ import pytest_asyncio
 
 from app.agents.knowledge import REFUSAL_MESSAGE
 from app.core import db
-from app.llm.dependency import get_llm_provider
+from app.llm.dependency import get_embedder_dependency, get_llm_provider
 from app.llm.provider import SchemaT
 from app.main import app
 from app.retrieval.dependency import get_reranker_dependency
 from app.retrieval.rerank import Reranker
 from app.retrieval.types import RetrievedChunk
 from tests.conftest import _app_dsn_for
-from tests.fakes import BaseFakeProvider
+from tests.fakes import EMBEDDING_DIM, BaseFakeProvider, ZeroEmbedder
 
 pytestmark = pytest.mark.db
 
@@ -42,9 +42,6 @@ class FakeChatProvider(BaseFakeProvider):
         # decision (T-013) - always route to knowledge with high confidence
         # so these tests keep exercising T-011's straight RAG path.
         return schema.model_validate({"route": "knowledge", "confidence": 1.0, "reason": "test"})
-
-    async def embed(self, texts: list[str]) -> list[list[float]]:
-        return [[0.0] * 1536 for _ in texts]
 
     async def chat_stream(self, messages: list[Any]) -> AsyncIterator[str]:
         for delta in ["Sure", ", ", "here's ", "the ", "answer", " [1]", "."]:
@@ -73,12 +70,14 @@ def _parse_sse(text: str) -> list[dict[str, Any]]:
 async def client(migrated_db: str) -> AsyncIterator[httpx.AsyncClient]:
     await db.create_pool(dsn=_app_dsn_for(migrated_db), min_size=1, max_size=4)
     app.dependency_overrides[get_llm_provider] = FakeChatProvider
+    app.dependency_overrides[get_embedder_dependency] = ZeroEmbedder
     try:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
             yield ac
     finally:
         app.dependency_overrides.pop(get_llm_provider, None)
+        app.dependency_overrides.pop(get_embedder_dependency, None)
         app.dependency_overrides.pop(get_reranker_dependency, None)
         await db.close_pool()
 
@@ -107,7 +106,7 @@ async def _seed_tenant_with_chunk(
         "values ($1, $2, 'We are open weekdays 9-5.', $3, $4)",
         tenant_id,
         document_id,
-        [0.0] * 1536,
+        [0.0] * EMBEDDING_DIM,
         json.dumps({"source": "faq.md", "chunk_index": 0, "kind": "prose"}),
     )
     return tenant_id

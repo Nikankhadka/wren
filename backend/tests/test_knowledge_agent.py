@@ -21,7 +21,7 @@ from app.llm.provider import ChatMessage, SchemaT
 from app.retrieval.rerank import Reranker
 from app.retrieval.types import RetrievedChunk
 from tests.conftest import _app_dsn_for
-from tests.fakes import BaseFakeProvider
+from tests.fakes import EMBEDDING_DIM, BaseFakeProvider, ZeroEmbedder
 
 pytestmark = pytest.mark.db
 
@@ -32,9 +32,6 @@ class FakeKnowledgeProvider(BaseFakeProvider):
     ) -> SchemaT:
         # Only the supervisor's routing call reaches extract() here.
         return schema.model_validate({"route": "knowledge", "confidence": 1.0, "reason": "test"})
-
-    async def embed(self, texts: list[str]) -> list[list[float]]:
-        return [[0.0] * 1536 for _ in texts]
 
     async def chat_stream(self, messages: list[ChatMessage]) -> AsyncIterator[str]:
         for delta in ["An", " answer", " [1]", "."]:
@@ -84,7 +81,7 @@ async def _seed_tenant_with_chunk(conn: asyncpg.Connection[Any], *, content: str
         tenant_id,
         document_id,
         content,
-        [0.0] * 1536,
+        [0.0] * EMBEDDING_DIM,
         json.dumps({"source": "faq.md", "chunk_index": 0, "kind": "prose"}),
     )
     return tenant_id
@@ -103,7 +100,10 @@ async def test_knowledge_node_returns_provenance_and_draft_response(
     tenant_id = await _seed_tenant_with_chunk(superuser_conn, content="We are open weekdays 9-5.")
     graph = build_graph()
     context = GraphContext(
-        tenant_id=tenant_id, provider=FakeKnowledgeProvider(), reranker=PassthroughReranker()
+        tenant_id=tenant_id,
+        provider=FakeKnowledgeProvider(),
+        embedder=ZeroEmbedder(),
+        reranker=PassthroughReranker(),
     )
 
     final_state = await graph.ainvoke(_initial_state("What are your hours?"), context=context)
@@ -127,7 +127,10 @@ async def test_knowledge_node_refuses_with_empty_provenance_when_no_chunks(
 
     graph = build_graph()
     context = GraphContext(
-        tenant_id=tenant_id, provider=FakeKnowledgeProvider(), reranker=PassthroughReranker()
+        tenant_id=tenant_id,
+        provider=FakeKnowledgeProvider(),
+        embedder=ZeroEmbedder(),
+        reranker=PassthroughReranker(),
     )
 
     final_state = await graph.ainvoke(_initial_state("anything at all"), context=context)

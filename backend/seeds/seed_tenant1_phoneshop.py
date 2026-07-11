@@ -23,11 +23,10 @@ from uuid import UUID, uuid4
 from app.core import db
 from app.core.config import get_settings
 from app.ingestion.pipeline import ingest_catalog_items, process_document
-from app.llm.azure import AzureOpenAIProvider
+from app.llm.embedder import Embedder, get_embedder
 
 if TYPE_CHECKING:
     from app.core.db import AppConnection
-from app.llm.provider import LLMProvider
 
 SLUG = "bytefix"
 TENANT_NAME = "Bytefix Repairs"
@@ -273,7 +272,7 @@ async def _seed_core(tenant_id: UUID) -> None:
             )
 
 
-async def _seed_knowledge(tenant_id: UUID, provider: LLMProvider) -> None:
+async def _seed_knowledge(tenant_id: UUID, embedder: Embedder) -> None:
     uploads_dir = Path(get_settings().uploads_dir) / str(tenant_id)
     uploads_dir.mkdir(parents=True, exist_ok=True)
 
@@ -295,13 +294,13 @@ async def _seed_knowledge(tenant_id: UUID, provider: LLMProvider) -> None:
                 doc_type,
             )
             await process_document(
-                conn, tenant_id=tenant_id, document_id=document_id, provider=provider
+                conn, tenant_id=tenant_id, document_id=document_id, embedder=embedder
             )
 
-        await ingest_catalog_items(conn, tenant_id=tenant_id, provider=provider)
+        await ingest_catalog_items(conn, tenant_id=tenant_id, embedder=embedder)
 
 
-async def seed(provider: LLMProvider | None = None) -> UUID:
+async def seed(embedder: Embedder | None = None) -> UUID:
     """Seed (or re-seed) Tenant 1. Returns the tenant id."""
     created_pool = False
     try:
@@ -318,8 +317,8 @@ async def seed(provider: LLMProvider | None = None) -> UUID:
         await _seed_core(tenant_id)
         print(f"seeded core data for tenant {tenant_id} (slug={SLUG})")
 
-        resolved_provider = provider or AzureOpenAIProvider(get_settings())
-        await _seed_knowledge(tenant_id, resolved_provider)
+        resolved_embedder = embedder or get_embedder(get_settings())
+        await _seed_knowledge(tenant_id, resolved_embedder)
         print("ingested knowledge documents and catalog items")
 
         return tenant_id

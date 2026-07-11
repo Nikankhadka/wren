@@ -91,7 +91,7 @@ Done in phase 0 (planning/scaffolding session). `/frontend` (Next.js + TS + Tail
 
 ### T-006 `[x]` Conversational onboarding skeleton - Surface-2 Copilot (5h)
 **Deps:** T-005. **Stories:** US-010, US-011.
-**Read:** `design/frontend.md` sections 6-7.2 (chat components, Onboarding page); `design/database.md` sections 3, 5 (tenant_config, catalog_items, pricing_rules); frozen `Wren_P3_ArchitectureDoc.md` section 6 ONLY if the flow's intent is unclear.
+**Read:** `design/frontend.md` sections 6-7.2 (chat components, Onboarding page); `design/database.md` sections 3, 5 (tenant_config, catalog_items, pricing_rules); frozen `docs/source/architecture.md` section 6 ONLY if the flow's intent is unclear.
 **Files:** `backend/app/api/onboarding.py`, `backend/app/onboarding/flow.py`, `frontend/src/app/(tenant-admin)/onboarding/page.tsx`.
 **Steps:**
 1. `flow.py`: a guided state machine (explicit ordered stages: identity -> tone -> services/products -> pricing rules -> escalation threshold -> knowledge prompt -> confirm), NOT an open-ended interviewer. Each stage: one LLM call (via `app/llm/provider.py`) that extracts structured values from the admin's free-text answer into the stage's pydantic model; deterministic stage advance. Domain-agnostic prompts - generic wording only ("What do you offer? List services or products with rough prices if you have them").

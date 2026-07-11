@@ -26,13 +26,13 @@ from uuid import UUID
 from starlette.concurrency import run_in_threadpool
 
 from app.core import config, db
-from app.llm.azure import AzureOpenAIProvider
+from app.llm.embedder import get_embedder
 from app.retrieval.rerank import get_reranker
 from app.retrieval.service import retrieve
 from seeds.seed_tenant1_phoneshop import SLUG
 
 if TYPE_CHECKING:
-    from app.llm.provider import LLMProvider
+    from app.llm.embedder import Embedder
     from app.retrieval.rerank import Reranker
     from app.retrieval.types import RetrievedChunk
 
@@ -138,7 +138,7 @@ async def run_eval(
     *,
     tenant_id: UUID,
     cases: list[EvalCase],
-    provider: LLMProvider,
+    embedder: Embedder,
     reranker: Reranker,
     top_k: int = 5,
 ) -> dict[str, float]:
@@ -152,7 +152,7 @@ async def run_eval(
             conn,
             tenant_id=tenant_id,
             query=case.query,
-            provider=provider,
+            embedder=embedder,
             reranker=reranker,
             top_k=top_k,
         )
@@ -215,7 +215,7 @@ async def main_async(*, gate: bool, top_k: int) -> int:
             return 1
 
         settings = config.get_settings()
-        provider = AzureOpenAIProvider(settings)
+        embedder = get_embedder(settings)
         reranker = get_reranker(settings)
         cases = load_cases()
 
@@ -224,7 +224,7 @@ async def main_async(*, gate: bool, top_k: int) -> int:
                 conn,
                 tenant_id=tenant_id,
                 cases=cases,
-                provider=provider,
+                embedder=embedder,
                 reranker=reranker,
                 top_k=top_k,
             )

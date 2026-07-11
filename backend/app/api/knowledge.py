@@ -21,8 +21,8 @@ from starlette.concurrency import run_in_threadpool
 from app.core import auth, db
 from app.core.config import get_settings
 from app.ingestion.pipeline import process_document
-from app.llm.dependency import get_llm_provider
-from app.llm.provider import LLMProvider
+from app.llm.dependency import get_embedder_dependency
+from app.llm.embedder import Embedder
 
 if TYPE_CHECKING:
     import asyncpg
@@ -74,7 +74,7 @@ async def list_documents(
 @router.post("/upload", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
 async def upload_document(
     admin: Annotated[auth.AuthedTenantAdmin, Depends(auth.require_tenant_admin)],
-    provider: Annotated[LLMProvider, Depends(get_llm_provider)],
+    embedder: Annotated[Embedder, Depends(get_embedder_dependency)],
     file: Annotated[UploadFile, File()],
     doc_type: Annotated[str, Form()],
 ) -> DocumentResponse:
@@ -115,7 +115,7 @@ async def upload_document(
             doc_type,
         )
         await process_document(
-            conn, tenant_id=admin.tenant_id, document_id=document_id, provider=provider
+            conn, tenant_id=admin.tenant_id, document_id=document_id, embedder=embedder
         )
         row = await conn.fetchrow(
             "select id, filename, doc_type, status, error from documents where id = $1",
@@ -134,7 +134,7 @@ async def upload_document(
 async def reprocess_document(
     document_id: UUID,
     admin: Annotated[auth.AuthedTenantAdmin, Depends(auth.require_tenant_admin)],
-    provider: Annotated[LLMProvider, Depends(get_llm_provider)],
+    embedder: Annotated[Embedder, Depends(get_embedder_dependency)],
 ) -> DocumentResponse:
     async with db.tenant_context(admin.tenant_id, "tenant_admin") as conn:
         exists = await conn.fetchval(
@@ -143,7 +143,7 @@ async def reprocess_document(
         if not exists:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="document not found")
         await process_document(
-            conn, tenant_id=admin.tenant_id, document_id=document_id, provider=provider
+            conn, tenant_id=admin.tenant_id, document_id=document_id, embedder=embedder
         )
         row = await conn.fetchrow(
             "select id, filename, doc_type, status, error from documents where id = $1",

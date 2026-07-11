@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, TypedDict
 from uuid import UUID
 
 if TYPE_CHECKING:
+    from app.llm.embedder import Embedder
     from app.llm.provider import LLMProvider
     from app.retrieval.rerank import Reranker
 
@@ -38,4 +39,5 @@ class AgentState(TypedDict):
 class GraphContext:
     tenant_id: UUID
     provider: LLMProvider
+    embedder: Embedder
     reranker: Reranker

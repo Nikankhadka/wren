@@ -6,7 +6,7 @@
 
 Wren is a domain-agnostic, multi-tenant SaaS where any small business (dentist, butcher, phone repair shop, online store) self-onboards through a conversation and gets its own private, branded AI support-and-sales agent at `{slug}.wren.app` that recommends, answers from the business's own knowledge, produces deterministic quotes, and escalates to a human when it should. Solo portfolio venture (Ronin Khadka) on a 30-day build clock for a polished end-to-end core. **Phase 0 (docs + scaffold) is complete; implementation proceeds phase by phase through `docs/phases/`.**
 
-**Do not load the PRD/Architecture/Sprint docs into context.** Start at `docs/INDEX.md` - it routes each phase to exactly the documents it needs (design docs, phase ticket files) and states the precedence rules. The only doc that always binds in full is `docs/Wren_AGENTS.md` (summarized under Conventions below).
+**Do not load the frozen planning docs (`docs/source/`) into context.** Start at `docs/INDEX.md` - it routes each phase to exactly the documents it needs (design docs, phase ticket files) and states the precedence rules. The only doc that always binds in full is `docs/conventions.md` (summarized under Conventions below). Human-readable progress lives in `docs/PROGRESS.md` - update its row for a ticket whenever you commit one.
 
 ## Stack
 
@@ -43,7 +43,7 @@ No E2E harness yet - added when the first surface flow exists (phase 1/4; see ph
 
 ## Structure
 
-- `docs/` - documentation system; start at `docs/INDEX.md` (phase router). Design docs in `docs/design/`, executable tickets in `docs/phases/`, frozen source docs at `docs/Wren_*.md`.
+- `docs/` - documentation system; start at `docs/INDEX.md` (phase router). Progress tracker at `docs/PROGRESS.md`, binding conventions at `docs/conventions.md`, design docs in `docs/design/`, executable tickets in `docs/phases/`, frozen planning docs in `docs/source/`.
 - `frontend/` - Next.js app (three surfaces via route groups; tokens in `src/styles/theme.css`)
 - `backend/` - FastAPI app (`app/`), tests, and (from phase 1) migrations, seeds, evals
 - `infra/` - Terraform (stub until T-035)
@@ -53,7 +53,7 @@ See `.agents/map.md` for the full generated file map.
 
 ## Conventions
 
-`docs/Wren_AGENTS.md` (Agent Conventions v2.0) is binding on all work in this repo. Highlights - read the full doc, these are pointers not substitutes:
+`docs/conventions.md` (Agent Conventions v2.0) is binding on all work in this repo. Highlights - read the full doc, these are pointers not substitutes:
 
 - No em dashes anywhere; plain dash only. No agent co-author lines in commits. Never hand-edit `CHANGELOG.md` or auto-generated files.
 - Quality, simplicity, robustness, and maintainability outrank development cost - but scope boundaries (30-day clock, MoSCoW cuts) stay fixed; flag conflicts instead of silently resolving them.

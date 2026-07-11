@@ -9,7 +9,7 @@
 ## 0. HOW TO USE THIS BACKLOG
 - Epics match PRD IDs (E0-E14). Estimates are focused solo+AI hours, not calendar time.
 - EDD discipline: write the golden dataset/eval before the capability it tests.
-- Conventions in `Wren_AGENTS.md` apply to every ticket (style, git, bug-fix protocol, UI/pixel standard, lint/test hygiene, domain-agnostic discipline) whether or not a ticket restates them.
+- Conventions in `docs/conventions.md` apply to every ticket (style, git, bug-fix protocol, UI/pixel standard, lint/test hygiene, domain-agnostic discipline) whether or not a ticket restates them.
 - Each week ends with a soft checkpoint (self-review vs the week's Definition of Done).
 
 ```

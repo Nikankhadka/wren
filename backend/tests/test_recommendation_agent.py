@@ -22,7 +22,7 @@ from app.llm.provider import ChatMessage, SchemaT
 from app.retrieval.rerank import Reranker
 from app.retrieval.types import RetrievedChunk
 from tests.conftest import _app_dsn_for
-from tests.fakes import BaseFakeProvider
+from tests.fakes import EMBEDDING_DIM, BaseFakeProvider, ZeroEmbedder
 
 pytestmark = pytest.mark.db
 
@@ -34,9 +34,6 @@ class FakeRecommendationProvider(BaseFakeProvider):
         if "needs" in schema.model_fields:
             return schema.model_validate({"needs": ["something durable"], "constraints": []})
         return schema.model_validate({"route": "recommendation", "confidence": 1.0, "reason": "t"})
-
-    async def embed(self, texts: list[str]) -> list[list[float]]:
-        return [[0.0] * 1536 for _ in texts]
 
     async def chat_stream(self, messages: list[ChatMessage]) -> AsyncIterator[str]:
         for delta in ["Try", " item one", "."]:
@@ -104,7 +101,7 @@ async def _seed_catalog(
             tenant_id,
             document_id,
             chunk.content,
-            [0.0] * 1536,
+            [0.0] * EMBEDDING_DIM,
             json.dumps(chunk.metadata),
         )
     return tenant_id, item_ids
@@ -131,6 +128,7 @@ async def test_recommendation_selections_are_subset_of_catalog(
     context = GraphContext(
         tenant_id=tenant_id,
         provider=FakeRecommendationProvider(),
+        embedder=ZeroEmbedder(),
         reranker=PassthroughReranker(),
     )
 
@@ -152,6 +150,7 @@ async def test_recommendation_price_comes_from_db_column(
     context = GraphContext(
         tenant_id=tenant_id,
         provider=FakeRecommendationProvider(),
+        embedder=ZeroEmbedder(),
         reranker=PassthroughReranker(),
     )
 
@@ -173,6 +172,7 @@ async def test_recommendation_refuses_when_catalog_is_empty(
     context = GraphContext(
         tenant_id=tenant_id,
         provider=FakeRecommendationProvider(),
+        embedder=ZeroEmbedder(),
         reranker=PassthroughReranker(),
     )
 

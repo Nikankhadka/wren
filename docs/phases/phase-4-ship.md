@@ -33,7 +33,7 @@
 
 ### T-035 `[ ]` Terraform AWS backend (6h)
 **Deps:** T-029. **Stories:** US-130.
-**Read:** frozen `Wren_P3_ArchitectureDoc.md` section 9 (this ticket's spec lives there - the one phase-4 ticket that reads the frozen doc).
+**Read:** frozen `docs/source/architecture.md` section 9 (this ticket's spec lives there - the one phase-4 ticket that reads the frozen doc).
 **Files:** `infra/*.tf` (main, ecr, ecs, alb, iam, secrets, variables, outputs), `backend/Dockerfile`.
 **Steps:** per Architecture section 9: ECR repo; ECS cluster + Fargate service (0.25 vCPU/0.5GB) + task def; public ALB + TLS + target group with `/health` checks; security groups ALB->task only; least-privilege IAM (execution: ECR pull + logs; task: scoped Secrets Manager ARNs); Secrets Manager entries for provider keys + DB URL; CloudWatch log group + billing alarm; no NAT (public subnet, SG lockdown - documented cost decision). `terraform apply` up, `destroy` down, state local at core scope (documented).
 **Accept:** apply from clean -> `/health` 200 via the ALB DNS name; destroy leaves nothing billing except the ECR images; plan is clean immediately after apply.

@@ -2,9 +2,9 @@
 
 Same client-fixture pattern as test_auth_api.py. Uses a tmp_path for
 uploads_dir (via monkeypatch on Settings) so tests never touch a real
-backend/var/ directory and clean up automatically. The LLM provider
-dependency is overridden with a fake embedder (T-008 wired process_document
-into the upload endpoint, so every upload now embeds its chunks).
+backend/var/ directory and clean up automatically. The embedder dependency
+is overridden with a fake (T-008 wired process_document into the upload
+endpoint, so every upload now embeds its chunks).
 """
 
 from __future__ import annotations
@@ -23,19 +23,14 @@ import pytest_asyncio
 
 from app.core import db
 from app.core.config import get_settings
-from app.llm.dependency import get_llm_provider
+from app.llm.dependency import get_embedder_dependency
 from app.main import app
 from tests.conftest import _app_dsn_for
-from tests.fakes import BaseFakeProvider
+from tests.fakes import EMBEDDING_DIM, ZeroEmbedder
 
 pytestmark = pytest.mark.db
 
 TEST_JWT_SECRET = "test-only-supabase-jwt-secret-do-not-use-in-prod"  # noqa: S105
-
-
-class FakeEmbedProvider(BaseFakeProvider):
-    async def embed(self, texts: list[str]) -> list[list[float]]:
-        return [[0.0] * 1536 for _ in texts]
 
 
 @pytest.fixture(autouse=True)
@@ -62,13 +57,13 @@ def _env(tmp_path: Path) -> Iterator[None]:
 @pytest_asyncio.fixture
 async def client(migrated_db: str) -> AsyncIterator[httpx.AsyncClient]:
     await db.create_pool(dsn=_app_dsn_for(migrated_db), min_size=1, max_size=4)
-    app.dependency_overrides[get_llm_provider] = FakeEmbedProvider
+    app.dependency_overrides[get_embedder_dependency] = ZeroEmbedder
     try:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
             yield ac
     finally:
-        app.dependency_overrides.pop(get_llm_provider, None)
+        app.dependency_overrides.pop(get_embedder_dependency, None)
         await db.close_pool()
 
 
@@ -147,7 +142,7 @@ async def test_upload_produces_embedded_chunks(
     )
     assert chunk is not None
     assert "open weekdays" in chunk["content"]
-    assert chunk["embedding"].dimensions() == 1536
+    assert chunk["embedding"].dimensions() == EMBEDDING_DIM
 
 
 async def test_upload_with_unparseable_json_marks_failed(client: httpx.AsyncClient) -> None:

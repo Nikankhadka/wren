@@ -1,10 +1,10 @@
-"""T-010: the Tenant 1 seed script, run against wren_test with a stub provider.
+"""T-010: the Tenant 1 seed script, run against wren_test with a stub embedder.
 
 `seed()` reuses whatever pool already exists (it only creates/closes its own
 pool if none is set up yet) - so pointing a pool at wren_test first, then
 calling `seed()`, exercises the exact same code path the real
 `uv run python -m seeds.seed_tenant1_phoneshop` entrypoint uses, without
-needing real Azure credentials.
+loading a real embedding model.
 """
 
 from __future__ import annotations
@@ -19,14 +19,9 @@ import pytest_asyncio
 from app.core import db
 from seeds.seed_tenant1_phoneshop import CATALOG_ITEMS, PRICING_RULES, SLUG, seed
 from tests.conftest import _app_dsn_for
-from tests.fakes import BaseFakeProvider
+from tests.fakes import ZeroEmbedder
 
 pytestmark = pytest.mark.db
-
-
-class FakeEmbedProvider(BaseFakeProvider):
-    async def embed(self, texts: list[str]) -> list[list[float]]:
-        return [[0.0] * 1536 for _ in texts]
 
 
 @pytest_asyncio.fixture
@@ -39,7 +34,7 @@ async def app_pool(migrated_db: str) -> AsyncIterator[None]:
 
 
 async def test_seed_creates_tenant_with_expected_counts(app_pool: None) -> None:
-    tenant_id = await seed(provider=FakeEmbedProvider())
+    tenant_id = await seed(embedder=ZeroEmbedder())
 
     async with db.tenant_context(tenant_id, "tenant_admin") as conn:
         slug = await conn.fetchval("select slug from tenants where id = $1", tenant_id)
@@ -72,8 +67,8 @@ async def test_seed_creates_tenant_with_expected_counts(app_pool: None) -> None:
 
 
 async def test_seed_is_idempotent(app_pool: None, superuser_conn: asyncpg.Connection[Any]) -> None:
-    first_id = await seed(provider=FakeEmbedProvider())
-    second_id = await seed(provider=FakeEmbedProvider())
+    first_id = await seed(embedder=ZeroEmbedder())
+    second_id = await seed(embedder=ZeroEmbedder())
 
     assert first_id != second_id  # re-seeding recreates the tenant with a fresh id
 

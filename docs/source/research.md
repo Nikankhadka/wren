@@ -1,7 +1,7 @@
 > **NAVIGATION:** Frozen source document (v1.0), background only - no ticket requires it except T-040's LEARNINGS rubric (section 4.1). Route implementation work via `docs/INDEX.md`.
 
 # WREN - Market Research, Cloning Strategy & Expert Learning Roadmap
-> **Version:** 1.0 | **Companion to:** the four core Wren docs (`Wren_P0P1_CharterAndPRD.md`, `Wren_P3_ArchitectureDoc.md`, `Wren_P3_SprintPlanAndBacklog.md`, `Wren_AGENTS.md`)
+> **Version:** 1.0 | **Companion to:** the four core Wren docs (`product-requirements.md`, `architecture.md`, `sprint-plan.md`, `docs/conventions.md`)
 > **Purpose:** Ground the whole build in how the real market leaders actually architect these systems, define exactly what Wren is cloning (conceptually - not copying code or IP), and lay out the learning path that turns finishing this project into being genuinely expert-level as an AI Engineer and Forward Deployed Engineer.
 > All external claims below are sourced from research conducted July 2026. Figures and competitor details move fast - re-verify before quoting them anywhere public.
 

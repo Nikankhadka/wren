@@ -3,7 +3,7 @@
 # WREN - Charter & Product Requirements Document
 > **Version:** 2.0 (supersedes 1.0 - domain-agnostic multi-tenant SaaS pivot) | **Type:** Solo portfolio venture - personal learning + capstone-grade artifact
 > **Author:** Ronin Khadka | **Build clock:** 30-day polished core, with an explicit phase 2 for the rest of the vision
-> **Status:** Draft for founder sign-off. Conventions in `Wren_AGENTS.md` govern how this gets built.
+> **Status:** Draft for founder sign-off. Conventions in `docs/conventions.md` govern how this gets built.
 
 ---
 
@@ -11,11 +11,11 @@
 
 Five linked documents, meant to be handed to a coding agent (Claude Code) as a work order:
 
-1. `Wren_P0P1_CharterAndPRD.md` (this file) - what we build and why, the three-surface SaaS model, personas, scope, user stories.
-2. `Wren_P3_ArchitectureDoc.md` - stack, tenancy/tenant-resolution, system design, data model, API, agent architecture, pricing engine, security, observability.
-3. `Wren_P3_SprintPlanAndBacklog.md` - the realistic 30-day core plan, epics to tickets, and the explicit phase-2 line.
-4. `Wren_AGENTS.md` - how work gets done: style, git, the quality-over-dev-cost rule, bug-fix protocol, UI and engineering-hygiene standards, and the domain-agnostic discipline.
-5. `Wren_Research_CloningAndLearningPlan.md` - market grounding (Sierra/Decagon reference architecture), the cloning strategy, and the expert learning roadmap.
+1. `product-requirements.md` (this file) - what we build and why, the three-surface SaaS model, personas, scope, user stories.
+2. `architecture.md` - stack, tenancy/tenant-resolution, system design, data model, API, agent architecture, pricing engine, security, observability.
+3. `sprint-plan.md` - the realistic 30-day core plan, epics to tickets, and the explicit phase-2 line.
+4. `docs/conventions.md` - how work gets done: style, git, the quality-over-dev-cost rule, bug-fix protocol, UI and engineering-hygiene standards, and the domain-agnostic discipline.
+5. `research.md` - market grounding (Sierra/Decagon reference architecture), the cloning strategy, and the expert learning roadmap.
 
 ---
 

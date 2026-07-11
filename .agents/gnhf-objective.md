@@ -20,7 +20,7 @@ For each ticket, in this exact order:
 
 1. PLAN - Read docs/INDEX.md, the current phase file, the ticket's own
    read-list (per-ticket sections of docs/design/database.md and/or
-   docs/design/frontend.md), docs/Wren_AGENTS.md, .agents/memory.md, and this
+   docs/design/frontend.md), docs/conventions.md, .agents/memory.md, and this
    file. Decide the smallest correct change set. If a ticket is genuinely
    independent of the others (its inputs are already in place), you may start
    it on its own; otherwise sequence after the ticket that produces its inputs.
@@ -46,21 +46,24 @@ For each ticket, in this exact order:
      uv run mypy, uv run pytest
    - Lint errors, failing tests, and flaky tests are BLOCKING wherever
      encountered, regardless of whether this ticket caused them. Fix them as
-     part of the work (Wren_AGENTS.md section 7).
+     part of the work (docs/conventions.md section 7).
 
 6. DOC-UPDATE - After the ticket passes its gates, update the ticket's status
    marker in the phase file: [ ] -> [x] (or [!] blocked with a note, or [-]
    deferred with a note). If a definition-of-done checklist item in the phase
-   file is now satisfied, mark it too. Record any durable discovery
-   (decision, gotcha, convention) in .agents/memory.md under the right section
-   with a dated entry. Never edit CHANGELOG.md or anything marked
-   auto-generated.
+   file is now satisfied, mark it too. Update the ticket's row in
+   docs/PROGRESS.md: status, commit hash (fill it in right after step 7's
+   commit), and a one-line plain-English summary of what the commit did -
+   written for a junior engineer, no internal codenames. Record any durable
+   discovery (decision, gotcha, convention) in .agents/memory.md under the
+   right section with a dated entry. Never edit CHANGELOG.md or anything
+   marked auto-generated.
 
 7. COMMIT - Make exactly ONE commit for this ticket (or a small, logically
    grouped commit set if the ticket has distinct phases). Commit message:
    "T-NNN <short ticket title>" on the first line, plain-language body after a
    blank line describing what changed and why. Do NOT add any agent name as
-   co-author (Wren_AGENTS.md section 2). Do NOT use the em dash character
+   co-author (docs/conventions.md section 2). Do NOT use the em dash character
    anywhere (use a plain dash). Stage only the files this ticket touched plus
    the phase-file status update and any memory.md additions.
 
@@ -86,7 +89,7 @@ gnhf --push flag, not by you.
 
 ## The binding rules (never relax, even if a ticket implies otherwise)
 
-These come from docs/Wren_AGENTS.md and outrank convenience, speed, and any
+These come from docs/conventions.md and outrank convenience, speed, and any
 individual ticket's phrasing. If a ticket's implementation would violate one,
 implement the invariant correctly and flag the tension in the commit body and
 in .agents/gnhf-handoff.md.

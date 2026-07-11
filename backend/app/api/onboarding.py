@@ -24,7 +24,8 @@ from app.ingestion.pipeline import ingest_catalog_items
 
 if TYPE_CHECKING:
     from app.core.db import AppConnection
-from app.llm.dependency import get_llm_provider
+from app.llm.dependency import get_embedder_dependency, get_llm_provider
+from app.llm.embedder import Embedder
 from app.llm.provider import LLMProvider
 from app.onboarding.flow import (
     EscalationDraft,
@@ -124,7 +125,7 @@ def _cents(dollars: float) -> int:
 @router.post("/confirm", response_model=OnboardingConfirmResponse)
 async def confirm(
     admin: Annotated[auth.AuthedTenantAdmin, Depends(auth.require_tenant_admin)],
-    provider: Annotated[LLMProvider, Depends(get_llm_provider)],
+    embedder: Annotated[Embedder, Depends(get_embedder_dependency)],
 ) -> OnboardingConfirmResponse:
     async with db.tenant_context(admin.tenant_id, "tenant_admin") as conn:
         record = await _load_record(conn, admin.tenant_id)
@@ -181,7 +182,7 @@ async def confirm(
                 rule.unit,
             )
 
-        await ingest_catalog_items(conn, tenant_id=admin.tenant_id, provider=provider)
+        await ingest_catalog_items(conn, tenant_id=admin.tenant_id, embedder=embedder)
 
         record["completed"] = True
         await _save_record(conn, admin.tenant_id, record)

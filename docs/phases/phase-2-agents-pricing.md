@@ -15,7 +15,7 @@
 
 ### T-012 `[x]` LangGraph state schema + graph skeleton (4h)
 **Deps:** T-011. **Stories:** US-040.
-**Read:** this file's shared contracts; frozen `Wren_P3_ArchitectureDoc.md` section 4.1 diagram ONLY if graph topology is unclear.
+**Read:** this file's shared contracts; frozen `docs/source/architecture.md` section 4.1 diagram ONLY if graph topology is unclear.
 **Files:** `backend/app/agents/state.py`, `graph.py`, stub nodes `supervisor.py`, `knowledge.py`, `recommendation.py`, `quoting.py`, `order_status.py`, `escalation.py`, `inspection.py`.
 **Steps:**
 1. `state.py`: typed state (pydantic/TypedDict) per the contract above.

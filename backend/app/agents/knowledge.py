@@ -62,7 +62,7 @@ async def run(state: AgentState) -> dict[str, Any]:
             conn,
             tenant_id=ctx.tenant_id,
             query=query,
-            provider=ctx.provider,
+            embedder=ctx.embedder,
             reranker=ctx.reranker,
             top_k=5,
         )

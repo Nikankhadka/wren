@@ -1,11 +1,10 @@
-"""The LLM provider abstraction (T-006).
+"""The chat LLM provider abstraction (T-006).
 
-Every call site that needs a model (onboarding extraction now; agents,
-embeddings, and the pricing-adjacent generation calls in later phases) goes
-through this interface, never a vendor SDK directly - so tests stub a
-provider instead of hitting a real API, and swapping providers never touches
-call sites. See docs/design/... architecture note: "Azure OpenAI behind a
-thin provider abstraction."
+Every call site that needs a chat model (onboarding extraction; agents and
+the pricing-adjacent generation calls in later phases) goes through this
+interface, never a vendor SDK directly - so tests stub a provider instead of
+hitting a real API, and swapping providers never touches call sites.
+Embeddings are a separate, independently swappable seam: app/llm/embedder.py.
 """
 
 from __future__ import annotations
@@ -50,9 +49,4 @@ class LLMProvider(ABC):
     def chat_stream(self, messages: list[ChatMessage]) -> AsyncIterator[str]:
         """Freeform chat completion, yielding text deltas as they arrive - for
         callers that stream to a client (T-011's bare customer chat, over SSE)."""
-        raise NotImplementedError
-
-    @abstractmethod
-    async def embed(self, texts: list[str]) -> list[list[float]]:
-        """Embed a batch of texts, returned in the same order as ``texts``."""
         raise NotImplementedError

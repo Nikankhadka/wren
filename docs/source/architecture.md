@@ -2,7 +2,7 @@
 
 # WREN - Technical Architecture Document
 > **Version:** 2.0 (domain-agnostic multi-tenant SaaS) | **Companion to:** the Charter/PRD, Sprint, AGENTS, and Research docs.
-> Read before writing code. `Wren_AGENTS.md` governs how decisions get made where this doc doesn't pin one down.
+> Read before writing code. `docs/conventions.md` governs how decisions get made where this doc doesn't pin one down.
 
 ---
 

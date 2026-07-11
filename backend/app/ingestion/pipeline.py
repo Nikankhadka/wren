@@ -17,7 +17,7 @@ from starlette.concurrency import run_in_threadpool
 from app.core.config import get_settings
 from app.ingestion.chunker import Chunk, chunk_catalog_item, chunk_document
 from app.ingestion.embedder import embed_texts
-from app.llm.provider import LLMProvider
+from app.llm.embedder import Embedder
 
 if TYPE_CHECKING:
     from app.core.db import AppConnection
@@ -33,9 +33,9 @@ async def _replace_chunks(
     document_id: UUID,
     tenant_id: UUID,
     chunks: list[Chunk],
-    provider: LLMProvider,
+    embedder: Embedder,
 ) -> None:
-    vectors = await embed_texts(provider, [chunk.content for chunk in chunks])
+    vectors = await embed_texts(embedder, [chunk.content for chunk in chunks])
     await conn.execute("delete from knowledge_chunks where document_id = $1", document_id)
     for chunk, vector in zip(chunks, vectors, strict=True):
         await conn.execute(
@@ -50,7 +50,7 @@ async def _replace_chunks(
 
 
 async def process_document(
-    conn: AppConnection, *, tenant_id: UUID, document_id: UUID, provider: LLMProvider
+    conn: AppConnection, *, tenant_id: UUID, document_id: UUID, embedder: Embedder
 ) -> None:
     """Chunk + embed one document's file, replacing any existing chunks.
 
@@ -75,7 +75,7 @@ async def process_document(
             raise ValueError("no extractable content in this file")  # noqa: TRY301
 
         await _replace_chunks(
-            conn, document_id=document_id, tenant_id=tenant_id, chunks=chunks, provider=provider
+            conn, document_id=document_id, tenant_id=tenant_id, chunks=chunks, embedder=embedder
         )
         await conn.execute(
             "update documents set status = 'ready', error = null where id = $1", document_id
@@ -88,9 +88,7 @@ async def process_document(
         )
 
 
-async def ingest_catalog_items(
-    conn: AppConnection, *, tenant_id: UUID, provider: LLMProvider
-) -> None:
+async def ingest_catalog_items(conn: AppConnection, *, tenant_id: UUID, embedder: Embedder) -> None:
     """Re-derive the tenant's synthetic 'catalog' document from catalog_items.
 
     Called from onboarding's confirm step (T-006) and safe to call again any
@@ -130,7 +128,7 @@ async def ingest_catalog_items(
             for item in items
         ]
         await _replace_chunks(
-            conn, document_id=document_id, tenant_id=tenant_id, chunks=chunks, provider=provider
+            conn, document_id=document_id, tenant_id=tenant_id, chunks=chunks, embedder=embedder
         )
         await conn.execute(
             "update documents set status = 'ready', error = null where id = $1", document_id

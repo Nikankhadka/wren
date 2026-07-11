@@ -24,7 +24,7 @@ from app.llm.provider import SchemaT
 from app.retrieval.rerank import Reranker
 from app.retrieval.types import RetrievedChunk
 from tests.conftest import _app_dsn_for
-from tests.fakes import BaseFakeProvider
+from tests.fakes import BaseFakeProvider, ZeroEmbedder
 
 pytestmark = pytest.mark.db
 
@@ -40,12 +40,6 @@ class FakeRouteProvider(BaseFakeProvider):
         return schema.model_validate(
             {"route": self._route, "confidence": self._confidence, "reason": "test"}
         )
-
-    async def embed(self, texts: list[str]) -> list[list[float]]:
-        # Only reached when routed to "knowledge" - these test tenants have no
-        # knowledge_chunks seeded, so retrieve() takes the refusal path
-        # without ever needing a real embedding or chat_stream() call.
-        return [[0.0] * 1536 for _ in texts]
 
 
 class NoopReranker(Reranker):
@@ -102,6 +96,7 @@ async def test_high_confidence_routes_pass_through(
     context = GraphContext(
         tenant_id=tenant_id,
         provider=FakeRouteProvider(route=route, confidence=0.9),
+        embedder=ZeroEmbedder(),
         reranker=NoopReranker(),
     )
 
@@ -119,6 +114,7 @@ async def test_low_confidence_is_overridden_to_escalation(
     context = GraphContext(
         tenant_id=tenant_id,
         provider=FakeRouteProvider(route="quoting", confidence=0.2),
+        embedder=ZeroEmbedder(),
         reranker=NoopReranker(),
     )
 
@@ -136,6 +132,7 @@ async def test_confidence_exactly_at_threshold_is_not_escalated(
     context = GraphContext(
         tenant_id=tenant_id,
         provider=FakeRouteProvider(route="knowledge", confidence=0.5),
+        embedder=ZeroEmbedder(),
         reranker=NoopReranker(),
     )
 
@@ -152,6 +149,7 @@ async def test_lower_tenant_threshold_lets_lower_confidence_through(
     context = GraphContext(
         tenant_id=tenant_id,
         provider=FakeRouteProvider(route="recommendation", confidence=0.2),
+        embedder=ZeroEmbedder(),
         reranker=NoopReranker(),
     )
 
