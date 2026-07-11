@@ -1,12 +1,14 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { resolveTenantBySlug, SLUG_HEADER } from "@/lib/tenant";
+import { CustomerChat } from "./CustomerChat";
 
 /**
- * T-005: the customer surface's branded shell. Resolves the slug proxy.ts
- * attached to the request, shows the calm not-found state for an unknown
- * slug, and the unavailable state for a suspended tenant. The chat itself
- * (message list, composer, streaming) is built in T-011 inside this shell.
+ * T-005/T-011: the customer surface. Resolves the slug proxy.ts attached to
+ * the request (server-side, so brand never flashes to default), shows the
+ * calm not-found state for an unknown slug and the unavailable state for a
+ * suspended tenant, then hands off to CustomerChat for the actual
+ * conversation once the tenant is confirmed active.
  */
 export default async function CustomerHome() {
   const slug = (await headers()).get(SLUG_HEADER);
@@ -38,11 +40,7 @@ export default async function CustomerHome() {
         ) : null}
         <h1 className="text-title-3 font-semibold text-text">{displayName}</h1>
       </header>
-      <div className="flex flex-1 items-center justify-center px-8 text-center">
-        <p className="max-w-md text-body text-text-secondary">
-          Chat with {displayName} is coming soon.
-        </p>
-      </div>
+      <CustomerChat slug={slug} displayName={displayName} />
     </main>
   );
 }

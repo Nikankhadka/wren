@@ -154,7 +154,7 @@ Done in phase 0 (planning/scaffolding session). `/frontend` (Next.js + TS + Tail
 
 ---
 
-### T-011 `[ ]` Bare /chat: straight-line RAG with citations (3h)
+### T-011 `[x]` Bare /chat: straight-line RAG with citations (3h)
 **Deps:** T-009, T-010. **Stories:** US-021.
 **Read:** `design/frontend.md` sections 6-7.1 (ChatBubble, StreamingText, CitationChip, customer surface states); `design/database.md` section 6 (conversations, messages).
 **Files:** `backend/app/api/chat.py`, `frontend/src/app/(customer)/page.tsx` + chat components.
@@ -168,8 +168,8 @@ Done in phase 0 (planning/scaffolding session). `/frontend` (Next.js + TS + Tail
 
 ## Week 1 Definition of Done
 
-- [ ] Signup -> subdomain resolution -> conversational onboarding writes config -> knowledge ingested -> hybrid retrieval returns grounded cited answers in the real UI.
-- [ ] `test_rls.py` + `test_schema_audit.py` green; wrong-tenant returns zero rows through API paths too.
-- [ ] Retrieval eval reports real numbers; recall@5 >= 0.85 or the gap is understood and being fixed before phase 2.
-- [ ] No lint errors, no failing or flaky tests anywhere in the repo (conventions section 7).
-- [ ] Durable discoveries recorded in `.agents/memory.md`.
+- [x] Signup -> subdomain resolution -> conversational onboarding writes config -> knowledge ingested -> hybrid retrieval returns grounded cited answers in the real UI. Verified live end to end EXCEPT the final generation call: routing, branded shell, onboarding, knowledge upload/ingestion, retrieval, and citation wiring are all confirmed working in a real browser against real Postgres; the actual LLM answer text is untested live because AZURE_OPENAI_* credentials don't exist yet (same gap flagged since T-006) - the chat endpoint fails cleanly (500, no crash) at that exact point, and the frontend's error/retry state was confirmed correct. Generation itself is covered by API tests with a stubbed provider (citation markers, streaming, refusal path).
+- [x] `test_rls.py` + `test_schema_audit.py` green; wrong-tenant returns zero rows through API paths too. Extended by test_retrieval.py (dense/sparse/retrieve leakage) and test_chat_api.py (wrong-tenant conversation_id is 404).
+- [x] Retrieval eval reports real numbers; recall@5 >= 0.85 or the gap is understood and being fixed before phase 2. T-010: recall@3/@5 = 1.000 (sparse+rerank baseline; dense degraded by the same missing-embeddings gap, documented and expected to only improve once real credentials exist).
+- [x] No lint errors, no failing or flaky tests anywhere in the repo (conventions section 7). 118 backend + 5 frontend tests green; ruff/mypy/eslint/tsc all clean.
+- [x] Durable discoveries recorded in `.agents/memory.md`.

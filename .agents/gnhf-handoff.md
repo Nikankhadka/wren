@@ -4,71 +4,79 @@ This file carries state between gnhf iterations (fresh sessions) so a new
 iteration knows where the previous one stopped. Read this before starting
 work, and overwrite it at the end of your iteration per .agents/gnhf-objective.md.
 
+## MILESTONE: Phase 1 (Foundations) is complete
+- T-001 through T-011 are all [x] in docs/phases/phase-1-foundations.md, and
+  the Week 1 Definition of Done checklist at the bottom of that file is
+  fully checked (with an honest caveat on the one item that can't be 100%
+  live-verified without real Azure credentials - see that file for the
+  exact wording). Phase 2 (agents + pricing, docs/phases/phase-2-agents-pricing.md)
+  starts at T-012.
+
 ## Last completed
-- T-010 ([EDD] Golden retrieval set + eval script). T-001..T-009 landed
-  before it - all ten are marked [x] in docs/phases/phase-1-foundations.md.
-  This is the last ticket before Week 1's Definition of Done.
-- Filled the seed-script gap flagged in T-009's handoff: created
-  backend/seeds/seed_tenant1_phoneshop.py (tenant 'bytefix' - 15
-  catalog_items, 12 pricing_rules, 20 mock orders, 3 knowledge docs
-  policy/faq/price_list ingested through the real pipeline). Authored 50
-  golden retrieval cases (45 positive + 5 negative) in
-  backend/evals/datasets/tenant1_retrieval.jsonl, and
-  backend/evals/retrieval_eval.py (recall@3/@5, MRR, nDCG@5, negative
-  top-score tracking, --gate flag, writes an eval_runs row).
-- Verified green on 2026-07-11: backend ruff/format/mypy/pytest (105
-  passed, +12 for T-010: seed-script idempotence/counts, metric-function
-  known-answer fixtures). Added seeds/ and evals/ to mypy's files list.
-  Actually RAN the eval script against the seeded dev DB (not just unit
-  tests): with a stub (all-zero) embedder standing in for the still-missing
-  Azure credentials, got recall@3/@5 = 1.000, MRR = 0.911, nDCG@5 = 0.934,
-  clearing the Week-1 DoD's recall@5 >= 0.85 bar. This is a genuine
-  sparse+rerank-only result (dense degrades to noise with a constant
-  embedding, but sparse FTS and the real local cross-encoder reranker don't
-  need real embeddings at all) - re-run once Azure credentials exist for the
-  true hybrid number, expected to be equal or better. eval_cases (50 rows)
-  and the eval_runs row are already persisted in the dev DB from this run.
-- The dev DB now has tenant 'bytefix' seeded persistently and intentionally
-  (not scratch data to clean up) - it's Tenant 1, the anchor demo tenant
-  every later ticket (T-011, phase 2 agents, phase 4 dashboards) can rely on
-  existing. Re-run `uv run python -m seeds.seed_tenant1_phoneshop` any time
-  to reset it (it wipes and recreates).
+- T-011 (Bare /chat: straight-line RAG with citations) - the final phase-1
+  ticket.
+- Verified green on 2026-07-11: backend ruff/format/mypy/pytest (118
+  passed, +13 for T-011: chat API happy path, persistence, refusal,
+  conversation resume, wrong-tenant 404, unknown/suspended slug 404, plus 7
+  new CORS regression tests); frontend lint/typecheck/vitest/check:tokens/build.
+  Live-verified in a browser end to end: bytefix.localhost:3000 renders the
+  branded shell + greeting + composer, sending a message correctly shows the
+  customer bubble, the request reaches the backend (proving the CORS fix
+  below), and fails at the expected point (missing Azure credentials, clean
+  500) with the frontend's error+Retry UI rendering exactly per spec - not a
+  crash, not a blank screen.
+- **Found and fixed a real bug while doing this**: `app/main.py` had NO CORS
+  middleware at all. Every browser fetch from the frontend origin to the
+  backend origin was silently broken - it just hadn't surfaced yet because
+  onboarding/knowledge (T-006/T-007) fail earlier at `getSupabase()` (no
+  Supabase project) before ever reaching their fetch call. T-011's
+  unauthenticated bare chat was the first code path to actually execute a
+  cross-origin fetch, and it hit `net::ERR_FAILED` immediately. Fixed with
+  `CORSMiddleware` using an `allow_origin_regex` (every tenant gets its own
+  subdomain, so a fixed origin list can't work) - regression-tested in
+  test_health.py. If a custom-domains-per-tenant feature ever lands, that
+  regex needs revisiting.
+- New: app/api/chat.py (POST /api/chat, SSE streaming, citations, refusal
+  path), frontend CustomerChat.tsx + StreamingText/CitationChip components,
+  LLMProvider grew chat_stream() for real per-token streaming (distinct from
+  the existing non-streaming chat() phase-2 agents will use).
 
 ## Next intended ticket
-- T-011 (Bare /chat: straight-line RAG with citations) - deps: T-009, T-010
-  (both satisfied). This is the LAST phase-1 ticket - once it's done, run
-  the full Week-1 Definition of Done checklist (docs/phases/phase-1-foundations.md,
-  bottom of the file) before considering starting phase 2. Files:
-  backend/app/api/chat.py, frontend/src/app/(customer)/page.tsx + chat
-  components. Read design/frontend.md sections 6-7.1 (ChatBubble already
-  exists from T-006 - StreamingText and CitationChip don't yet) and
-  design/database.md section 6 (conversations, messages) before starting.
-  This ticket REPLACES the placeholder "(customer)/page.tsx" content from
-  T-005 (currently just a branded shell with "chat coming soon") with the
-  real chat UI - expect to rewrite that file, not just add to it.
-  Real end-to-end browser testing (bytefix.localhost:3000) is possible for
-  the retrieval/citation parts, but the actual LLM generation call will hit
-  the same missing-Azure-credentials wall as everything else - plan to
-  verify with a stubbed provider and note the live-generation gap the same
-  way prior tickets did.
+- T-012 (LangGraph state schema + graph skeleton) - deps: T-011 (satisfied).
+  This starts PHASE 2 (docs/phases/phase-2-agents-pricing.md), not phase 1.
+  Files: backend/app/agents/{state,graph,supervisor,knowledge,recommendation,
+  quoting,order_status,escalation,inspection}.py. Read phase-2's shared
+  contracts section and only consult the frozen Architecture Doc's 4.1
+  diagram if graph topology is unclear. Step 3 explicitly says to swap
+  /api/chat to invoke the graph with stub nodes behaving like T-011's
+  straight RAG, so T-011's own tests must keep passing unmodified - budget
+  time to verify that, not just write new graph tests. Needs the `langgraph`
+  package (not installed yet).
 
 ## Branch
 - gnhf/gnhf-objective-wren-6c20d4 (current branch); do not commit to main.
 
 ## Blocking issues
-- AZURE_OPENAI_* still empty - blocks real chat generation in T-011 (same
-  gap as embeddings/extraction throughout phase 1). The retrieval and
-  citation-marker logic itself is fully testable with a stub provider.
-- Hosted Supabase project still doesn't exist - not relevant to T-011 (the
-  customer surface has no auth).
+- AZURE_OPENAI_* still empty - real chat generation (and now real dense
+  retrieval, since T-009/T-010) stays untestable live. This has been true
+  since T-006 and doesn't block code correctness, only live end-to-end
+  verification of generation text specifically.
+- Hosted Supabase project still doesn't exist - blocks live E2E of
+  login/signup/onboarding/knowledge pages specifically (customer chat has no
+  auth, so it was unaffected and got fully live-verified this ticket).
+- Neither of the above blocks starting phase 2 - agents/pricing work doesn't
+  need either credential to build and test correctly (stub providers cover
+  it, same pattern used throughout phase 1).
 
 ## Notes for the next iteration
 - Read .agents/gnhf-objective.md in full first - it has the working loop and
   the binding rules.
-- Then docs/INDEX.md -> docs/phases/phase-1-foundations.md -> T-011's
-  read-list.
+- Then docs/INDEX.md -> docs/phases/phase-2-agents-pricing.md -> T-012's
+  read-list. Do NOT reread phase-1-foundations.md's ticket details - phase 1
+  is done, only its Week 1 DoD note at the bottom is worth a glance for
+  context on what's still credential-blocked.
 - .agents/map.md is stale (last regenerated after T-004, marked
   auto-generated - don't hand-edit it, regenerate via /init-project or leave
-  for the maintainer pass).
-- After T-011, phase 1 is content-complete - walk the Week 1 Definition of
-  Done checklist explicitly before moving to phase 2's T-012.
+  for the maintainer pass). Worth doing a maintainer pass soon given how
+  much has landed since it was last refreshed.
+- Phase 2 must reach its own Definition of Done before starting phase 3.

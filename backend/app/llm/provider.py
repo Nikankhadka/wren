@@ -11,6 +11,7 @@ thin provider abstraction."
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from typing import TypedDict, TypeVar
 
 from pydantic import BaseModel
@@ -39,9 +40,16 @@ class LLMProvider(ABC):
 
     @abstractmethod
     async def chat(self, messages: list[ChatMessage]) -> str:
-        """Freeform chat completion. No call site yet - phase 2's agents are the
-        first consumer; declared now (T-008) so the abstraction is complete
-        rather than grown ad hoc per caller."""
+        """Freeform, non-streamed chat completion - for callers that need the
+        whole response before doing anything with it (tool-calling reasoning
+        in phase 2's agents). T-011's bare customer chat uses ``chat_stream``
+        instead."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def chat_stream(self, messages: list[ChatMessage]) -> AsyncIterator[str]:
+        """Freeform chat completion, yielding text deltas as they arrive - for
+        callers that stream to a client (T-011's bare customer chat, over SSE)."""
         raise NotImplementedError
 
     @abstractmethod

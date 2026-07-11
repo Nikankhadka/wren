@@ -7,6 +7,8 @@ model output. Never touched by tests directly - they stub ``LLMProvider``.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+
 from openai import AsyncAzureOpenAI
 
 from app.core.config import Settings
@@ -50,6 +52,21 @@ class AzureOpenAIProvider(LLMProvider):
         if content is None:
             raise ValueError("model produced no chat content")
         return content
+
+    async def chat_stream(self, messages: list[ChatMessage]) -> AsyncIterator[str]:
+        stream = await self._client.chat.completions.create(
+            model=self._deployment,
+            messages=[dict(message) for message in messages],  # type: ignore[misc]
+            stream=True,
+        )
+        # create()'s return type is a stream/non-stream union that mypy can't
+        # narrow here (the messages kwarg's own type: ignore above already
+        # widens the overload match) - stream=True always yields the async
+        # iterable half of that union at runtime.
+        async for chunk in stream:  # type: ignore[union-attr]
+            delta = chunk.choices[0].delta.content if chunk.choices else None
+            if delta:
+                yield delta
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         response = await self._client.embeddings.create(
