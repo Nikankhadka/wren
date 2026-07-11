@@ -20,6 +20,9 @@ from starlette.concurrency import run_in_threadpool
 
 from app.core import auth, db
 from app.core.config import get_settings
+from app.ingestion.pipeline import process_document
+from app.llm.dependency import get_llm_provider
+from app.llm.provider import LLMProvider
 
 if TYPE_CHECKING:
     import asyncpg
@@ -71,6 +74,7 @@ async def list_documents(
 @router.post("/upload", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
 async def upload_document(
     admin: Annotated[auth.AuthedTenantAdmin, Depends(auth.require_tenant_admin)],
+    provider: Annotated[LLMProvider, Depends(get_llm_provider)],
     file: Annotated[UploadFile, File()],
     doc_type: Annotated[str, Form()],
 ) -> DocumentResponse:
@@ -102,19 +106,53 @@ async def upload_document(
     await run_in_threadpool(_write_upload, document_path, body)
 
     async with db.tenant_context(admin.tenant_id, "tenant_admin") as conn:
-        row = await conn.fetchrow(
+        await conn.execute(
             "insert into documents (id, tenant_id, filename, doc_type, status) "
-            "values ($1, $2, $3, $4, 'pending') "
-            "returning id, filename, doc_type, status, error",
+            "values ($1, $2, $3, $4, 'pending')",
             document_id,
             admin.tenant_id,
             filename,
             doc_type,
         )
+        await process_document(
+            conn, tenant_id=admin.tenant_id, document_id=document_id, provider=provider
+        )
+        row = await conn.fetchrow(
+            "select id, filename, doc_type, status, error from documents where id = $1",
+            document_id,
+        )
     if row is None:
-        # Cannot happen: the insert above either succeeds (and RETURNING sees
-        # the same tenant-scoped row under Shape A's select policy) or raises.
+        # Cannot happen: process_document only updates the row it was given;
+        # it never deletes it.
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="document not created"
+        )
+    return _row_to_response(row)
+
+
+@router.post("/{document_id}/reprocess", response_model=DocumentResponse)
+async def reprocess_document(
+    document_id: UUID,
+    admin: Annotated[auth.AuthedTenantAdmin, Depends(auth.require_tenant_admin)],
+    provider: Annotated[LLMProvider, Depends(get_llm_provider)],
+) -> DocumentResponse:
+    async with db.tenant_context(admin.tenant_id, "tenant_admin") as conn:
+        exists = await conn.fetchval(
+            "select 1 from documents where id = $1 and tenant_id = $2", document_id, admin.tenant_id
+        )
+        if not exists:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="document not found")
+        await process_document(
+            conn, tenant_id=admin.tenant_id, document_id=document_id, provider=provider
+        )
+        row = await conn.fetchrow(
+            "select id, filename, doc_type, status, error from documents where id = $1",
+            document_id,
+        )
+    if row is None:
+        # Cannot happen: process_document only updates the row confirmed to
+        # exist just above, it never deletes it.
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="document not found"
         )
     return _row_to_response(row)

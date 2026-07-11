@@ -20,11 +20,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.core import auth, db
-from app.core.config import get_settings
+from app.ingestion.pipeline import ingest_catalog_items
 
 if TYPE_CHECKING:
     from app.core.db import AppConnection
-from app.llm.azure import AzureOpenAIProvider
+from app.llm.dependency import get_llm_provider
 from app.llm.provider import LLMProvider
 from app.onboarding.flow import (
     EscalationDraft,
@@ -38,11 +38,6 @@ from app.onboarding.flow import (
 )
 
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
-
-
-def get_llm_provider() -> LLMProvider:
-    """FastAPI dependency; tests override this with a stub provider."""
-    return AzureOpenAIProvider(get_settings())
 
 
 class OnboardingStateResponse(BaseModel):
@@ -129,6 +124,7 @@ def _cents(dollars: float) -> int:
 @router.post("/confirm", response_model=OnboardingConfirmResponse)
 async def confirm(
     admin: Annotated[auth.AuthedTenantAdmin, Depends(auth.require_tenant_admin)],
+    provider: Annotated[LLMProvider, Depends(get_llm_provider)],
 ) -> OnboardingConfirmResponse:
     async with db.tenant_context(admin.tenant_id, "tenant_admin") as conn:
         record = await _load_record(conn, admin.tenant_id)
@@ -184,6 +180,8 @@ async def confirm(
                 _cents(rule.unit_amount_dollars),
                 rule.unit,
             )
+
+        await ingest_catalog_items(conn, tenant_id=admin.tenant_id, provider=provider)
 
         record["completed"] = True
         await _save_record(conn, admin.tenant_id, record)

@@ -113,7 +113,7 @@ Done in phase 0 (planning/scaffolding session). `/frontend` (Next.js + TS + Tail
 
 ---
 
-### T-008 `[ ]` Chunk + embed pipeline (4h)
+### T-008 `[x]` Chunk + embed pipeline (4h)
 **Deps:** T-007. **Stories:** US-020.
 **Read:** `design/database.md` section 4 (knowledge_chunks); frozen Architecture Doc section 10 only if pipeline intent is unclear.
 **Files:** `backend/app/ingestion/chunker.py`, `embedder.py`, `pipeline.py`, `backend/app/llm/provider.py` (+ `azure.py`).

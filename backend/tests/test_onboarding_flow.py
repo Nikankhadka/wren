@@ -13,7 +13,7 @@ from typing import cast
 import pytest
 from pydantic import BaseModel
 
-from app.llm.provider import LLMProvider, SchemaT
+from app.llm.provider import SchemaT
 from app.onboarding.flow import (
     STAGE_ORDER,
     EscalationDraft,
@@ -25,9 +25,10 @@ from app.onboarding.flow import (
     advance,
     next_prompt,
 )
+from tests.fakes import BaseFakeProvider
 
 
-class FakeProvider(LLMProvider):
+class FakeProvider(BaseFakeProvider):
     """Returns a fixed instance per schema, ignoring the actual prompt text."""
 
     def __init__(self, responses: dict[type[BaseModel], BaseModel]) -> None:

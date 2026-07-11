@@ -19,10 +19,10 @@ import pytest
 import pytest_asyncio
 from pydantic import BaseModel
 
-from app.api.onboarding import get_llm_provider
 from app.core import db
 from app.core.config import get_settings
-from app.llm.provider import LLMProvider, SchemaT
+from app.llm.dependency import get_llm_provider
+from app.llm.provider import SchemaT
 from app.main import app
 from app.onboarding.flow import (
     EscalationDraft,
@@ -32,13 +32,14 @@ from app.onboarding.flow import (
     ToneDraft,
 )
 from tests.conftest import _app_dsn_for
+from tests.fakes import BaseFakeProvider
 
 pytestmark = pytest.mark.db
 
 TEST_JWT_SECRET = "test-only-supabase-jwt-secret-do-not-use-in-prod"  # noqa: S105
 
 
-class FakeProvider(LLMProvider):
+class FakeProvider(BaseFakeProvider):
     def __init__(self, responses: dict[type[BaseModel], BaseModel]) -> None:
         self._responses = responses
 
@@ -46,6 +47,10 @@ class FakeProvider(LLMProvider):
         self, *, system_prompt: str, user_input: str, schema: type[SchemaT]
     ) -> SchemaT:
         return self._responses[schema]  # type: ignore[return-value]
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        # Dummy but dimensionally correct (knowledge_chunks.embedding is vector(1536)).
+        return [[0.0] * 1536 for _ in texts]
 
 
 FAKE_RESPONSES: dict[type[BaseModel], BaseModel] = {
@@ -205,6 +210,22 @@ async def test_full_flow_confirm_writes_tenant_config_and_catalog(
     assert rule_row is not None
     assert rule_row["code"] == "rush-fee"
     assert rule_row["unit_amount_cents"] == 2500
+
+    # T-008: confirm also ingests catalog_items into a synthetic 'catalog'
+    # document, proving the ingest_catalog_items wiring rather than letting a
+    # provider failure silently mark it failed.
+    catalog_doc = await superuser_conn.fetchrow(
+        "select id, status from documents where tenant_id = $1 and doc_type = 'catalog'",
+        tenant_id,
+    )
+    assert catalog_doc is not None
+    assert catalog_doc["status"] == "ready"
+    chunk_row = await superuser_conn.fetchrow(
+        "select content, metadata from knowledge_chunks where document_id = $1",
+        catalog_doc["id"],
+    )
+    assert chunk_row is not None
+    assert "Screen repair" in chunk_row["content"]
 
 
 async def test_confirm_before_final_stage_is_conflict(client: httpx.AsyncClient) -> None:

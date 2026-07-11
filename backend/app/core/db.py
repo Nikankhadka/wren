@@ -21,6 +21,7 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
 import asyncpg
+from pgvector.asyncpg import register_vector
 
 from app.core.config import get_settings
 
@@ -50,12 +51,18 @@ async def create_pool(
     ``dsn`` defaults to ``get_settings().app_database_url`` (the wren_app-role DSN);
     tests override it to point at the ``wren_test`` database. Call ``close_pool()``
     before creating a new one to avoid leaking the previous pool's connections.
+
+    Every connection gets pgvector's ``vector`` type codec registered (T-008) so
+    ``knowledge_chunks.embedding`` round-trips as a plain ``list[float]``, never a
+    hand-built ``'[...]'::vector`` string literal.
     """
     global _pool
     if _pool is not None:
         raise RuntimeError("db pool already initialized; call close_pool() first")
     resolved_dsn = dsn if dsn is not None else get_settings().app_database_url
-    _pool = await asyncpg.create_pool(resolved_dsn, min_size=min_size, max_size=max_size)
+    _pool = await asyncpg.create_pool(
+        resolved_dsn, min_size=min_size, max_size=max_size, init=register_vector
+    )
     return _pool
 
 

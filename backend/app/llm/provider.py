@@ -11,11 +11,16 @@ thin provider abstraction."
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TypeVar
+from typing import TypedDict, TypeVar
 
 from pydantic import BaseModel
 
 SchemaT = TypeVar("SchemaT", bound=BaseModel)
+
+
+class ChatMessage(TypedDict):
+    role: str
+    content: str
 
 
 class LLMProvider(ABC):
@@ -30,4 +35,16 @@ class LLMProvider(ABC):
         Implementations must return an instance of exactly ``schema`` - never a
         raw string or dict - so callers never hand-parse model output.
         """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def chat(self, messages: list[ChatMessage]) -> str:
+        """Freeform chat completion. No call site yet - phase 2's agents are the
+        first consumer; declared now (T-008) so the abstraction is complete
+        rather than grown ad hoc per caller."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        """Embed a batch of texts, returned in the same order as ``texts``."""
         raise NotImplementedError

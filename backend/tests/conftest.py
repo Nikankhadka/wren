@@ -14,6 +14,7 @@ from urllib.parse import quote, urlsplit, urlunsplit
 import asyncpg
 import pytest
 import pytest_asyncio
+from pgvector.asyncpg import register_vector
 
 from app.core.config import get_settings
 from app.core.migrate import run_migrations
@@ -91,6 +92,7 @@ async def migrated_db() -> AsyncIterator[str]:
 @pytest.fixture
 async def superuser_conn(migrated_db: str) -> AsyncIterator[asyncpg.Connection[Any]]:
     conn = await asyncpg.connect(migrated_db)
+    await register_vector(conn)
     try:
         yield conn
     finally:
