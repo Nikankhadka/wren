@@ -92,6 +92,10 @@ export function CustomerChat({ slug, displayName }: { slug: string; displayName:
             updateLastAssistant(() => ({ citations: event.citations }));
           } else if (event.type === "quote") {
             updateLastAssistant(() => ({ quote: event.quote }));
+          } else if (event.type === "redraft") {
+            // The backend's price gate rejected the streamed draft and is
+            // streaming a replacement - clear the rejected text.
+            updateLastAssistant(() => ({ text: "" }));
           } else if (event.type === "token") {
             updateLastAssistant((last) => ({ text: last.text + event.text }));
           } else if (event.type === "refusal") {

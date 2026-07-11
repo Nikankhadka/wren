@@ -121,11 +121,42 @@ def _quote_payload(quote_id: UUID, quote: EngineQuote) -> dict[str, Any]:
     }
 
 
+def _redraft_note(violations: list[str]) -> str:
+    return (
+        "\n\nYour previous draft was rejected by the price-provenance gate: "
+        + "; ".join(violations)
+        + ". Redraft now and state no monetary amounts at all."
+    )
+
+
 async def run(state: AgentState) -> dict[str, Any]:
     runtime = get_runtime(GraphContext)
     ctx = runtime.context
     writer = get_stream_writer()
     query = state["messages"][-1]["content"]
+
+    # T-018 redraft path: the gate bounced the previous draft. The quote
+    # itself is engine-computed and already persisted - only the prose gets
+    # regenerated, with the violations spelled out.
+    violations = state.get("price_violations")
+    engine_quote = state["engine_quote"]
+    if violations and engine_quote is not None:
+        coverage = "\n".join(
+            f"- {item['label']} x{item['quantity']}" for item in engine_quote["line_items"]
+        )
+        redraft_messages: list[ChatMessage] = [
+            {
+                "role": "system",
+                "content": _EXPLANATION_PROMPT.format(coverage=coverage, budget_line="")
+                + _redraft_note(violations),
+            },
+            {"role": "user", "content": query},
+        ]
+        redraft_text = ""
+        async for delta in ctx.provider.chat_stream(redraft_messages):
+            redraft_text += delta
+            writer({"type": "token", "text": delta})
+        return {"draft_response": redraft_text}
 
     async with db.tenant_context(ctx.tenant_id, "customer") as conn:
         rules = await conn.fetch(

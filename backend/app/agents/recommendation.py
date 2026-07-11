@@ -46,11 +46,54 @@ def _search_query(original_message: str, preferences: PreferenceExtraction) -> s
     return " ".join(part for part in parts if part)
 
 
+def _draft_messages(
+    query: str, selections: list[dict[str, Any]], violations: list[str] | None = None
+) -> list[ChatMessage]:
+    """Drafting prompt from DB-sourced selections; prices shown are the
+    catalog's price_cents formatted server-side. ``violations`` is the T-018
+    redraft case - the gate's findings go back to the model verbatim."""
+    items_block = "\n".join(
+        f"[{i + 1}] {sel['name']}: {sel['description']}"
+        + (f" (${sel['price_cents'] / 100:.2f})" if sel["price_cents"] is not None else "")
+        for i, sel in enumerate(selections)
+    )
+    system_prompt = (
+        "You are a sales assistant recommending items to a customer. Recommend "
+        "ONLY from the numbered list below, with a short reason for each - never "
+        "invent an item or a price that isn't listed.\n\n"
+        f"Available items:\n{items_block}"
+    )
+    if violations:
+        system_prompt += (
+            "\n\nYour previous draft was rejected by the price-provenance gate: "
+            + "; ".join(violations)
+            + ". Redraft now - name prices only exactly as listed above, or "
+            "leave them out entirely."
+        )
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": query},
+    ]
+
+
 async def run(state: AgentState) -> dict[str, Any]:
     runtime = get_runtime(GraphContext)
     ctx = runtime.context
     writer = get_stream_writer()
     query = state["messages"][-1]["content"]
+
+    # T-018 redraft path: the gate bounced the previous draft. Selections
+    # (with their DB-sourced prices) are already in state - only the prose
+    # gets regenerated, with the violations spelled out.
+    violations = state.get("price_violations")
+    if violations and state["selections"]:
+        redraft_text = ""
+        async for delta in ctx.provider.chat_stream(
+            _draft_messages(query, state["selections"], violations)
+        ):
+            redraft_text += delta
+            writer({"type": "token", "text": delta})
+        return {"draft_response": redraft_text}
 
     preferences = await ctx.provider.extract(
         system_prompt=_EXTRACTION_PROMPT, user_input=query, schema=PreferenceExtraction
@@ -97,24 +140,8 @@ async def run(state: AgentState) -> dict[str, Any]:
         for row in rows
     ]
 
-    items_block = "\n".join(
-        f"[{i + 1}] {row['name']}: {row['description']}"
-        + (f" (${row['price_cents'] / 100:.2f})" if row["price_cents"] is not None else "")
-        for i, row in enumerate(rows)
-    )
-    system_prompt = (
-        "You are a sales assistant recommending items to a customer. Recommend "
-        "ONLY from the numbered list below, with a short reason for each - never "
-        "invent an item or a price that isn't listed.\n\n"
-        f"Available items:\n{items_block}"
-    )
-    messages: list[ChatMessage] = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": query},
-    ]
-
     full_text = ""
-    async for delta in ctx.provider.chat_stream(messages):
+    async for delta in ctx.provider.chat_stream(_draft_messages(query, selections)):
         full_text += delta
         writer({"type": "token", "text": delta})
 

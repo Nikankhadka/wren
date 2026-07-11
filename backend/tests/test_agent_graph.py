@@ -90,7 +90,12 @@ async def _run_and_collect_node_order(route: str) -> list[str]:
 @pytest.mark.parametrize("route", ["recommendation", "quoting", "order_status", "escalation"])
 async def test_forced_route_runs_supervisor_specialist_inspection(route: str) -> None:
     order = await _run_and_collect_node_order(route)
-    assert order == ["supervisor", route, "inspection"]
+    if route in ("recommendation", "quoting"):
+        # T-018: money-carrying specialists pass the price-provenance gate
+        # before inspection.
+        assert order == ["supervisor", route, "price_gate", "inspection"]
+    else:
+        assert order == ["supervisor", route, "inspection"]
 
 
 async def test_escalation_route_sets_escalated_flag() -> None:

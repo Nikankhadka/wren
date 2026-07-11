@@ -95,6 +95,10 @@ async def _stream_chat_response(
             full_text += event["text"]
         elif event["type"] == "refusal":
             full_text = str(event["text"])
+        elif event["type"] == "redraft":
+            # T-018: the price gate rejected the draft already streamed; the
+            # producing node streams a fresh one, so persist only that.
+            full_text = ""
         yield _sse(event)
 
     async with db.tenant_context(tenant_id, "customer") as conn:

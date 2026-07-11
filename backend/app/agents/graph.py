@@ -22,6 +22,7 @@ from app.agents import (
     inspection,
     knowledge,
     order_status,
+    price_gate,
     quoting,
     recommendation,
     supervisor,
@@ -29,8 +30,22 @@ from app.agents import (
 from app.agents.state import AgentState, GraphContext
 
 _SPECIALISTS = ("knowledge", "recommendation", "quoting", "order_status", "escalation")
+# The two specialists whose drafts carry money route through the T-018
+# price-provenance gate before inspection; the rest go straight to inspection.
+_PRICE_GATED = ("recommendation", "quoting")
 
 SupervisorNode = Callable[[AgentState], Awaitable[dict[str, Any]]]
+
+
+def _price_gate_route(state: AgentState) -> str:
+    decision = state.get("price_gate_decision")
+    if decision == "retry":
+        route = state["route"]
+        assert route in _PRICE_GATED  # the gate only ever follows these nodes
+        return route
+    if decision == "escalate":
+        return "escalation"
+    return "inspection"
 
 
 def build_graph(
@@ -49,6 +64,7 @@ def build_graph(
     graph.add_node("quoting", quoting.run)
     graph.add_node("order_status", order_status.run)
     graph.add_node("escalation", escalation.run)
+    graph.add_node("price_gate", price_gate.run)
     graph.add_node("inspection", inspection.run)
 
     graph.add_edge(START, "supervisor")
@@ -58,7 +74,20 @@ def build_graph(
         dict(zip(_SPECIALISTS, _SPECIALISTS, strict=True)),
     )
     for specialist in _SPECIALISTS:
-        graph.add_edge(specialist, "inspection")
+        if specialist in _PRICE_GATED:
+            graph.add_edge(specialist, "price_gate")
+        else:
+            graph.add_edge(specialist, "inspection")
+    graph.add_conditional_edges(
+        "price_gate",
+        _price_gate_route,
+        {
+            "inspection": "inspection",
+            "recommendation": "recommendation",
+            "quoting": "quoting",
+            "escalation": "escalation",
+        },
+    )
     graph.add_edge("inspection", END)
 
     return graph.compile()

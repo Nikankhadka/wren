@@ -12,7 +12,7 @@ of an LLM stream.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, NotRequired, TypedDict
 from uuid import UUID
 
 if TYPE_CHECKING:
@@ -33,6 +33,14 @@ class AgentState(TypedDict):
     draft_response: str
     inspection: dict[str, Any] | None
     escalated: bool
+    # T-018 price-provenance gate bookkeeping (NotRequired so the shared
+    # contract's constructors stay valid): violations found in the last
+    # draft, whether the one allowed redraft was already spent, the gate's
+    # routing decision, and the reason attached when escalating.
+    price_violations: NotRequired[list[str]]
+    price_gate_attempted: NotRequired[bool]
+    price_gate_decision: NotRequired[str]
+    escalation_reason: NotRequired[str]
 
 
 @dataclass(frozen=True)

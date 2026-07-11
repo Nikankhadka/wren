@@ -70,7 +70,7 @@
 **Accept:** "screen repair for a mid-tier phone, under $120" -> correct tenant-priced quote, persisted, rendered via QuoteCard; every displayed figure traces to the engine row.
 **Tests:** node tests with stubbed provider (selection -> engine -> persisted row); error re-selection path.
 
-### T-018 `[ ]` Validation gate: price provenance (3h)
+### T-018 `[x]` Validation gate: price provenance (3h)
 **Deps:** T-017. **Stories:** US-050.
 **Files:** `backend/app/pricing/validation_gate.py`, `backend/tests/test_validation_gate.py`.
 **Steps:**
