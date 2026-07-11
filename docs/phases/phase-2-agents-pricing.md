@@ -24,7 +24,7 @@
 **Accept:** graph compiles, traces node order, `/api/chat` still passes its T-011 tests.
 **Tests:** graph topology test (given a forced route, the right node sequence runs).
 
-### T-013 `[ ]` Supervisor routing (4h)
+### T-013 `[x]` Supervisor routing (4h) - live-model smoke set deferred, AZURE_OPENAI_* still empty (see memory.md)
 **Deps:** T-012. **Stories:** US-040.
 **Files:** `backend/app/agents/supervisor.py`.
 **Steps:** one structured LLM call: conversation tail -> `{route: knowledge|recommendation|quoting|order_status|escalation, confidence: 0..1, reason}`. Below `tenant_config.escalation_threshold` -> route escalation (low confidence never guesses). Routing prompt is generic - intents described by capability ("wants a price for something", "asking about a policy"), never by vertical.

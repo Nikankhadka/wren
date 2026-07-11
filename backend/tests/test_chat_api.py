@@ -23,6 +23,7 @@ import pytest_asyncio
 from app.agents.knowledge import REFUSAL_MESSAGE
 from app.core import db
 from app.llm.dependency import get_llm_provider
+from app.llm.provider import SchemaT
 from app.main import app
 from app.retrieval.dependency import get_reranker_dependency
 from app.retrieval.rerank import Reranker
@@ -34,6 +35,14 @@ pytestmark = pytest.mark.db
 
 
 class FakeChatProvider(BaseFakeProvider):
+    async def extract(
+        self, *, system_prompt: str, user_input: str, schema: type[SchemaT]
+    ) -> SchemaT:
+        # The only extract() caller in this flow is the supervisor's routing
+        # decision (T-013) - always route to knowledge with high confidence
+        # so these tests keep exercising T-011's straight RAG path.
+        return schema.model_validate({"route": "knowledge", "confidence": 1.0, "reason": "test"})
+
     async def embed(self, texts: list[str]) -> list[list[float]]:
         return [[0.0] * 1536 for _ in texts]
 
