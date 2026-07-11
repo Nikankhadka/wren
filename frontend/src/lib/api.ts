@@ -19,7 +19,11 @@ export class ApiError extends Error {
  */
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
-  headers.set("Content-Type", "application/json");
+  // FormData sets its own multipart Content-Type (with the boundary the
+  // browser generates) - forcing application/json here would break uploads.
+  if (!(init.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  }
 
   const {
     data: { session },

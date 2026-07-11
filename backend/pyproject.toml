@@ -9,6 +9,7 @@ dependencies = [
     "pydantic-settings>=2.7.0",
     "pyjwt>=2.10",
     "openai>=2.45.0",
+    "python-multipart>=0.0.32",
 ]
 
 [dependency-groups]

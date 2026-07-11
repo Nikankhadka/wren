@@ -103,7 +103,7 @@ Done in phase 0 (planning/scaffolding session). `/frontend` (Next.js + TS + Tail
 
 ---
 
-### T-007 `[ ]` Knowledge upload (3h)
+### T-007 `[x]` Knowledge upload (3h)
 **Deps:** T-006. **Stories:** US-011, US-020.
 **Read:** `design/database.md` section 4 (documents); `design/frontend.md` section 6 (FileDropzone) + 7.2 (Knowledge page).
 **Files:** `backend/app/api/knowledge.py`, `frontend/src/app/(tenant-admin)/knowledge/page.tsx`.

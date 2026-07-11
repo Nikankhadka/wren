@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import onboarding, platform, public, tenants
+from app.api import knowledge, onboarding, platform, public, tenants
 from app.core import db
 
 
@@ -36,6 +36,7 @@ app.include_router(tenants.router)
 app.include_router(platform.router)
 app.include_router(public.router)
 app.include_router(onboarding.router)
+app.include_router(knowledge.router)
 
 
 @app.get("/health")
