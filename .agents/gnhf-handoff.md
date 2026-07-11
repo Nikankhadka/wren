@@ -5,54 +5,57 @@ iteration knows where the previous one stopped. Read this before starting
 work, and overwrite it at the end of your iteration per .agents/gnhf-objective.md.
 
 ## Last completed
-- T-005 (Tenant resolution by subdomain). T-001..T-004 landed before it - all
-  five are marked [x] in docs/phases/phase-1-foundations.md.
-- Verified green on 2026-07-11: backend ruff check/format, mypy strict,
-  pytest (51 passed, +4 for T-005's public resolve endpoint); frontend lint,
-  typecheck, check:tokens, build, and a new `npm run test` (vitest, 5 passed -
-  frontend had no unit-test runner before this ticket). Manually E2E'd in a
-  real browser: bytefix.localhost:3000 (branded shell), a suspended tenant
-  (unavailable state), an unknown slug (calm 404), and confirmed
-  admin.localhost:3000/ and app.localhost:3000/login behave correctly (see
-  .agents/memory.md for the root-path collision guard this required). Working
-  tree is clean, nothing uncommitted, scratch dev-DB tenants cleaned up.
-- Deviated from the ticket's literal filename: wrote `frontend/src/proxy.ts`,
-  not `middleware.ts` - Next.js 16 renamed the convention (deprecated but
-  still functional). See .agents/memory.md T-005 entries for this and two
-  other durable discoveries (the root-collision guard, the jsonb decode
-  workaround).
+- T-006 (Conversational onboarding skeleton - Surface-2 Copilot). T-001..T-005
+  landed before it - all six are marked [x] in docs/phases/phase-1-foundations.md.
+- Verified green on 2026-07-11: backend ruff/format/mypy/pytest (61 passed);
+  frontend lint/typecheck/vitest/check:tokens/build. Live-verified in a
+  browser: signup + GET /api/onboarding/state work over real HTTP (JWT minted
+  locally against backend/.env's actual secret); AzureOpenAIProvider
+  construction fails cleanly (500, no crash) with empty AZURE_OPENAI_* -
+  expected, not a bug. The onboarding page itself renders correctly and shows
+  a graceful error state without a real Supabase session (same as login/signup
+  - Supabase project still doesn't exist). Working tree is clean, scratch
+  tenants cleaned up.
+- New: app/llm/provider.py + app/llm/azure.py (the LLM provider abstraction,
+  Azure OpenAI structured-output implementation), app/onboarding/flow.py (the
+  7-stage state machine), app/api/onboarding.py (state/message/confirm
+  endpoints), frontend (tenant-admin)/onboarding/page.tsx + a new shared
+  ChatBubble component. Added the `openai` Python package.
+- Three judgment calls made and documented in .agents/memory.md: (1) onboarding
+  prices are extracted by the model as a float and converted to cents in
+  plain Python, never inside the model call; (2) "mark tenant live" is a
+  tenant_config.config.onboarding.completed flag, NOT a tenants.status
+  transition - no RLS policy lets tenant_admin/service update tenants.status,
+  only platform_admin; (3) full browser E2E of Supabase-gated pages stays
+  blocked pending real credentials, same as T-004.
 
 ## Next intended ticket
-- T-006 (Conversational onboarding skeleton - Surface-2 Copilot) - deps: T-005
-  (satisfied). Files: backend/app/api/onboarding.py,
-  backend/app/onboarding/flow.py, frontend/src/app/(tenant-admin)/onboarding/page.tsx.
-  Read design/frontend.md sections 6-7.2 and design/database.md sections 3, 5
-  before starting. This is the first ticket needing `app/llm/provider.py` (an
-  LLM abstraction) - it doesn't exist yet, so T-006 likely needs to stand up a
-  minimal provider abstraction (or at least a stub/interface) before the
-  onboarding flow can call it. Check if a later ticket already owns that file
-  before building it ad hoc.
+- T-007 (Knowledge upload) - deps: T-006 (satisfied). Files:
+  backend/app/api/knowledge.py, frontend/src/app/(tenant-admin)/knowledge/page.tsx.
+  Read design/database.md section 4 (documents) and design/frontend.md
+  section 6 (FileDropzone) + 7.2 (Knowledge page) before starting. Needs a
+  new shared FileDropzone + Table component (neither exists yet) and local
+  file storage under var/uploads/{tenant_id}/ (10MB cap, .md/.txt/.pdf/.csv/.json).
 
 ## Branch
 - gnhf/gnhf-objective-wren-6c20d4 (current branch); do not commit to main.
 
 ## Blocking issues
-- None. The hosted Supabase project still does not exist (T-004) - real
-  email/password login from the frontend stays blocked on the founder
-  creating it and filling SUPABASE_*/NEXT_PUBLIC_SUPABASE_* values. Not a
-  blocker for T-006, which doesn't need real Supabase auth to build the
-  onboarding flow itself.
-- The Azure OpenAI env vars (AZURE_OPENAI_*) are also still empty in .env -
-  T-006's LLM calls for stage extraction will need either real credentials or
-  a stubbed provider to be testable locally. Flag to the founder if T-006
-  can't proceed without them.
+- Hosted Supabase project still doesn't exist - blocks real browser E2E of
+  any Supabase-gated page (login, signup, onboarding), not blocking for
+  T-007 (knowledge upload doesn't need a new auth flow, just the existing
+  require_tenant_admin dependency).
+- AZURE_OPENAI_* env vars are still empty - blocks live LLM extraction in
+  onboarding (stub-tested only). T-008 (chunk + embed pipeline) will hit this
+  same gap for embeddings; flag to the founder if real testing is needed
+  before then.
 
 ## Notes for the next iteration
 - Read .agents/gnhf-objective.md in full first - it has the working loop and
   the binding rules.
-- Then docs/INDEX.md -> docs/phases/phase-1-foundations.md -> T-006's
+- Then docs/INDEX.md -> docs/phases/phase-1-foundations.md -> T-007's
   read-list.
-- .agents/map.md is stale (last regenerated after T-004) - it's marked
-  auto-generated, so don't hand-edit it; regenerate via /init-project when
-  convenient, or leave for the maintainer pass.
+- .agents/map.md is stale (last regenerated after T-004, marked
+  auto-generated - don't hand-edit it, regenerate via /init-project or leave
+  for the maintainer pass).
 - Phase 1 must reach its Definition of Done green before starting phase 2.

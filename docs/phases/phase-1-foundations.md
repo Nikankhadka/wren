@@ -89,7 +89,7 @@ Done in phase 0 (planning/scaffolding session). `/frontend` (Next.js + TS + Tail
 
 ---
 
-### T-006 `[ ]` Conversational onboarding skeleton - Surface-2 Copilot (5h)
+### T-006 `[x]` Conversational onboarding skeleton - Surface-2 Copilot (5h)
 **Deps:** T-005. **Stories:** US-010, US-011.
 **Read:** `design/frontend.md` sections 6-7.2 (chat components, Onboarding page); `design/database.md` sections 3, 5 (tenant_config, catalog_items, pricing_rules); frozen `Wren_P3_ArchitectureDoc.md` section 6 ONLY if the flow's intent is unclear.
 **Files:** `backend/app/api/onboarding.py`, `backend/app/onboarding/flow.py`, `frontend/src/app/(tenant-admin)/onboarding/page.tsx`.
