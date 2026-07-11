@@ -58,5 +58,16 @@ async def run(state: AgentState) -> dict[str, Any]:
         schema=RouteDecision,
     )
 
-    route = decision.route if decision.confidence >= threshold else "escalation"
-    return {"route": route, "route_confidence": decision.confidence}
+    if decision.confidence < threshold:
+        return {
+            "route": "escalation",
+            "route_confidence": decision.confidence,
+            "escalation_reason": "low_confidence",
+        }
+    if decision.route == "escalation":
+        return {
+            "route": "escalation",
+            "route_confidence": decision.confidence,
+            "escalation_reason": "customer_request",
+        }
+    return {"route": decision.route, "route_confidence": decision.confidence}

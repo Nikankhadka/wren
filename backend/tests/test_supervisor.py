@@ -49,10 +49,12 @@ class NoopReranker(Reranker):
         return candidates[:top_k]
 
 
-def _initial_state(message: str = "hi") -> AgentState:
+def _initial_state(
+    conversation_id: uuid.UUID, tenant_id: uuid.UUID, message: str = "hi"
+) -> AgentState:
     return {
-        "conversation_id": "test",
-        "tenant_id": "test",
+        "conversation_id": str(conversation_id),
+        "tenant_id": str(tenant_id),
         "messages": [{"role": "customer", "content": message}],
         "route": None,
         "route_confidence": None,
@@ -65,7 +67,12 @@ def _initial_state(message: str = "hi") -> AgentState:
     }
 
 
-async def _seed_tenant(conn: asyncpg.Connection[Any], *, escalation_threshold: float) -> uuid.UUID:
+async def _seed_tenant(
+    conn: asyncpg.Connection[Any], *, escalation_threshold: float
+) -> tuple[uuid.UUID, uuid.UUID]:
+    """Returns (tenant_id, conversation_id) - escalation.py writes real rows
+    (escalations FK's conversations, updates conversations.status), so any
+    test that might route there needs a real conversation to exist."""
     tenant_id: uuid.UUID = await conn.fetchval(
         "insert into tenants (slug, name) values ($1, 'Routing Test Co') returning id",
         f"routing-{uuid.uuid4().hex[:8]}",
@@ -75,7 +82,10 @@ async def _seed_tenant(conn: asyncpg.Connection[Any], *, escalation_threshold: f
         tenant_id,
         escalation_threshold,
     )
-    return tenant_id
+    conversation_id: uuid.UUID = await conn.fetchval(
+        "insert into conversations (tenant_id) values ($1) returning id", tenant_id
+    )
+    return tenant_id, conversation_id
 
 
 @pytest.fixture(autouse=True)
@@ -91,7 +101,7 @@ async def _pool(migrated_db: str) -> AsyncIterator[None]:
 async def test_high_confidence_routes_pass_through(
     superuser_conn: asyncpg.Connection[Any], route: str
 ) -> None:
-    tenant_id = await _seed_tenant(superuser_conn, escalation_threshold=0.5)
+    tenant_id, conversation_id = await _seed_tenant(superuser_conn, escalation_threshold=0.5)
     graph = build_graph()
     context = GraphContext(
         tenant_id=tenant_id,
@@ -100,7 +110,7 @@ async def test_high_confidence_routes_pass_through(
         reranker=NoopReranker(),
     )
 
-    final_state = await graph.ainvoke(_initial_state(), context=context)
+    final_state = await graph.ainvoke(_initial_state(conversation_id, tenant_id), context=context)
 
     assert final_state["route"] == route
     assert final_state["route_confidence"] == 0.9
@@ -109,7 +119,7 @@ async def test_high_confidence_routes_pass_through(
 async def test_low_confidence_is_overridden_to_escalation(
     superuser_conn: asyncpg.Connection[Any],
 ) -> None:
-    tenant_id = await _seed_tenant(superuser_conn, escalation_threshold=0.5)
+    tenant_id, conversation_id = await _seed_tenant(superuser_conn, escalation_threshold=0.5)
     graph = build_graph()
     context = GraphContext(
         tenant_id=tenant_id,
@@ -118,7 +128,9 @@ async def test_low_confidence_is_overridden_to_escalation(
         reranker=NoopReranker(),
     )
 
-    final_state = await graph.ainvoke(_initial_state("asdkjfh asdkjfh gibberish"), context=context)
+    final_state = await graph.ainvoke(
+        _initial_state(conversation_id, tenant_id, "asdkjfh asdkjfh gibberish"), context=context
+    )
 
     assert final_state["route"] == "escalation"
     assert final_state["escalated"] is True
@@ -127,7 +139,7 @@ async def test_low_confidence_is_overridden_to_escalation(
 async def test_confidence_exactly_at_threshold_is_not_escalated(
     superuser_conn: asyncpg.Connection[Any],
 ) -> None:
-    tenant_id = await _seed_tenant(superuser_conn, escalation_threshold=0.5)
+    tenant_id, conversation_id = await _seed_tenant(superuser_conn, escalation_threshold=0.5)
     graph = build_graph()
     context = GraphContext(
         tenant_id=tenant_id,
@@ -136,7 +148,7 @@ async def test_confidence_exactly_at_threshold_is_not_escalated(
         reranker=NoopReranker(),
     )
 
-    final_state = await graph.ainvoke(_initial_state(), context=context)
+    final_state = await graph.ainvoke(_initial_state(conversation_id, tenant_id), context=context)
 
     assert final_state["route"] == "knowledge"
 
@@ -144,7 +156,7 @@ async def test_confidence_exactly_at_threshold_is_not_escalated(
 async def test_lower_tenant_threshold_lets_lower_confidence_through(
     superuser_conn: asyncpg.Connection[Any],
 ) -> None:
-    tenant_id = await _seed_tenant(superuser_conn, escalation_threshold=0.1)
+    tenant_id, conversation_id = await _seed_tenant(superuser_conn, escalation_threshold=0.1)
     graph = build_graph()
     context = GraphContext(
         tenant_id=tenant_id,
@@ -153,6 +165,6 @@ async def test_lower_tenant_threshold_lets_lower_confidence_through(
         reranker=NoopReranker(),
     )
 
-    final_state = await graph.ainvoke(_initial_state(), context=context)
+    final_state = await graph.ainvoke(_initial_state(conversation_id, tenant_id), context=context)
 
     assert final_state["route"] == "recommendation"

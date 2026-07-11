@@ -70,6 +70,16 @@ def _initial_state(*, conversation_id: UUID, tenant_id: UUID, message: str) -> A
     }
 
 
+async def _stream_escalated_response(*, conversation_id: UUID) -> AsyncIterator[str]:
+    """T-020: an already-escalated conversation is terminal - no agent turn
+    runs, the graph is never invoked. The customer's message is still
+    persisted (kept in T-020's chat() caller) so the transcript stays
+    complete for whoever picks it up on Surface 2."""
+    yield _sse({"type": "conversation", "conversation_id": str(conversation_id)})
+    yield _sse({"type": "escalated"})
+    yield _sse({"type": "done"})
+
+
 async def _stream_chat_response(
     *,
     tenant_id: UUID,
@@ -123,26 +133,37 @@ async def chat(
 
     async with db.tenant_context(tenant_id, "customer") as conn:
         if body.conversation_id is not None:
-            exists = await conn.fetchval(
-                "select 1 from conversations where id = $1 and tenant_id = $2",
+            row = await conn.fetchrow(
+                "select status from conversations where id = $1 and tenant_id = $2",
                 body.conversation_id,
                 tenant_id,
             )
-            if not exists:
+            if row is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail="conversation not found"
                 )
             conversation_id = body.conversation_id
+            already_escalated = row["status"] == "escalated"
         else:
             conversation_id = await conn.fetchval(
                 "insert into conversations (tenant_id) values ($1) returning id", tenant_id
             )
+            already_escalated = False
         await conn.execute(
             "insert into messages (tenant_id, conversation_id, role, content) "
             "values ($1, $2, 'customer', $3)",
             tenant_id,
             conversation_id,
             body.message,
+        )
+
+    # T-020: escalation is terminal - an already-escalated conversation never
+    # gets another agent turn (the customer's message above is still kept,
+    # so the transcript is complete for whoever picks it up on Surface 2).
+    if already_escalated:
+        return StreamingResponse(
+            _stream_escalated_response(conversation_id=conversation_id),
+            media_type="text/event-stream",
         )
 
     return StreamingResponse(

@@ -217,6 +217,48 @@ async def test_chat_suspended_tenant_is_404(
     assert response.status_code == 404
 
 
+async def test_chat_blocks_agent_turn_on_already_escalated_conversation(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    """T-020: escalation is terminal - no agent turn runs (the graph is
+    never invoked) once a conversation is escalated, but the customer's
+    message is still persisted so the transcript stays complete."""
+    slug = f"chat-{uuid.uuid4().hex[:8]}"
+    tenant_id = await _seed_tenant_with_chunk(superuser_conn, slug=slug)
+    conversation_id: uuid.UUID = await superuser_conn.fetchval(
+        "insert into conversations (tenant_id, status) values ($1, 'escalated') returning id",
+        tenant_id,
+    )
+
+    response = await client.post(
+        "/api/chat",
+        json={
+            "slug": slug,
+            "conversation_id": str(conversation_id),
+            "message": "are you still there?",
+        },
+    )
+
+    assert response.status_code == 200
+    events = _parse_sse(response.text)
+    types = [event["type"] for event in events]
+    assert types == ["conversation", "escalated", "done"]
+    assert not any(event["type"] == "token" for event in events)
+
+    customer_message = await superuser_conn.fetchval(
+        "select content from messages where tenant_id = $1 and conversation_id = $2 "
+        "and role = 'customer'",
+        tenant_id,
+        conversation_id,
+    )
+    assert customer_message == "are you still there?"
+
+    status = await superuser_conn.fetchval(
+        "select status from conversations where id = $1", conversation_id
+    )
+    assert status == "escalated"
+
+
 async def test_chat_wrong_tenant_conversation_id_is_404(
     client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
 ) -> None:

@@ -7,6 +7,7 @@ import { ChatBubble } from "@/components/ui/ChatBubble";
 import { StreamingText } from "@/components/ui/StreamingText";
 import { CitationChip, type Citation } from "@/components/ui/CitationChip";
 import { QuoteCard, type QuotePayload } from "@/components/ui/QuoteCard";
+import { EscalationBanner } from "@/components/ui/EscalationBanner";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -42,6 +43,7 @@ export function CustomerChat({ slug, displayName }: { slug: string; displayName:
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [escalated, setEscalated] = useState(false);
 
   function updateLastAssistant(update: (last: Message) => Partial<Message>) {
     setMessages((prev) => {
@@ -54,7 +56,7 @@ export function CustomerChat({ slug, displayName }: { slug: string; displayName:
 
   async function send(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || busy) return;
+    if (!trimmed || busy || escalated) return;
     setBusy(true);
     setInput("");
     setMessages((prev) => [
@@ -100,6 +102,8 @@ export function CustomerChat({ slug, displayName }: { slug: string; displayName:
             updateLastAssistant((last) => ({ text: last.text + event.text }));
           } else if (event.type === "refusal") {
             updateLastAssistant(() => ({ text: event.text }));
+          } else if (event.type === "escalated") {
+            setEscalated(true);
           } else if (event.type === "done") {
             updateLastAssistant(() => ({ streaming: false }));
           }
@@ -143,20 +147,24 @@ export function CustomerChat({ slug, displayName }: { slug: string; displayName:
         ))}
       </div>
 
-      <form onSubmit={handleSubmit} className="flex items-end gap-2 border-t border-border p-4">
-        <div className="flex-1">
-          <Input
-            label="Message"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            disabled={busy}
-            autoFocus
-          />
-        </div>
-        <Button type="submit" loading={busy}>
-          Send
-        </Button>
-      </form>
+      {escalated ? (
+        <EscalationBanner />
+      ) : (
+        <form onSubmit={handleSubmit} className="flex items-end gap-2 border-t border-border p-4">
+          <div className="flex-1">
+            <Input
+              label="Message"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              disabled={busy}
+              autoFocus
+            />
+          </div>
+          <Button type="submit" loading={busy}>
+            Send
+          </Button>
+        </form>
+      )}
     </>
   );
 }
