@@ -47,7 +47,7 @@
 **Accept:** "I need something for X" returns real catalog items with reasons; items never invented; works identically on a second seeded vertical.
 **Tests:** node tests with fixture catalog; assert response item ids are a subset of retrieved ids.
 
-### T-016 `[ ]` Deterministic pricing engine (4h)
+### T-016 `[x]` Deterministic pricing engine (4h) - conditions.applies_to left unimplemented: no semantics defined anywhere in database.md (only a passing comment); flagged rather than invented
 **Deps:** T-002 (schema). **Stories:** US-050.
 **Read:** `design/database.md` section 5 (pricing_rules, quotes, line_items shape).
 **Files:** `backend/app/pricing/engine.py`, `backend/tests/test_pricing_engine.py`.

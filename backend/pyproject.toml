@@ -24,6 +24,7 @@ dev = [
     "pytest-asyncio>=1.0.0",
     "ruff>=0.15.21",
     "asyncpg-stubs>=0.30.0",
+    "hypothesis>=6.156.6",
 ]
 
 [tool.ruff]
