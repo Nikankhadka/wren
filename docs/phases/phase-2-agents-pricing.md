@@ -58,7 +58,7 @@
 **Accept:** exhaustive unit coverage - single/multi line, both selection kinds, tax on/off, rounding, unknown codes, zero-amount rules; property test: total always equals sum of parts.
 **Tests:** `test_pricing_engine.py` is the deliverable's proof; add a hypothesis property test if quick.
 
-### T-017 `[ ]` Quoting Agent (4h)
+### T-017 `[x]` Quoting Agent (4h)
 **Deps:** T-016, T-013. **Stories:** US-042, US-050.
 **Read:** this file's shared contracts (no-number-fields schema); `design/database.md` section 5 (quotes).
 **Files:** `backend/app/agents/quoting.py`.

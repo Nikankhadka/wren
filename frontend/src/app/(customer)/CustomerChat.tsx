@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/Input";
 import { ChatBubble } from "@/components/ui/ChatBubble";
 import { StreamingText } from "@/components/ui/StreamingText";
 import { CitationChip, type Citation } from "@/components/ui/CitationChip";
+import { QuoteCard, type QuotePayload } from "@/components/ui/QuoteCard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -13,6 +14,7 @@ interface Message {
   role: "customer" | "assistant";
   text: string;
   citations?: Citation[];
+  quote?: QuotePayload;
   streaming?: boolean;
   error?: boolean;
 }
@@ -88,6 +90,8 @@ export function CustomerChat({ slug, displayName }: { slug: string; displayName:
             setConversationId(event.conversation_id);
           } else if (event.type === "citations") {
             updateLastAssistant(() => ({ citations: event.citations }));
+          } else if (event.type === "quote") {
+            updateLastAssistant(() => ({ quote: event.quote }));
           } else if (event.type === "token") {
             updateLastAssistant((last) => ({ text: last.text + event.text }));
           } else if (event.type === "refusal") {
@@ -121,6 +125,7 @@ export function CustomerChat({ slug, displayName }: { slug: string; displayName:
             <StreamingText streaming={message.streaming ?? false}>
               {renderWithCitations(message.text, message.citations ?? [])}
             </StreamingText>
+            {message.quote ? <QuoteCard quote={message.quote} /> : null}
             {message.error ? (
               <button
                 type="button"
