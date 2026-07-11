@@ -31,7 +31,7 @@
 **Accept:** obvious utterances route correctly across two different fake verticals; low-confidence gibberish routes to escalation.
 **Tests:** routing unit tests with stubbed provider outputs; a small live-model routing smoke set (~10 cases) run manually and noted.
 
-### T-014 `[ ]` Knowledge Agent (3h)
+### T-014 `[x]` Knowledge Agent (3h)
 **Deps:** T-013. **Stories:** US-041 partially.
 **Read:** phase-1 T-009's `service.retrieve` signature.
 **Files:** `backend/app/agents/knowledge.py`.
