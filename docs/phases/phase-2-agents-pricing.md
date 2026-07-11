@@ -88,7 +88,7 @@
 **Accept:** "where is R-1042" style lookups return the seeded state; unknown refs produce a helpful "can't find it - double-check the code" draft, not an error.
 **Tests:** tool unit tests: found, not-found, wrong-tenant (returns not-found, never leaks).
 
-### T-020 `[ ]` Escalation Agent + state (3h)
+### T-020 `[x]` Escalation Agent + state (3h)
 **Deps:** T-013. **Stories:** US-040, part of M10.
 **Read:** `design/database.md` section 6 (escalations, conversations.status); `design/frontend.md` section 6 (EscalationBanner).
 **Files:** `backend/app/agents/escalation.py`, `backend/app/api/escalations.py`.
