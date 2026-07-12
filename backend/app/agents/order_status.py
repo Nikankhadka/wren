@@ -21,6 +21,7 @@ from pydantic import BaseModel
 from app.agents.state import AgentState, GraphContext
 from app.agents.tools import lookup_order_or_ticket
 from app.core import db
+from app.core.limits import with_timeout
 
 ASK_FOR_CODE_MESSAGE = "Could you share the order, repair, or ticket code so I can look it up?"
 NOT_FOUND_TEMPLATE = "I can't find {ref_code} - please double-check the code."
@@ -59,8 +60,14 @@ async def run(state: AgentState) -> dict[str, Any]:
         }
 
     async with db.tenant_context(ctx.tenant_id, "customer") as conn:
-        result = await lookup_order_or_ticket(
-            conn, ctx.tenant_id, extraction.ref_code, extraction.customer_ref
+        # T-028: the one real tool call in the graph is time-bounded so a slow
+        # or hung DB lookup can't stall the turn indefinitely.
+        result = await with_timeout(
+            lookup_order_or_ticket(
+                conn, ctx.tenant_id, extraction.ref_code, extraction.customer_ref
+            ),
+            ctx.tool_timeout_s,
+            what="order lookup",
         )
 
     if not result.found:

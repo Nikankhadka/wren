@@ -70,3 +70,8 @@ class GraphContext:
     provider: LLMProvider
     embedder: Embedder
     reranker: Reranker
+    # T-028: per-tool timeout (seconds). Default keeps every existing
+    # constructor (evals, tests) valid; chat.py overrides it from the tenant's
+    # resolved limits. LLM-call timeouts are applied separately by wrapping the
+    # provider (app/core/limits.py's TimeLimitedProvider), so no field here.
+    tool_timeout_s: float = 15.0

@@ -23,6 +23,8 @@ from app.agents.inspection import ESCALATION_MESSAGE, check_price_provenance
 from app.agents.state import AgentState, GraphContext
 from app.api.chat import _stream_chat_response
 from app.core import db
+from app.core.config import get_settings
+from app.core.limits import TenantLimits
 from app.llm.provider import ChatMessage, SchemaT
 from app.retrieval.rerank import Reranker
 from app.retrieval.types import RetrievedChunk
@@ -339,6 +341,7 @@ async def test_rejected_draft_never_reaches_the_stream_and_citations_survive(
             provider=provider,
             embedder=ZeroEmbedder(),
             reranker=PassthroughReranker(),
+            limits=TenantLimits.resolve(None, get_settings()),
         )
     ]
 

@@ -26,12 +26,21 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
+from langgraph.errors import GraphRecursionError
 from pydantic import BaseModel, Field
 
 from app.agents.graph import get_graph
 from app.agents.spotlight import scan_input
 from app.agents.state import AgentState, GraphContext
-from app.core import db
+from app.core import config, db
+from app.core.limits import (
+    BUDGET_ESCALATION_REASON,
+    BUDGET_UNAVAILABLE_MESSAGE,
+    STEP_CAP_ESCALATION_REASON,
+    TenantLimits,
+    TimeLimitedProvider,
+    tenant_over_budget,
+)
 from app.llm.dependency import get_embedder_dependency, get_llm_provider
 from app.llm.embedder import Embedder
 from app.llm.provider import LLMProvider
@@ -88,6 +97,53 @@ async def _stream_escalated_response(*, conversation_id: UUID) -> AsyncIterator[
     yield _sse({"type": "done"})
 
 
+async def _record_limit_escalation(
+    *, tenant_id: UUID, conversation_id: UUID, reason: str, message: str
+) -> None:
+    """T-028: a tenant hit a cap - record the escalation (same terminal
+    machinery as escalation.py, deduped by 0011's partial unique index) and
+    persist the graceful handoff as the assistant message. No graph runs."""
+    async with db.tenant_context(tenant_id, "customer") as conn:
+        await conn.execute(
+            "insert into escalations (tenant_id, conversation_id, reason) values ($1, $2, $3) "
+            "on conflict (tenant_id, conversation_id) where status = 'open' do nothing",
+            tenant_id,
+            conversation_id,
+            reason,
+        )
+        await conn.execute(
+            "update conversations set status = 'escalated' "
+            "where id = $1 and tenant_id = $2 and status <> 'escalated'",
+            conversation_id,
+            tenant_id,
+        )
+        await conn.execute(
+            "insert into messages (tenant_id, conversation_id, role, content, metadata) "
+            "values ($1, $2, 'assistant', $3, $4)",
+            tenant_id,
+            conversation_id,
+            message,
+            json.dumps({"limit_escalation": reason}),
+        )
+
+
+async def _stream_budget_escalation(
+    *, tenant_id: UUID, conversation_id: UUID
+) -> AsyncIterator[str]:
+    """T-028: over the daily budget - a polite handoff, never a stack trace,
+    and the graph is never invoked."""
+    yield _sse({"type": "conversation", "conversation_id": str(conversation_id)})
+    await _record_limit_escalation(
+        tenant_id=tenant_id,
+        conversation_id=conversation_id,
+        reason=BUDGET_ESCALATION_REASON,
+        message=BUDGET_UNAVAILABLE_MESSAGE,
+    )
+    yield _sse({"type": "refusal", "text": BUDGET_UNAVAILABLE_MESSAGE})
+    yield _sse({"type": "escalated"})
+    yield _sse({"type": "done"})
+
+
 async def _stream_chat_response(
     *,
     tenant_id: UUID,
@@ -96,12 +152,19 @@ async def _stream_chat_response(
     provider: LLMProvider,
     embedder: Embedder,
     reranker: Reranker,
+    limits: TenantLimits,
 ) -> AsyncIterator[str]:
     yield _sse({"type": "conversation", "conversation_id": str(conversation_id)})
 
     graph = get_graph()
+    # T-028: every LLM call the graph makes is time-bounded by the tenant's
+    # llm_timeout via this wrapper - no node has to remember to wrap its own.
     context = GraphContext(
-        tenant_id=tenant_id, provider=provider, embedder=embedder, reranker=reranker
+        tenant_id=tenant_id,
+        provider=TimeLimitedProvider(provider, limits.llm_timeout_s),
+        embedder=embedder,
+        reranker=reranker,
+        tool_timeout_s=limits.tool_timeout_s,
     )
     initial_state = _initial_state(
         conversation_id=conversation_id, tenant_id=tenant_id, message=message
@@ -110,7 +173,30 @@ async def _stream_chat_response(
     full_text = ""
     buffer: list[dict[str, object]] = []
     verdicts: dict[str, object] = {}
-    async for event in graph.astream(initial_state, context=context, stream_mode="custom"):
+    try:
+        # T-028 step cap: recursion_limit bounds node executions per turn, so a
+        # pathological retry/route cycle can't spin forever. Overflow is caught
+        # below and turned into the same graceful handoff as a budget stop.
+        stream = graph.astream(
+            initial_state,
+            context=context,
+            stream_mode="custom",
+            config={"recursion_limit": limits.max_steps},
+        )
+        events = [event async for event in stream]
+    except GraphRecursionError:
+        await _record_limit_escalation(
+            tenant_id=tenant_id,
+            conversation_id=conversation_id,
+            reason=STEP_CAP_ESCALATION_REASON,
+            message=BUDGET_UNAVAILABLE_MESSAGE,
+        )
+        yield _sse({"type": "refusal", "text": BUDGET_UNAVAILABLE_MESSAGE})
+        yield _sse({"type": "escalated"})
+        yield _sse({"type": "done"})
+        return
+
+    for event in events:
         etype = event["type"]
         if etype == "token":
             full_text += str(event["text"])
@@ -190,12 +276,31 @@ async def chat(
             body.message,
         )
 
+        # T-028: resolve this tenant's caps and check the daily budget before
+        # any LLM call. Both reads happen inside the customer context so RLS
+        # scopes them to this tenant.
+        config_row = await conn.fetchrow(
+            "select config from tenant_config where tenant_id = $1", tenant_id
+        )
+        limits = TenantLimits.resolve(
+            json.loads(config_row["config"]) if config_row and config_row["config"] else {},
+            config.get_settings(),
+        )
+        over_budget = await tenant_over_budget(conn, tenant_id, limits)
+
     # T-020: escalation is terminal - an already-escalated conversation never
     # gets another agent turn (the customer's message above is still kept,
     # so the transcript is complete for whoever picks it up on Surface 2).
     if already_escalated:
         return StreamingResponse(
             _stream_escalated_response(conversation_id=conversation_id),
+            media_type="text/event-stream",
+        )
+
+    # T-028: over the daily budget - graceful handoff, graph never invoked.
+    if over_budget:
+        return StreamingResponse(
+            _stream_budget_escalation(tenant_id=tenant_id, conversation_id=conversation_id),
             media_type="text/event-stream",
         )
 
@@ -207,6 +312,7 @@ async def chat(
             provider=provider,
             embedder=embedder,
             reranker=reranker,
+            limits=limits,
         ),
         media_type="text/event-stream",
     )
