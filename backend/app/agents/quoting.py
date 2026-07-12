@@ -26,6 +26,7 @@ from langgraph.config import get_stream_writer
 from langgraph.runtime import get_runtime
 from pydantic import BaseModel, Field
 
+from app.agents.spotlight import new_spotlight
 from app.agents.state import AgentState, GraphContext
 from app.core import db
 from app.llm.provider import ChatMessage
@@ -207,11 +208,23 @@ async def run(state: AgentState) -> dict[str, Any]:
         }
 
     # Candidate block deliberately carries no prices - the model picks WHAT,
-    # the engine alone knows HOW MUCH.
+    # the engine alone knows HOW MUCH. Rule labels and item names/descriptions
+    # are tenant-authored data, so spotlight-wrap them (T-027) - codes and ids
+    # are system-generated identifiers and stay outside the wrap so the model
+    # can echo them back cleanly as its selection.
+    spotlight = new_spotlight()
     candidate_lines = [
-        f"rule code={rule['code']!r}: {rule['label']} (per {rule['unit']})" for rule in rules
-    ] + [f"item id={item['id']}: {item['name']} - {item['description']}" for item in items]
-    selection_prompt = _SELECTION_PROMPT.format(candidates="\n".join(candidate_lines))
+        f"rule code={rule['code']!r}: {spotlight.wrap(rule['label'])} (per {rule['unit']})"
+        for rule in rules
+    ]
+    for item in items:
+        item_text = spotlight.wrap(f"{item['name']} - {item['description'] or ''}")
+        candidate_lines.append(f"item id={item['id']}: {item_text}")
+    selection_prompt = (
+        _SELECTION_PROMPT.format(candidates="\n".join(candidate_lines))
+        + "\n"
+        + spotlight.instruction()
+    )
     tail = _conversation_tail(state)
 
     result = await ctx.provider.extract(

@@ -18,6 +18,7 @@ from langgraph.config import get_stream_writer
 from langgraph.runtime import get_runtime
 from pydantic import BaseModel, Field
 
+from app.agents.spotlight import new_spotlight
 from app.agents.state import AgentState, GraphContext
 from app.core import db
 from app.llm.provider import ChatMessage
@@ -52,15 +53,20 @@ def _draft_messages(
     """Drafting prompt from DB-sourced selections; prices shown are the
     catalog's price_cents formatted server-side. ``violations`` is the T-018
     redraft case - the gate's findings go back to the model verbatim."""
+    # Item name/description are tenant-authored catalog data - spotlight-wrap
+    # each so a malicious catalog entry can't inject instructions (T-027). The
+    # price is server-computed from price_cents, never wrapped.
+    spotlight = new_spotlight()
     items_block = "\n".join(
-        f"[{i + 1}] {sel['name']}: {sel['description']}"
+        f"[{i + 1}] {spotlight.wrap(sel['name'] + ': ' + (sel['description'] or ''))}"
         + (f" (${sel['price_cents'] / 100:.2f})" if sel["price_cents"] is not None else "")
         for i, sel in enumerate(selections)
     )
     system_prompt = (
         "You are a sales assistant recommending items to a customer. Recommend "
         "ONLY from the numbered list below, with a short reason for each - never "
-        "invent an item or a price that isn't listed.\n\n"
+        "invent an item or a price that isn't listed.\n"
+        f"{spotlight.instruction()}\n\n"
         f"Available items:\n{items_block}"
     )
     if violations:

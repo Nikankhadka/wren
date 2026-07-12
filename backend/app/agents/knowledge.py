@@ -19,6 +19,7 @@ from typing import Any
 from langgraph.config import get_stream_writer
 from langgraph.runtime import get_runtime
 
+from app.agents.spotlight import Spotlight, new_spotlight
 from app.agents.state import AgentState, GraphContext
 from app.core import db
 from app.llm.provider import ChatMessage
@@ -39,13 +40,24 @@ def _citation_source(chunk: RetrievedChunk) -> str:
 
 
 def _build_system_prompt(
-    chunk_contents: list[str], *, tenant_prompt: str, tone: str, violations: list[str] | None = None
+    chunk_contents: list[str],
+    *,
+    tenant_prompt: str,
+    tone: str,
+    spotlight: Spotlight,
+    violations: list[str] | None = None,
 ) -> str:
-    context_block = "\n\n".join(f"[{i + 1}] {content}" for i, content in enumerate(chunk_contents))
+    # Each retrieved chunk is untrusted tenant-uploaded data - wrap every one
+    # in the per-request spotlight delimiters so a poisoned document can't
+    # smuggle instructions into the prompt (T-027).
+    context_block = "\n\n".join(
+        f"[{i + 1}] {spotlight.wrap(content)}" for i, content in enumerate(chunk_contents)
+    )
     base = tenant_prompt or "You are the AI support and sales assistant for this business."
     prompt = (
         f"{base}\n"
         f"Tone: {tone or 'friendly'}.\n"
+        f"{spotlight.instruction()}\n"
         "Answer the customer's question using ONLY the numbered context below. "
         "Cite every factual claim with its bracket number, e.g. [1]. If the "
         "context doesn't fully answer the question, say what you don't know - "
@@ -77,6 +89,7 @@ async def run(state: AgentState) -> dict[str, Any]:
             [chunk["content"] for chunk in state["retrieved_chunks"]],
             tenant_prompt=config_row["system_prompt"] if config_row else "",
             tone=config_row["tone"] if config_row else "",
+            spotlight=new_spotlight(),
             violations=violations,
         )
         redraft_messages: list[ChatMessage] = [
@@ -121,6 +134,7 @@ async def run(state: AgentState) -> dict[str, Any]:
         [chunk.content for chunk in relevant],
         tenant_prompt=config_row["system_prompt"] if config_row else "",
         tone=config_row["tone"] if config_row else "",
+        spotlight=new_spotlight(),
     )
     messages: list[ChatMessage] = [
         {"role": "system", "content": system_prompt},

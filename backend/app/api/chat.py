@@ -29,6 +29,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.agents.graph import get_graph
+from app.agents.spotlight import scan_input
 from app.agents.state import AgentState, GraphContext
 from app.core import db
 from app.llm.dependency import get_embedder_dependency, get_llm_provider
@@ -73,6 +74,7 @@ def _initial_state(*, conversation_id: UUID, tenant_id: UUID, message: str) -> A
         "draft_response": "",
         "inspection": None,
         "escalated": False,
+        "injection_suspected": scan_input(message),
     }
 
 
