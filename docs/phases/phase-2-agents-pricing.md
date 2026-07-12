@@ -96,7 +96,7 @@
 **Accept:** "I want to talk to a human" escalates cleanly; escalated conversations stay escalated; banner renders.
 **Tests:** node test + API test (post-escalation agent turn blocked).
 
-### T-021 `[ ]` Supervisor / Reasoning-Inspection layer (4h)
+### T-021 `[x]` Supervisor / Reasoning-Inspection layer (4h)
 **Deps:** T-018, T-014, T-020. **Stories:** US-060.
 **Read:** INDEX section 5 hard rules; frozen Architecture Doc section 4.1 note on inspection ONLY if intent unclear.
 **Files:** `backend/app/agents/inspection.py`.

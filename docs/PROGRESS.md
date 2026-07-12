@@ -2,7 +2,7 @@
 
 **The one page to check to know where the build is.** Every ticket in the project is listed below with its status, the commit that delivered it, and a one-line plain-English summary of what that commit actually did.
 
-**Right now:** Phase 1 is fully done. Phase 2 is in progress - T-016 through T-020 are committed; the next ticket is **T-021 (Supervisor / Reasoning-Inspection layer)**.
+**Right now:** Phase 1 is fully done. Phase 2 is in progress - T-016 through T-021 are committed; the next ticket is **T-022 ([EDD] Cross-tenant leakage test)**, the last ticket in phase 2.
 
 ## How to read this file
 
@@ -51,7 +51,7 @@ Goal: replace the single straight-line chat with a team of specialist agents (a 
 | T-018 Validation gate: price provenance | done | `7247a1c` | The safety net behind the pricing rule: every dollar figure in a generated reply (even spelled-out ones like "twelve hundred") is checked against what the pricing engine actually computed. An unexplained figure gets one rewrite; a second offense hands the conversation to a human. Its tests are a release criterion - never skipped. |
 | T-019 Mock orders seed + lookup tool | done | `ecd2b31` | "Where's my repair R-1042?" now gets a real answer pulled from the seeded orders table - the code lookup is a plain database query (never guessed), and the status/details shown are always exactly what's in the database. An unknown code gets a polite "double-check the code" instead of an error. The 20 seed orders already existed from an earlier ticket. |
 | T-020 Escalation Agent + state | done | `c10b742` | Escalation is now a real dead end, not a stub: asking for a human (or two price-provenance strikes) creates an escalations row, flips the conversation to `escalated`, and shows a "a human will take it from here" banner that permanently replaces the chat box - no further AI replies ever happen in that conversation. A database-level guard stops two simultaneous messages from ever creating duplicate escalation records. |
-| T-021 Reasoning-inspection layer | not started | - | |
+| T-021 Reasoning-inspection layer | done | `e4db924` | Every AI-generated reply now passes a final review before the customer sees it: it must trace to real business content (no invented facts), match the business's tone, not follow hidden instructions planted in retrieved content, not leak the AI's own instructions, and (for price-carrying replies) re-confirm every dollar figure against the pricing engine. A failing reply gets rewritten once; a second failure hands off to a human. Nothing streams to the customer until this passes - a deliberate wait-for-it tradeoff over showing text that might get pulled back. |
 | T-022 Cross-tenant leakage test | not started | - | |
 
 ## Phase 3 - Eval, CI & console (not started)
