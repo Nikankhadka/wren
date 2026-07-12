@@ -51,6 +51,17 @@ class AgentState(TypedDict):
     inspection_attempted: NotRequired[bool]
     inspection_decision: NotRequired[str]
     draft_deterministic: NotRequired[bool]
+    # T-026 trajectory observability: the supervisor's own stated reason for
+    # its route pick (judged by the trajectory eval's reasoning-quality
+    # grade), and order_status's structured lookup outcome (ref_code/found/
+    # status/kind) - previously both existed only inside their node and were
+    # unscoreable from outside.
+    route_reason: NotRequired[str]
+    lookup: NotRequired[dict[str, Any]]
+    # T-027 input scan: the customer's message matched an injection-attempt
+    # pattern. Advisory - the turn is still answered; Inspection reads this to
+    # scrutinize the draft more strictly.
+    injection_suspected: NotRequired[bool]
 
 
 @dataclass(frozen=True)

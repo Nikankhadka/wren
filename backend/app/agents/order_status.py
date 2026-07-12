@@ -52,7 +52,11 @@ async def run(state: AgentState) -> dict[str, Any]:
 
     if not extraction.ref_code:
         writer({"type": "refusal", "text": ASK_FOR_CODE_MESSAGE})
-        return {"draft_response": ASK_FOR_CODE_MESSAGE, "draft_deterministic": True}
+        return {
+            "draft_response": ASK_FOR_CODE_MESSAGE,
+            "draft_deterministic": True,
+            "lookup": {"ref_code": None, "found": False},
+        }
 
     async with db.tenant_context(ctx.tenant_id, "customer") as conn:
         result = await lookup_order_or_ticket(
@@ -62,8 +66,21 @@ async def run(state: AgentState) -> dict[str, Any]:
     if not result.found:
         text = NOT_FOUND_TEMPLATE.format(ref_code=extraction.ref_code)
         writer({"type": "refusal", "text": text})
-        return {"draft_response": text, "draft_deterministic": True}
+        return {
+            "draft_response": text,
+            "draft_deterministic": True,
+            "lookup": {"ref_code": extraction.ref_code, "found": False},
+        }
 
     text = FOUND_TEMPLATE.format(kind=result.kind, ref_code=result.ref_code, status=result.status)
     writer({"type": "token", "text": text})
-    return {"draft_response": text, "draft_deterministic": True}
+    return {
+        "draft_response": text,
+        "draft_deterministic": True,
+        "lookup": {
+            "ref_code": result.ref_code,
+            "found": True,
+            "status": result.status,
+            "kind": result.kind,
+        },
+    }

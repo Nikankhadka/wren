@@ -63,11 +63,17 @@ async def run(state: AgentState) -> dict[str, Any]:
             "route": "escalation",
             "route_confidence": decision.confidence,
             "escalation_reason": "low_confidence",
+            "route_reason": decision.reason,
         }
     if decision.route == "escalation":
         return {
             "route": "escalation",
             "route_confidence": decision.confidence,
             "escalation_reason": "customer_request",
+            "route_reason": decision.reason,
         }
-    return {"route": decision.route, "route_confidence": decision.confidence}
+    return {
+        "route": decision.route,
+        "route_confidence": decision.confidence,
+        "route_reason": decision.reason,
+    }
