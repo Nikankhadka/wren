@@ -70,7 +70,7 @@
 **Accept:** green on main; the deliberate break was caught; secrets via GitHub Actions secrets (provider keys), LLM-dependent evals use pinned models + cached seeds to control flake and cost.
 **Tests:** the pipeline is the test.
 
-### T-030 `[ ]` Tracing + cost accounting (5h)
+### T-030 `[x]` Tracing + cost accounting (5h)
 **Deps:** T-021. **Stories:** US-090, US-091.
 **Read:** `design/database.md` sections 6-7 (tool_calls, cost_logs).
 **Files:** `backend/app/observability/tracing.py`, `cost.py`; instrumentation across graph/provider/retrieval/pricing.
