@@ -54,6 +54,12 @@ class Settings(BaseSettings):
     # Uploads root (T-007)
     uploads_dir: str = "var/uploads"
 
+    # Observability (T-030): Langfuse tracing is opt-in - empty keys mean the
+    # tracer no-ops, so the free-first stack runs with zero external tracing.
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_host: str = "https://cloud.langfuse.com"
+
     @property
     def app_database_url(self) -> str:
         """The same database, but as the un-privileged ``wren_app`` role the API uses."""

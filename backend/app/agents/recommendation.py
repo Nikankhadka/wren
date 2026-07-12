@@ -115,15 +115,17 @@ async def run(state: AgentState) -> dict[str, Any]:
     search_query = _search_query(query, preferences)
 
     async with db.tenant_context(ctx.tenant_id, "customer") as conn:
-        results = await retrieve(
-            conn,
-            tenant_id=ctx.tenant_id,
-            query=search_query,
-            embedder=ctx.embedder,
-            reranker=ctx.reranker,
-            top_k=5,
-            metadata_kind="catalog_item",
-        )
+        with ctx.turn.span("retrieval") as span:
+            results = await retrieve(
+                conn,
+                tenant_id=ctx.tenant_id,
+                query=search_query,
+                embedder=ctx.embedder,
+                reranker=ctx.reranker,
+                top_k=5,
+                metadata_kind="catalog_item",
+            )
+            span.set(chunks=len(results))
         item_ids = [
             UUID(chunk.metadata["catalog_item_id"])
             for chunk in results

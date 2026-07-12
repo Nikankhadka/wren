@@ -44,6 +44,8 @@ from app.core.limits import (
 from app.llm.dependency import get_embedder_dependency, get_llm_provider
 from app.llm.embedder import Embedder
 from app.llm.provider import LLMProvider
+from app.observability.cost import collect_usage, record_costs
+from app.observability.tracing import get_tracer
 from app.retrieval.dependency import get_reranker_dependency
 from app.retrieval.rerank import Reranker
 
@@ -157,15 +159,6 @@ async def _stream_chat_response(
     yield _sse({"type": "conversation", "conversation_id": str(conversation_id)})
 
     graph = get_graph()
-    # T-028: every LLM call the graph makes is time-bounded by the tenant's
-    # llm_timeout via this wrapper - no node has to remember to wrap its own.
-    context = GraphContext(
-        tenant_id=tenant_id,
-        provider=TimeLimitedProvider(provider, limits.llm_timeout_s),
-        embedder=embedder,
-        reranker=reranker,
-        tool_timeout_s=limits.tool_timeout_s,
-    )
     initial_state = _initial_state(
         conversation_id=conversation_id, tenant_id=tenant_id, message=message
     )
@@ -173,17 +166,39 @@ async def _stream_chat_response(
     full_text = ""
     buffer: list[dict[str, object]] = []
     verdicts: dict[str, object] = {}
+    tool_calls: list[dict[str, object]] = []
+    tracer = get_tracer(config.get_settings())
     try:
-        # T-028 step cap: recursion_limit bounds node executions per turn, so a
-        # pathological retry/route cycle can't spin forever. Overflow is caught
-        # below and turned into the same graceful handoff as a budget stop.
-        stream = graph.astream(
-            initial_state,
-            context=context,
-            stream_mode="custom",
-            config={"recursion_limit": limits.max_steps},
-        )
-        events = [event async for event in stream]
+        # T-030: one trace per turn (a no-op unless Langfuse keys are set),
+        # and collect every LLM call's token usage for the whole turn so a
+        # single cost_logs write can reconcile it against the assistant
+        # message - both spans outlive the whole graph invocation below.
+        with (
+            tracer.turn(tenant_id=tenant_id, conversation_id=conversation_id) as turn,
+            collect_usage() as usages,
+        ):
+            # T-028: every LLM call the graph makes is time-bounded by the
+            # tenant's llm_timeout via this wrapper - no node has to remember
+            # to wrap its own.
+            context = GraphContext(
+                tenant_id=tenant_id,
+                provider=TimeLimitedProvider(provider, limits.llm_timeout_s),
+                embedder=embedder,
+                reranker=reranker,
+                tool_timeout_s=limits.tool_timeout_s,
+                turn=turn,
+            )
+            # T-028 step cap: recursion_limit bounds node executions per turn,
+            # so a pathological retry/route cycle can't spin forever. Overflow
+            # is caught below and turned into the same graceful handoff as a
+            # budget stop.
+            stream = graph.astream(
+                initial_state,
+                context=context,
+                stream_mode="custom",
+                config={"recursion_limit": limits.max_steps},
+            )
+            events = [event async for event in stream]
     except GraphRecursionError:
         await _record_limit_escalation(
             tenant_id=tenant_id,
@@ -191,6 +206,13 @@ async def _stream_chat_response(
             reason=STEP_CAP_ESCALATION_REASON,
             message=BUDGET_UNAVAILABLE_MESSAGE,
         )
+        # T-030: the overflow turn still made real LLM calls before the cap
+        # tripped - by definition more than a normal turn's worth. Its usage
+        # must land in cost_logs or step-capped turns are invisible to the
+        # T-028 daily budget, which sums exactly that table.
+        if usages:
+            async with db.tenant_context(tenant_id, "customer") as conn:
+                await record_costs(conn, tenant_id, conversation_id, usages)
         yield _sse({"type": "refusal", "text": BUDGET_UNAVAILABLE_MESSAGE})
         yield _sse({"type": "escalated"})
         yield _sse({"type": "done"})
@@ -206,6 +228,11 @@ async def _stream_chat_response(
             # attempt - never combined with prior token events.
             full_text = str(event["text"])
             buffer = [event]
+        elif etype == "tool_call":
+            # T-030: a node invoked a tool - persisted against the assistant
+            # message below for the Surface-2 trace, never streamed to the
+            # customer.
+            tool_calls.append(event)
         elif etype == "redraft":
             # T-018/T-021: a gate rejected the draft text already
             # accumulated; the producing node is about to stream fresh
@@ -230,14 +257,30 @@ async def _stream_chat_response(
             buffer.append(event)
 
     async with db.tenant_context(tenant_id, "customer") as conn:
-        await conn.execute(
+        message_id = await conn.fetchval(
             "insert into messages (tenant_id, conversation_id, role, content, metadata) "
-            "values ($1, $2, 'assistant', $3, $4)",
+            "values ($1, $2, 'assistant', $3, $4) returning id",
             tenant_id,
             conversation_id,
             full_text,
             json.dumps({"inspection": verdicts} if verdicts else {}),
         )
+        # T-030: tool_calls rows (the Surface-2 TraceTree) and cost_logs rows
+        # (per-turn token accounting, backing the T-028 budget and dashboards).
+        for call in tool_calls:
+            await conn.execute(
+                "insert into tool_calls "
+                "(tenant_id, message_id, tool_name, arguments, result, success, latency_ms) "
+                "values ($1, $2, $3, $4, $5, $6, $7)",
+                tenant_id,
+                message_id,
+                str(call.get("name", "")),
+                json.dumps(call.get("arguments", {})),
+                json.dumps(call.get("result")),
+                bool(call.get("success", True)),
+                call.get("latency_ms"),
+            )
+        await record_costs(conn, tenant_id, conversation_id, usages)
     yield _sse({"type": "done"})
 
 

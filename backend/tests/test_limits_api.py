@@ -29,6 +29,7 @@ from app.core.limits import (
     tenant_over_budget,
 )
 from app.llm.provider import ChatMessage, SchemaT
+from app.observability.cost import report_usage
 from app.retrieval.rerank import Reranker
 from app.retrieval.types import RetrievedChunk
 from tests.conftest import _app_dsn_for
@@ -131,6 +132,53 @@ async def test_step_cap_yields_graceful_handoff_not_a_stack_trace(
         "select status from conversations where id = $1", conversation_id
     )
     assert status == "escalated"
+
+
+class _UsageReportingKnowledge(_AlwaysRouteKnowledge):
+    """T-030: same routing, but every extract() reports token usage the way a
+    real provider does - so a step-capped turn has usage to account for."""
+
+    async def extract(
+        self, *, system_prompt: str, user_input: str, schema: type[SchemaT]
+    ) -> SchemaT:
+        report_usage("gpt-4o-mini", 100, 10)
+        return await super().extract(
+            system_prompt=system_prompt, user_input=user_input, schema=schema
+        )
+
+
+async def test_step_capped_turn_still_records_its_llm_costs(
+    superuser_conn: asyncpg.Connection[Any],
+) -> None:
+    """T-030: a turn that trips the step cap burned real tokens before the
+    GraphRecursionError - those must land in cost_logs, or step-capped turns
+    are invisible to the daily budget (which sums exactly that table)."""
+    tenant_id, conversation_id = await _seed(superuser_conn)
+    limits = TenantLimits.resolve({"limits": {"max_steps": 2}}, get_settings())
+
+    chunks = [
+        chunk
+        async for chunk in _stream_chat_response(
+            tenant_id=tenant_id,
+            conversation_id=conversation_id,
+            message="What are your hours?",
+            provider=_UsageReportingKnowledge(),
+            embedder=ZeroEmbedder(),
+            reranker=_PassthroughReranker(),
+            limits=limits,
+        )
+    ]
+    assert "escalated" in "".join(chunks)
+
+    rows = await superuser_conn.fetch(
+        "select model, input_tokens, output_tokens from cost_logs "
+        "where tenant_id = $1 and conversation_id = $2",
+        tenant_id,
+        conversation_id,
+    )
+    assert len(rows) >= 1  # at least the supervisor's extract() call
+    assert all(row["model"] == "gpt-4o-mini" for row in rows)
+    assert sum(row["input_tokens"] for row in rows) >= 100
 
 
 async def test_over_budget_tenant_is_detected_and_escalated(

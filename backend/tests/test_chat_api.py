@@ -25,6 +25,7 @@ from app.core import db
 from app.llm.dependency import get_embedder_dependency, get_llm_provider
 from app.llm.provider import SchemaT
 from app.main import app
+from app.observability.cost import report_usage
 from app.retrieval.dependency import get_reranker_dependency
 from app.retrieval.rerank import Reranker
 from app.retrieval.types import RetrievedChunk
@@ -276,3 +277,76 @@ async def test_chat_wrong_tenant_conversation_id_is_404(
         json={"slug": slug_b, "conversation_id": conversation_id, "message": "hi again"},
     )
     assert response.status_code == 404
+
+
+class FakeOrderStatusProvider(BaseFakeProvider):
+    """T-030: routes to order_status and reports fake token usage on every
+    extract() call, so a real /api/chat turn exercises both the tool_calls
+    persistence (order_status's real DB lookup) and cost_logs recording
+    (report_usage -> chat.py's collect_usage()/record_costs())."""
+
+    async def extract(
+        self, *, system_prompt: str, user_input: str, schema: type[SchemaT]
+    ) -> SchemaT:
+        report_usage("fake-model", 10, 5)
+        if "route" in schema.model_fields:
+            return schema.model_validate(
+                {"route": "order_status", "confidence": 1.0, "reason": "test"}
+            )
+        return schema.model_validate({"ref_code": "R-1001", "customer_ref": None})
+
+
+async def _seed_tenant_with_order(conn: asyncpg.Connection[Any], *, slug: str) -> uuid.UUID:
+    tenant_id: uuid.UUID = await conn.fetchval(
+        "insert into tenants (slug, name, status) values ($1, $2, 'active') returning id",
+        slug,
+        "Order Status Chat Test Co",
+    )
+    await conn.execute("insert into tenant_config (tenant_id) values ($1)", tenant_id)
+    await conn.execute(
+        "insert into orders (tenant_id, ref_code, kind, status, details) "
+        "values ($1, 'R-1001', 'repair', 'ready_for_pickup', '{}')",
+        tenant_id,
+    )
+    return tenant_id
+
+
+async def test_chat_persists_tool_calls_and_cost_logs_for_order_status_turn(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    slug = f"chat-order-{uuid.uuid4().hex[:8]}"
+    tenant_id = await _seed_tenant_with_order(superuser_conn, slug=slug)
+    # Override the client fixture's default FakeChatProvider - this turn needs
+    # to route to order_status, not knowledge.
+    app.dependency_overrides[get_llm_provider] = FakeOrderStatusProvider
+
+    chat_response = await client.post(
+        "/api/chat", json={"slug": slug, "message": "any news on repair R-1001?"}
+    )
+    assert chat_response.status_code == 200
+    conversation_id = _parse_sse(chat_response.text)[0]["conversation_id"]
+
+    tool_call_row = await superuser_conn.fetchrow(
+        "select tc.tool_name, tc.arguments, tc.result, tc.success, tc.latency_ms "
+        "from tool_calls tc join messages m on m.id = tc.message_id "
+        "where m.tenant_id = $1 and m.conversation_id = $2",
+        tenant_id,
+        uuid.UUID(conversation_id),
+    )
+    assert tool_call_row is not None
+    assert tool_call_row["tool_name"] == "lookup_order_or_ticket"
+    assert json.loads(tool_call_row["arguments"])["ref_code"] == "R-1001"
+    assert json.loads(tool_call_row["result"])["found"] is True
+    assert tool_call_row["success"] is True
+    assert tool_call_row["latency_ms"] is not None
+
+    cost_rows = await superuser_conn.fetch(
+        "select model, input_tokens, output_tokens, cost_usd from cost_logs "
+        "where tenant_id = $1 and conversation_id = $2",
+        tenant_id,
+        uuid.UUID(conversation_id),
+    )
+    assert len(cost_rows) >= 1
+    assert all(row["model"] == "fake-model" for row in cost_rows)
+    assert sum(row["input_tokens"] for row in cost_rows) >= 10
+    assert all(row["cost_usd"] == 0 for row in cost_rows)  # unknown model prices at $0

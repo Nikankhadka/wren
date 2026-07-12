@@ -173,15 +173,17 @@ async def run(state: AgentState) -> dict[str, Any]:
             "select code, label, unit from pricing_rules where tenant_id = $1 and active",
             ctx.tenant_id,
         )
-        chunks = await retrieve(
-            conn,
-            tenant_id=ctx.tenant_id,
-            query=query,
-            embedder=ctx.embedder,
-            reranker=ctx.reranker,
-            top_k=5,
-            metadata_kind="catalog_item",
-        )
+        with ctx.turn.span("retrieval") as span:
+            chunks = await retrieve(
+                conn,
+                tenant_id=ctx.tenant_id,
+                query=query,
+                embedder=ctx.embedder,
+                reranker=ctx.reranker,
+                top_k=5,
+                metadata_kind="catalog_item",
+            )
+            span.set(chunks=len(chunks))
         item_ids = [
             UUID(chunk.metadata["catalog_item_id"])
             for chunk in chunks
@@ -237,9 +239,11 @@ async def run(state: AgentState) -> dict[str, Any]:
     quote: EngineQuote | None = None
     async with db.tenant_context(ctx.tenant_id, "customer") as conn:
         try:
-            quote = await compute_quote(
-                conn, ctx.tenant_id, _to_engine_selections(result.selections)
-            )
+            with ctx.turn.span("pricing_engine") as span:
+                quote = await compute_quote(
+                    conn, ctx.tenant_id, _to_engine_selections(result.selections)
+                )
+                span.set(total_cents=quote.total_cents)
         except SelectionError as error:
             # One re-select with the typed error in context; the engine never
             # substitutes, so a still-bad second attempt escalates.
@@ -254,9 +258,11 @@ async def run(state: AgentState) -> dict[str, Any]:
             try:
                 if not result.selections:
                     raise SelectionError("no selections on re-attempt")
-                quote = await compute_quote(
-                    conn, ctx.tenant_id, _to_engine_selections(result.selections)
-                )
+                with ctx.turn.span("pricing_engine") as span:
+                    quote = await compute_quote(
+                        conn, ctx.tenant_id, _to_engine_selections(result.selections)
+                    )
+                    span.set(total_cents=quote.total_cents)
             except SelectionError:
                 writer({"type": "refusal", "text": ESCALATION_MESSAGE})
                 return {

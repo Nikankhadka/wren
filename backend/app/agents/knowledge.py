@@ -106,14 +106,16 @@ async def run(state: AgentState) -> dict[str, Any]:
         config_row = await conn.fetchrow(
             "select system_prompt, tone from tenant_config where tenant_id = $1", ctx.tenant_id
         )
-        results = await retrieve(
-            conn,
-            tenant_id=ctx.tenant_id,
-            query=query,
-            embedder=ctx.embedder,
-            reranker=ctx.reranker,
-            top_k=5,
-        )
+        with ctx.turn.span("retrieval") as span:
+            results = await retrieve(
+                conn,
+                tenant_id=ctx.tenant_id,
+                query=query,
+                embedder=ctx.embedder,
+                reranker=ctx.reranker,
+                top_k=5,
+            )
+            span.set(chunks=len(results))
 
     relevant = [chunk for chunk in results if chunk.score > REFUSAL_SCORE_THRESHOLD]
     if not relevant:

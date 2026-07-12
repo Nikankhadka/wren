@@ -12,6 +12,7 @@ against a templated string no LLM authored.
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from langgraph.config import get_stream_writer
@@ -62,13 +63,29 @@ async def run(state: AgentState) -> dict[str, Any]:
     async with db.tenant_context(ctx.tenant_id, "customer") as conn:
         # T-028: the one real tool call in the graph is time-bounded so a slow
         # or hung DB lookup can't stall the turn indefinitely.
-        result = await with_timeout(
-            lookup_order_or_ticket(
-                conn, ctx.tenant_id, extraction.ref_code, extraction.customer_ref
-            ),
-            ctx.tool_timeout_s,
-            what="order lookup",
-        )
+        with ctx.turn.span("tool:lookup_order_or_ticket") as span:
+            started = time.perf_counter()
+            result = await with_timeout(
+                lookup_order_or_ticket(
+                    conn, ctx.tenant_id, extraction.ref_code, extraction.customer_ref
+                ),
+                ctx.tool_timeout_s,
+                what="order lookup",
+            )
+            latency_ms = int((time.perf_counter() - started) * 1000)
+            span.set(found=result.found, latency_ms=latency_ms)
+    # T-030: record the tool invocation for the Surface-2 trace (chat.py
+    # persists it against the assistant message once that row exists).
+    writer(
+        {
+            "type": "tool_call",
+            "name": "lookup_order_or_ticket",
+            "arguments": {"ref_code": extraction.ref_code, "customer_ref": extraction.customer_ref},
+            "result": {"found": result.found, "status": result.status, "kind": result.kind},
+            "success": True,
+            "latency_ms": latency_ms,
+        }
+    )
 
     if not result.found:
         text = NOT_FOUND_TEMPLATE.format(ref_code=extraction.ref_code)

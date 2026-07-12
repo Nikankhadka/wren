@@ -17,6 +17,7 @@ from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
+from langgraph.runtime import get_runtime
 
 from app.agents import (
     escalation,
@@ -36,6 +37,50 @@ _SPECIALISTS = ("knowledge", "recommendation", "quoting", "order_status", "escal
 _PRICE_GATED = ("recommendation", "quoting")
 
 SupervisorNode = Callable[[AgentState], Awaitable[dict[str, Any]]]
+
+# T-030: scalar-only whitelist for span attributes - never a raw draft/message/
+# chunk-content field, which could carry cross-tenant-sensitive text into a
+# tracing backend outside the app's own tenant-scoping (T-022's concern, one
+# level removed). Keys not present in a node's return are simply skipped.
+_SPAN_ATTR_KEYS = (
+    "route",
+    "route_confidence",
+    "route_reason",
+    "price_gate_decision",
+    "inspection_decision",
+    "escalated",
+    "escalation_reason",
+    "draft_deterministic",
+)
+
+
+def _span_attrs(result: dict[str, Any]) -> dict[str, Any]:
+    attrs = {key: result[key] for key in _SPAN_ATTR_KEYS if key in result}
+    if "retrieved_chunks" in result:
+        attrs["chunks"] = len(result["retrieved_chunks"])
+    if "selections" in result:
+        attrs["selections"] = len(result["selections"])
+    if "inspection" in result and result["inspection"]:
+        for check, verdict in result["inspection"].items():
+            attrs[f"inspection_{check}"] = verdict.get("passed")
+    return attrs
+
+
+def _traced(name: str, node: Callable[[AgentState], Awaitable[dict[str, Any]]]) -> SupervisorNode:
+    """Wraps a node in a tracing span instead of editing every node body -
+    mechanical, applies uniformly to all 8 nodes (including a test's forced
+    supervisor_node), and costs nothing when the tracer is the T-030 no-op
+    default. get_runtime() works here since the wrapper IS the node LangGraph
+    executes (T-013's get_runtime()-only-inside-a-node constraint still holds)."""
+
+    async def wrapped(state: AgentState) -> dict[str, Any]:
+        turn = get_runtime(GraphContext).context.turn
+        with turn.span(name) as span:
+            result = await node(state)
+            span.set(**_span_attrs(result))
+            return result
+
+    return wrapped
 
 
 def _price_gate_route(state: AgentState) -> str:
@@ -71,17 +116,23 @@ def build_graph(
     specific route without needing real intent-classification logic (T-013)
     - production always uses the default (the real supervisor stub/impl)."""
     graph = StateGraph(AgentState, context_schema=GraphContext)
-    # supervisor_node's type (a plain Callable alias, for test swappability)
-    # doesn't structurally match add_node's narrow _Node[...] protocol
-    # overloads the way a directly-referenced function does.
-    graph.add_node("supervisor", supervisor_node)  # type: ignore[call-overload]
-    graph.add_node("knowledge", knowledge.run)
-    graph.add_node("recommendation", recommendation.run)
-    graph.add_node("quoting", quoting.run)
-    graph.add_node("order_status", order_status.run)
-    graph.add_node("escalation", escalation.run)
-    graph.add_node("price_gate", price_gate.run)
-    graph.add_node("inspection", inspection.run)
+    # _traced()'s return type (a plain Callable alias, matching supervisor_node's
+    # own pre-existing swappability shape) doesn't structurally match add_node's
+    # narrow _Node[...] protocol overloads the way a directly-referenced
+    # function does - every node now goes through the tracing wrapper, so
+    # every registration needs the same ignore the supervisor line already did.
+    graph.add_node("supervisor", _traced("supervisor", supervisor_node))  # type: ignore[call-overload]
+    graph.add_node("knowledge", _traced("knowledge", knowledge.run))  # type: ignore[call-overload]
+    graph.add_node(  # type: ignore[call-overload]
+        "recommendation", _traced("recommendation", recommendation.run)
+    )
+    graph.add_node("quoting", _traced("quoting", quoting.run))  # type: ignore[call-overload]
+    graph.add_node(  # type: ignore[call-overload]
+        "order_status", _traced("order_status", order_status.run)
+    )
+    graph.add_node("escalation", _traced("escalation", escalation.run))  # type: ignore[call-overload]
+    graph.add_node("price_gate", _traced("price_gate", price_gate.run))  # type: ignore[call-overload]
+    graph.add_node("inspection", _traced("inspection", inspection.run))  # type: ignore[call-overload]
 
     graph.add_edge(START, "supervisor")
     graph.add_conditional_edges(

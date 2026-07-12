@@ -8,11 +8,20 @@ model output. Never touched by tests directly - they stub ``LLMProvider``.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from typing import Any
 
 from openai import AsyncAzureOpenAI
 
 from app.core.config import Settings
 from app.llm.provider import ChatMessage, LLMProvider, SchemaT
+from app.observability.cost import report_usage
+
+
+def _report(model: str, usage: Any) -> None:
+    """Forward an Azure completion's usage to the T-030 cost sink, if any."""
+    if usage is not None:
+        report_usage(model, usage.prompt_tokens or 0, usage.completion_tokens or 0)
+
 
 _API_VERSION = "2024-10-21"
 
@@ -37,6 +46,7 @@ class AzureOpenAIProvider(LLMProvider):
             ],
             response_format=schema,
         )
+        _report(self._deployment, completion.usage)
         parsed = completion.choices[0].message.parsed
         if parsed is None:
             raise ValueError("model produced no parseable structured output")
@@ -47,22 +57,25 @@ class AzureOpenAIProvider(LLMProvider):
             model=self._deployment,
             messages=[dict(message) for message in messages],  # type: ignore[misc]
         )
+        _report(self._deployment, completion.usage)
         content = completion.choices[0].message.content
         if content is None:
             raise ValueError("model produced no chat content")
         return content
 
     async def chat_stream(self, messages: list[ChatMessage]) -> AsyncIterator[str]:
-        stream = await self._client.chat.completions.create(
+        # stream_options widens the overload set past what mypy can match (a
+        # dict literal isn't the SDK's typed param object) - the whole call
+        # falls back to Any, so no per-argument ignore is needed below it.
+        stream = await self._client.chat.completions.create(  # type: ignore[call-overload]
             model=self._deployment,
-            messages=[dict(message) for message in messages],  # type: ignore[misc]
+            messages=[dict(message) for message in messages],
             stream=True,
+            stream_options={"include_usage": True},
         )
-        # create()'s return type is a stream/non-stream union that mypy can't
-        # narrow here (the messages kwarg's own type: ignore above already
-        # widens the overload match) - stream=True always yields the async
-        # iterable half of that union at runtime.
-        async for chunk in stream:  # type: ignore[union-attr]
+        async for chunk in stream:
+            if getattr(chunk, "usage", None) is not None:
+                _report(self._deployment, chunk.usage)
             delta = chunk.choices[0].delta.content if chunk.choices else None
             if delta:
                 yield delta

@@ -11,13 +11,16 @@ of an LLM stream.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, NotRequired, TypedDict
 from uuid import UUID
+
+from app.observability.tracing import NOOP_TURN
 
 if TYPE_CHECKING:
     from app.llm.embedder import Embedder
     from app.llm.provider import LLMProvider
+    from app.observability.tracing import Turn
     from app.retrieval.rerank import Reranker
 
 
@@ -75,3 +78,7 @@ class GraphContext:
     # resolved limits. LLM-call timeouts are applied separately by wrapping the
     # provider (app/core/limits.py's TimeLimitedProvider), so no field here.
     tool_timeout_s: float = 15.0
+    # T-030: the active tracing turn nodes open spans against. Defaults to the
+    # stateless no-op singleton so every existing constructor (evals, tests)
+    # stays valid; chat.py passes the real turn opened around the graph run.
+    turn: Turn = field(default=NOOP_TURN)
