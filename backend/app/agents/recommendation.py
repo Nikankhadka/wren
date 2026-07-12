@@ -65,10 +65,9 @@ def _draft_messages(
     )
     if violations:
         system_prompt += (
-            "\n\nYour previous draft was rejected by the price-provenance gate: "
-            + "; ".join(violations)
-            + ". Redraft now - name prices only exactly as listed above, or "
-            "leave them out entirely."
+            "\n\nYour previous draft was rejected: " + "; ".join(violations) + ". Redraft now, "
+            "addressing this - name prices only exactly as listed above, or leave them out "
+            "entirely."
         )
     return [
         {"role": "system", "content": system_prompt},
@@ -82,10 +81,11 @@ async def run(state: AgentState) -> dict[str, Any]:
     writer = get_stream_writer()
     query = state["messages"][-1]["content"]
 
-    # T-018 redraft path: the gate bounced the previous draft. Selections
-    # (with their DB-sourced prices) are already in state - only the prose
-    # gets regenerated, with the violations spelled out.
-    violations = state.get("price_violations")
+    # T-018/T-021 redraft path: a gate (price_gate or inspection) bounced
+    # the previous draft. Selections (with their DB-sourced prices) are
+    # already in state - only the prose gets regenerated, with the
+    # violations spelled out.
+    violations = state.get("price_violations") or state.get("inspection_violations")
     if violations and state["selections"]:
         redraft_text = ""
         async for delta in ctx.provider.chat_stream(
@@ -93,7 +93,15 @@ async def run(state: AgentState) -> dict[str, Any]:
         ):
             redraft_text += delta
             writer({"type": "token", "text": delta})
-        return {"draft_response": redraft_text}
+        # Clear both gates' violation keys - whichever gate re-checks this
+        # redraft (price_gate, then possibly inspection) must only ever see
+        # the violations IT found, never a stale set from the other gate's
+        # earlier pass.
+        return {
+            "draft_response": redraft_text,
+            "price_violations": [],
+            "inspection_violations": [],
+        }
 
     preferences = await ctx.provider.extract(
         system_prompt=_EXTRACTION_PROMPT, user_input=query, schema=PreferenceExtraction
@@ -128,7 +136,7 @@ async def run(state: AgentState) -> dict[str, Any]:
 
     if not rows:
         writer({"type": "refusal", "text": REFUSAL_MESSAGE})
-        return {"draft_response": REFUSAL_MESSAGE, "selections": []}
+        return {"draft_response": REFUSAL_MESSAGE, "selections": [], "draft_deterministic": True}
 
     selections = [
         {

@@ -36,8 +36,9 @@ async def test_all_migrations_recorded(superuser_conn: asyncpg.Connection[Any]) 
     on_disk = sorted(p.name for p in MIGRATIONS_DIR.glob("*.sql"))
     # 0001-0008 per phase 1 (T-002); 0009 adds T-004's auth pre-context
     # resolvers; 0010 retargets embeddings to the 384-dim provider-agnostic
-    # contract; 0011 adds T-020's escalation dedupe index.
-    assert len(on_disk) == 11, "expected migrations 0001-0011"
+    # contract; 0011 adds T-020's escalation dedupe index; 0012 adds T-021's
+    # messages.metadata column.
+    assert len(on_disk) == 12, "expected migrations 0001-0012"
     applied = await superuser_conn.fetch("select version from schema_migrations order by version")
     assert [r["version"] for r in applied] == on_disk
 

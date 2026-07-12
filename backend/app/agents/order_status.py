@@ -5,7 +5,9 @@ a generation call - so it can never invent a status or detail that isn't in
 the row. Only the ref-code extraction itself needs the model: a regex would
 have to assume a code format, which would hardcode an assumption about a
 tenant's vocabulary (domain-agnostic hard rule) - codes are free-text data,
-not a fixed pattern.
+not a fixed pattern. Every return sets ``draft_deterministic`` (T-021) so
+Inspection skips its checks entirely - none of them can meaningfully fail
+against a templated string no LLM authored.
 """
 
 from __future__ import annotations
@@ -50,7 +52,7 @@ async def run(state: AgentState) -> dict[str, Any]:
 
     if not extraction.ref_code:
         writer({"type": "refusal", "text": ASK_FOR_CODE_MESSAGE})
-        return {"draft_response": ASK_FOR_CODE_MESSAGE}
+        return {"draft_response": ASK_FOR_CODE_MESSAGE, "draft_deterministic": True}
 
     async with db.tenant_context(ctx.tenant_id, "customer") as conn:
         result = await lookup_order_or_ticket(
@@ -60,8 +62,8 @@ async def run(state: AgentState) -> dict[str, Any]:
     if not result.found:
         text = NOT_FOUND_TEMPLATE.format(ref_code=extraction.ref_code)
         writer({"type": "refusal", "text": text})
-        return {"draft_response": text}
+        return {"draft_response": text, "draft_deterministic": True}
 
     text = FOUND_TEMPLATE.format(kind=result.kind, ref_code=result.ref_code, status=result.status)
     writer({"type": "token", "text": text})
-    return {"draft_response": text}
+    return {"draft_response": text, "draft_deterministic": True}

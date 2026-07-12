@@ -6,6 +6,10 @@ a chance to invent an answer from nothing), otherwise stream a cited answer.
 Opens its own short-lived ``tenant_context`` for retrieval only - never for
 the generation call - so a slow LLM stream never holds a pooled connection
 (same rule T-011 established, still true now that this runs as a graph node).
+
+T-021 redraft path: Inspection bounced the previous draft. The chunks
+already retrieved are still valid provenance - no second retrieval, only the
+prose gets regenerated with the violations spelled out.
 """
 
 from __future__ import annotations
@@ -34,10 +38,12 @@ def _citation_source(chunk: RetrievedChunk) -> str:
     return str(source) if source else "knowledge base"
 
 
-def _build_system_prompt(chunks: list[RetrievedChunk], *, tenant_prompt: str, tone: str) -> str:
-    context_block = "\n\n".join(f"[{i + 1}] {chunk.content}" for i, chunk in enumerate(chunks))
+def _build_system_prompt(
+    chunk_contents: list[str], *, tenant_prompt: str, tone: str, violations: list[str] | None = None
+) -> str:
+    context_block = "\n\n".join(f"[{i + 1}] {content}" for i, content in enumerate(chunk_contents))
     base = tenant_prompt or "You are the AI support and sales assistant for this business."
-    return (
+    prompt = (
         f"{base}\n"
         f"Tone: {tone or 'friendly'}.\n"
         "Answer the customer's question using ONLY the numbered context below. "
@@ -46,6 +52,13 @@ def _build_system_prompt(chunks: list[RetrievedChunk], *, tenant_prompt: str, to
         "never invent information.\n\n"
         f"Context:\n{context_block}"
     )
+    if violations:
+        prompt += (
+            "\n\nYour previous draft was rejected: "
+            + "; ".join(violations)
+            + ". Redraft now, addressing this."
+        )
+    return prompt
 
 
 async def run(state: AgentState) -> dict[str, Any]:
@@ -53,6 +66,28 @@ async def run(state: AgentState) -> dict[str, Any]:
     ctx = runtime.context
     writer = get_stream_writer()
     query = state["messages"][-1]["content"]
+
+    violations = state.get("inspection_violations")
+    if violations and state["retrieved_chunks"]:
+        async with db.tenant_context(ctx.tenant_id, "customer") as conn:
+            config_row = await conn.fetchrow(
+                "select system_prompt, tone from tenant_config where tenant_id = $1", ctx.tenant_id
+            )
+        redraft_system_prompt = _build_system_prompt(
+            [chunk["content"] for chunk in state["retrieved_chunks"]],
+            tenant_prompt=config_row["system_prompt"] if config_row else "",
+            tone=config_row["tone"] if config_row else "",
+            violations=violations,
+        )
+        redraft_messages: list[ChatMessage] = [
+            {"role": "system", "content": redraft_system_prompt},
+            {"role": "user", "content": query},
+        ]
+        redraft_text = ""
+        async for delta in ctx.provider.chat_stream(redraft_messages):
+            redraft_text += delta
+            writer({"type": "token", "text": delta})
+        return {"draft_response": redraft_text}
 
     async with db.tenant_context(ctx.tenant_id, "customer") as conn:
         config_row = await conn.fetchrow(
@@ -70,7 +105,11 @@ async def run(state: AgentState) -> dict[str, Any]:
     relevant = [chunk for chunk in results if chunk.score > REFUSAL_SCORE_THRESHOLD]
     if not relevant:
         writer({"type": "refusal", "text": REFUSAL_MESSAGE})
-        return {"draft_response": REFUSAL_MESSAGE, "retrieved_chunks": []}
+        return {
+            "draft_response": REFUSAL_MESSAGE,
+            "retrieved_chunks": [],
+            "draft_deterministic": True,
+        }
 
     citations = [
         {"index": i + 1, "source": _citation_source(chunk), "snippet": chunk.content[:200]}
@@ -79,7 +118,7 @@ async def run(state: AgentState) -> dict[str, Any]:
     writer({"type": "citations", "citations": citations})
 
     system_prompt = _build_system_prompt(
-        relevant,
+        [chunk.content for chunk in relevant],
         tenant_prompt=config_row["system_prompt"] if config_row else "",
         tone=config_row["tone"] if config_row else "",
     )

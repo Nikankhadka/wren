@@ -1,8 +1,9 @@
 """T-012: Supervisor -> conditional edge on route -> one specialist ->
-Inspection -> END. All specialist/inspection nodes are stubs except
-knowledge (T-011's straight RAG, moved here) - the supervisor always routes
-there for now (T-013 implements real routing), so the graph reproduces
-T-011's behavior exactly.
+[price_gate for money-carrying specialists] -> Inspection -> END, retry, or
+Escalation. Inspection (T-021) is the last gate every draft crosses: a
+failure re-enters its producing specialist for one redraft, a second
+failure escalates - the same shape as price_gate's own retry/escalate
+loop, one level up.
 
 Compiled once at import time (langgraph graphs are meant to be reused
 across invocations, not rebuilt per request) - state and context carry
@@ -48,6 +49,21 @@ def _price_gate_route(state: AgentState) -> str:
     return "inspection"
 
 
+def _inspection_route(state: AgentState) -> str:
+    decision = state.get("inspection_decision")
+    if decision == "retry":
+        route = state["route"]
+        # order_status/escalation drafts are always draft_deterministic (or
+        # already escalated) and short-circuit inspection before a retry
+        # decision is ever possible - only these three ever reach a real,
+        # retryable LLM-authored draft.
+        assert route in ("knowledge", "recommendation", "quoting")
+        return route
+    if decision == "escalate":
+        return "escalation"
+    return "ok"
+
+
 def build_graph(
     *, supervisor_node: SupervisorNode = supervisor.run
 ) -> CompiledStateGraph[AgentState, GraphContext, AgentState, AgentState]:
@@ -88,7 +104,17 @@ def build_graph(
             "escalation": "escalation",
         },
     )
-    graph.add_edge("inspection", END)
+    graph.add_conditional_edges(
+        "inspection",
+        _inspection_route,
+        {
+            "ok": END,
+            "knowledge": "knowledge",
+            "recommendation": "recommendation",
+            "quoting": "quoting",
+            "escalation": "escalation",
+        },
+    )
 
     return graph.compile()
 

@@ -49,6 +49,12 @@ class FakeQuotingProvider(BaseFakeProvider):
     async def extract(
         self, *, system_prompt: str, user_input: str, schema: type[SchemaT]
     ) -> SchemaT:
+        if "grounding" in schema.model_fields:
+            # T-021's inspection node, not one of this node's own selection/
+            # budget calls - every field defaults to a passing verdict, and
+            # this call is deliberately excluded from extract_calls (which
+            # tracks only quoting.py's own calls).
+            return schema.model_validate({})
         self.extract_calls.append((system_prompt, user_input))
         if "selections" in schema.model_fields:
             return schema.model_validate(self._selection_payloads.pop(0))

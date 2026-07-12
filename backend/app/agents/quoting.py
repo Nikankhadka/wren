@@ -123,9 +123,9 @@ def _quote_payload(quote_id: UUID, quote: EngineQuote) -> dict[str, Any]:
 
 def _redraft_note(violations: list[str]) -> str:
     return (
-        "\n\nYour previous draft was rejected by the price-provenance gate: "
+        "\n\nYour previous draft was rejected: "
         + "; ".join(violations)
-        + ". Redraft now and state no monetary amounts at all."
+        + ". Redraft now, addressing this - state no monetary amounts yourself either way."
     )
 
 
@@ -135,10 +135,11 @@ async def run(state: AgentState) -> dict[str, Any]:
     writer = get_stream_writer()
     query = state["messages"][-1]["content"]
 
-    # T-018 redraft path: the gate bounced the previous draft. The quote
-    # itself is engine-computed and already persisted - only the prose gets
-    # regenerated, with the violations spelled out.
-    violations = state.get("price_violations")
+    # T-018/T-021 redraft path: a gate (price_gate or inspection) bounced
+    # the previous draft. The quote itself is engine-computed and already
+    # persisted - only the prose gets regenerated, with the violations
+    # spelled out.
+    violations = state.get("price_violations") or state.get("inspection_violations")
     engine_quote = state["engine_quote"]
     if violations and engine_quote is not None:
         coverage = "\n".join(
@@ -156,7 +157,15 @@ async def run(state: AgentState) -> dict[str, Any]:
         async for delta in ctx.provider.chat_stream(redraft_messages):
             redraft_text += delta
             writer({"type": "token", "text": delta})
-        return {"draft_response": redraft_text}
+        # Clear both gates' violation keys - whichever gate re-checks this
+        # redraft (price_gate, then possibly inspection) must only ever see
+        # the violations IT found, never a stale set from the other gate's
+        # earlier pass.
+        return {
+            "draft_response": redraft_text,
+            "price_violations": [],
+            "inspection_violations": [],
+        }
 
     async with db.tenant_context(ctx.tenant_id, "customer") as conn:
         rules = await conn.fetch(
@@ -191,7 +200,11 @@ async def run(state: AgentState) -> dict[str, Any]:
 
     if not rules and not items:
         writer({"type": "refusal", "text": NO_CANDIDATES_MESSAGE})
-        return {"draft_response": NO_CANDIDATES_MESSAGE, "selections": []}
+        return {
+            "draft_response": NO_CANDIDATES_MESSAGE,
+            "selections": [],
+            "draft_deterministic": True,
+        }
 
     # Candidate block deliberately carries no prices - the model picks WHAT,
     # the engine alone knows HOW MUCH.
@@ -206,7 +219,7 @@ async def run(state: AgentState) -> dict[str, Any]:
     )
     if not result.selections:
         writer({"type": "refusal", "text": CLARIFY_MESSAGE})
-        return {"draft_response": CLARIFY_MESSAGE, "selections": []}
+        return {"draft_response": CLARIFY_MESSAGE, "selections": [], "draft_deterministic": True}
 
     quote: EngineQuote | None = None
     async with db.tenant_context(ctx.tenant_id, "customer") as conn:

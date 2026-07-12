@@ -41,6 +41,16 @@ class AgentState(TypedDict):
     price_gate_attempted: NotRequired[bool]
     price_gate_decision: NotRequired[str]
     escalation_reason: NotRequired[str]
+    # T-021 reasoning-inspection gate: violations text fed back to the
+    # producing specialist on redraft, whether the one allowed redraft was
+    # already spent, the gate's routing decision, and a marker a specialist
+    # sets on any non-LLM-authored draft (template/refusal constants) so
+    # inspection can skip every check - nothing about them can fail
+    # grounding/policy/injection/prompt-leak since no LLM produced them.
+    inspection_violations: NotRequired[list[str]]
+    inspection_attempted: NotRequired[bool]
+    inspection_decision: NotRequired[str]
+    draft_deterministic: NotRequired[bool]
 
 
 @dataclass(frozen=True)

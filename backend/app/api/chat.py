@@ -2,13 +2,19 @@
 
 ``POST /api/chat`` is unauthenticated (the customer surface has no login) -
 tenant scope comes entirely from the slug, resolved the same way T-005's
-public tenant lookup does. As of T-012 the actual retrieval/generation logic
-lives in app/agents/graph.py's compiled graph (supervisor -> knowledge ->
-inspection for now, since the supervisor stub always routes to knowledge) -
-this module just resolves the tenant/conversation, invokes the graph, and
-translates its custom-streamed events into SSE. Behavior is unchanged from
-T-011 (same event shape, same refusal-on-no-context rule, same
-conversation/message persistence) - only the internals moved.
+public tenant lookup does. The actual retrieval/generation logic lives in
+app/agents/graph.py's compiled graph; this module resolves the
+tenant/conversation, invokes the graph, and translates its custom-streamed
+events into SSE.
+
+T-021: nothing is customer-visible until Inspection clears a draft, so this
+module now buffers every graph event instead of forwarding it immediately.
+A "redraft" (price_gate) or "inspection" event with decision "retry" means
+the buffered draft was rejected and discarded - the producing node is about
+to stream a fresh one. An "inspection" event with any other decision means
+the run is done accumulating for this pass: flush whatever is buffered
+(the approved draft, or an escalation handoff message) and persist its
+verdicts onto the assistant message row for the Surface-2 trace viewer.
 """
 
 from __future__ import annotations
@@ -100,24 +106,49 @@ async def _stream_chat_response(
     )
 
     full_text = ""
+    buffer: list[dict[str, object]] = []
+    verdicts: dict[str, object] = {}
     async for event in graph.astream(initial_state, context=context, stream_mode="custom"):
-        if event["type"] == "token":
-            full_text += event["text"]
-        elif event["type"] == "refusal":
+        etype = event["type"]
+        if etype == "token":
+            full_text += str(event["text"])
+            buffer.append(event)
+        elif etype == "refusal":
+            # A refusal is always a complete, standalone message for its
+            # attempt - never combined with prior token events.
             full_text = str(event["text"])
-        elif event["type"] == "redraft":
-            # T-018: the price gate rejected the draft already streamed; the
-            # producing node streams a fresh one, so persist only that.
+            buffer = [event]
+        elif etype == "redraft":
+            # T-018/T-021: a gate rejected the draft text already
+            # accumulated; the producing node is about to stream fresh
+            # prose. Structured events (quote, citations) survive the
+            # discard - the quote row / retrieved chunks the redraft stays
+            # grounded in are unchanged, and the redraft paths never
+            # re-emit them.
             full_text = ""
-        yield _sse(event)
+            buffer = [e for e in buffer if e["type"] not in ("token", "refusal")]
+        elif etype == "inspection":
+            verdicts = dict(event.get("verdicts", {}))
+            if event.get("decision") == "retry":
+                full_text = ""
+                buffer = [e for e in buffer if e["type"] not in ("token", "refusal")]
+            else:
+                for buffered_event in buffer:
+                    yield _sse(buffered_event)
+                buffer = []
+            # The raw "inspection" event is internal bookkeeping, never
+            # forwarded to the customer surface.
+        else:
+            buffer.append(event)
 
     async with db.tenant_context(tenant_id, "customer") as conn:
         await conn.execute(
-            "insert into messages (tenant_id, conversation_id, role, content) "
-            "values ($1, $2, 'assistant', $3)",
+            "insert into messages (tenant_id, conversation_id, role, content, metadata) "
+            "values ($1, $2, 'assistant', $3, $4)",
             tenant_id,
             conversation_id,
             full_text,
+            json.dumps({"inspection": verdicts} if verdicts else {}),
         )
     yield _sse({"type": "done"})
 
