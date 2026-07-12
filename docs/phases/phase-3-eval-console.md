@@ -31,7 +31,7 @@
 **Steps:** author 20-30 multi-step tasks: quoting scenarios (incl. budget caps, multi-line quotes), recommendation scenarios, order lookups, escalation triggers, mixed-intent conversations. Each case: opening messages, expected route(s), expected tool calls with argument matchers (e.g. rule_code set), expected terminal state (quote row exists / escalation row exists), forbidden behaviors (no invented items, no model-authored figures).
 **Accept:** dataset committed, loadable into eval_cases, covers every specialist at least 4 times.
 
-### T-026 `[ ]` Trajectory scorer (4h)
+### T-026 `[x]` Trajectory scorer (4h)
 **Deps:** T-025. **Stories:** US-070.
 **Read:** `design/database.md` sections 6-7 (tool_calls, eval_runs).
 **Files:** `backend/evals/trajectory_eval.py`.
@@ -39,7 +39,7 @@
 **Accept:** real numbers; failing cases print full trajectories for debugging.
 **Tests:** scorer unit tests on fixture trajectories.
 
-### T-027 `[ ]` Prompt-injection defense + adversarial set (4h)
+### T-027 `[x]` Prompt-injection defense + adversarial set (4h)
 **Deps:** T-021. **Stories:** US-080.
 **Read:** phase-2 T-021 (inspection's injection check); frozen Architecture Doc section 7 ONLY if defense intent is unclear.
 **Files:** `backend/app/agents/spotlight.py`, `backend/evals/datasets/injection_set.jsonl`, `backend/evals/injection_eval.py`.
