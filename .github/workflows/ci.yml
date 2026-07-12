@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# One in-flight run per ref; a newer push cancels the older run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # CI database + migration-runner inputs. WREN_APP_DB_PASSWORD must satisfy
+  # app/core/migrate.py's _SAFE_VALUE_RE (8+ chars, no quotes/backslash/$).
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/wren
+  WREN_APP_DB_PASSWORD: ci_wren_app_pw
+  SUPABASE_JWT_SECRET: ci-only-hs256-secret-not-used-in-prod-000000000000000000000000000000
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Token guard
+        run: npm run check:tokens
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test
+      - name: Build
+        run: npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: wren
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d wren"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Sync deps
+        run: uv sync --frozen
+      - name: Lint
+        run: uv run ruff check .
+      - name: Format check
+        run: uv run ruff format --check .
+      - name: Typecheck
+        run: uv run mypy
+      - name: Tests
+        run: uv run pytest
+
+  eval-gate:
+    runs-on: ubuntu-latest
+    needs: backend
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: wren
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d wren"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      # LLM-dependent evals run only when this secret is present; otherwise
+      # run_gate runs the deterministic security/retrieval gates alone.
+      # Provider bindings default to the free-first stack (openai_compat +
+      # local embedder/reranker) so no cloud key is required for the
+      # deterministic gate. Pinned model keeps LLM-eval numbers comparable.
+      LLM_PROVIDER: openai_compat
+      LLM_BASE_URL: https://openrouter.ai/api/v1
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_MODEL: google/gemma-4-26b-a4b-it:free
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Sync deps
+        run: uv sync --frozen
+      # Cache the HuggingFace models the local embedder/reranker download, so
+      # the deterministic gate doesn't re-fetch ~180MB every run.
+      - name: Cache HF models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-models-bge-small-minilm-v1
+      - name: Migrate CI database
+        run: uv run python -m app.core.migrate
+      - name: Seed tenants (retrieval + leakage)
+        run: |
+          uv run python -m seeds.seed_tenant1_phoneshop
+          uv run python -m seeds.seed_leakage_pair
+      - name: Run eval gate
+        run: |
+          if [ -n "${LLM_API_KEY}" ]; then
+            uv run python -m evals.run_gate
+          else
+            echo "LLM_API_KEY not set - running deterministic gate only"
+            uv run python -m evals.run_gate --skip-llm
+          fi
