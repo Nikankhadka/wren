@@ -6,7 +6,7 @@
 
 ---
 
-### T-023 `[ ]` Generation eval: RAGAS + citation-faithfulness (4h)
+### T-023 `[x]` Generation eval: RAGAS + citation-faithfulness (4h)
 **Deps:** T-014. **Stories:** US-031.
 **Read:** `design/database.md` section 7 (eval_cases/eval_runs); phase-1 T-010 for the dataset/eval-script pattern - mirror it.
 **Files:** `backend/evals/datasets/tenant1_generation.jsonl`, `backend/evals/generation_eval.py`.

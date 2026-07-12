@@ -2,7 +2,7 @@
 
 **The one page to check to know where the build is.** Every ticket in the project is listed below with its status, the commit that delivered it, and a one-line plain-English summary of what that commit actually did.
 
-**Right now:** Phase 1 is fully done. Phase 2 is now fully done (T-012 through T-022 all committed) - next up is **Phase 3 (Eval, CI & console)**, starting at **T-023 (Generation eval)**.
+**Right now:** Phases 1 and 2 are fully done. Phase 3 (Eval, CI & console) is in progress - T-023 is committed; the next ticket is **T-024 ([EDD] Judge calibration)**.
 
 ## How to read this file
 
@@ -54,13 +54,13 @@ Goal: replace the single straight-line chat with a team of specialist agents (a 
 | T-021 Reasoning-inspection layer | done | `e4db924` | Every AI-generated reply now passes a final review before the customer sees it: it must trace to real business content (no invented facts), match the business's tone, not follow hidden instructions planted in retrieved content, not leak the AI's own instructions, and (for price-carrying replies) re-confirm every dollar figure against the pricing engine. A failing reply gets rewritten once; a second failure hands off to a human. Nothing streams to the customer until this passes - a deliberate wait-for-it tradeoff over showing text that might get pulled back. |
 | T-022 Cross-tenant leakage test | done | `e7be3d2` | Proved, with real tests (never skipped, must be 100% or the build is red), that two businesses sharing this system can never see each other's data - not in a search result, an order lookup, a saved conversation, or a full customer chat, even when someone tries to fish for it. Proved the proof itself works by briefly and deliberately breaking the isolation on a throwaway branch and watching the tests correctly catch it, then discarding that branch. |
 
-## Phase 3 - Eval, CI & console (not started)
+## Phase 3 - Eval, CI & console (in progress)
 
 Goal: measure answer quality automatically (and gate CI on it), defend against prompt injection, track per-tenant cost, and build the tenant admin console.
 
 | Ticket | Status | Commit | What was done |
 |---|---|---|---|
-| T-023 Generation eval (RAGAS + citation-faithfulness) | not started | - | |
+| T-023 Generation eval (RAGAS + citation-faithfulness) | done | `aed2086` | An automated grader now checks every AI answer against the business's real knowledge: does every claim actually trace back to a real document (not invented), does the answer actually address what was asked, and - this project's own addition beyond the standard approach - does each individual footnote in the answer actually support the specific sentence it's attached to, not just the topic in general. Real numbers require a live AI model; the free tier used for development is rate-limited, so a full live run is a manual follow-up rather than something proven in this commit. |
 | T-024 Judge calibration | not started | - | |
 | T-025 Golden agent-task set | not started | - | |
 | T-026 Trajectory scorer | not started | - | |
