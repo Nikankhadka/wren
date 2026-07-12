@@ -107,7 +107,7 @@
 **Accept:** planted failures for each check (ungrounded claim, leaked system prompt line, injected instruction, bad figure) are each caught in tests; clean paths pass without visible latency disaster.
 **Tests:** per-check unit tests with stubbed provider; graph-level "second failure escalates" test.
 
-### T-022 `[ ]` [EDD] Cross-tenant leakage test - 100% or red (4h)
+### T-022 `[x]` [EDD] Cross-tenant leakage test - 100% or red (4h)
 **Deps:** T-021. **Stories:** US-081.
 **Read:** `design/database.md` sections 2.3 and 10 (`seed_leakage_pair.py`).
 **Files:** `backend/seeds/seed_leakage_pair.py`, `backend/tests/test_leakage.py` (or `backend/evals/leakage_eval.py` writing eval_runs - do both: pytest wraps the eval).
@@ -121,8 +121,8 @@
 
 ## Week 2 Definition of Done
 
-- [ ] End-to-end in the real customer UI: describe a need -> grounded recommendation; "repair under $X" -> tenant-priced, engine-computed, provenance-validated quote; "get me a human" -> escalation state.
-- [ ] Zero model-authored figures possible: T-018 + inspection price check green, planted-violation tests in the suite.
-- [ ] Leakage test 100%.
-- [ ] The graph is stable - this was the week's buffer priority; do not enter phase 3 with a flaky graph.
-- [ ] No lint errors, no failing/flaky tests; discoveries in `.agents/memory.md`.
+- [ ] End-to-end in the real customer UI: describe a need -> grounded recommendation; "repair under $X" -> tenant-priced, engine-computed, provenance-validated quote; "get me a human" -> escalation state. (Each leg live-verified individually at its own ticket - T-011 knowledge, T-017 quoting, T-020 escalation - but never as one continuous session; free-tier LLM rate-limiting makes a single unbroken live walkthrough unreliable to demo on demand. Revisit before the T-040 demo video.)
+- [x] Zero model-authored figures possible: T-018 + inspection price check green, planted-violation tests in the suite.
+- [x] Leakage test 100% (T-022) - and independently proven to have teeth: deliberately weakening `pricing_rules`' RLS policy in a scratch branch made the exact expected checks go red; branch discarded, never merged.
+- [x] The graph is stable - 218 backend tests green, including the full retry/escalate/inspection loop.
+- [x] No lint errors, no failing/flaky tests; discoveries in `.agents/memory.md`.
