@@ -50,7 +50,7 @@
 **Accept:** >= 80% pass or an honest number plus analysis; poisoned-chunk case demonstrably neutralized by spotlighting + inspection together.
 **Tests:** the eval is the test; unit test the delimiter wrapper (tokens random, unbalanced content escaped).
 
-### T-028 `[ ]` Per-tenant cost/step caps + timeouts (3h)
+### T-028 `[x]` Per-tenant cost/step caps + timeouts (3h)
 **Deps:** T-021. **Stories:** US-082.
 **Read:** `design/database.md` section 7 (cost_logs).
 **Files:** `backend/app/core/limits.py`, wired into graph + provider.
