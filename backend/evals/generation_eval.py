@@ -167,6 +167,40 @@ def extract_cited_sentences(answer: str) -> list[tuple[str, list[int]]]:
 # --- LLM-judged scorers --------------------------------------------------------
 
 
+async def judge_claims(
+    claims: list[str], context: str, *, provider: LLMProvider
+) -> list[ClaimVerdict]:
+    """The claim-verdict half of faithfulness, split out from claim
+    extraction (T-024's judge_calibration.py needs to hand a FROZEN,
+    human-labeled claim list to the judge - claim extraction is itself an
+    LLM call and would drift between runs, breaking positional alignment
+    with hand-labels)."""
+    if not claims:
+        return []
+    verdicts = await provider.extract(
+        system_prompt=(
+            "You are given a list of claims and a block of reference context. "
+            "For each claim, decide whether the context supports it. A claim "
+            "is supported only if the context states it or directly implies "
+            "it - not if it merely doesn't contradict it.\n\n"
+            f"Reference context:\n{context}\n\n"
+            f"Claims:\n" + "\n".join(f"- {c}" for c in claims)
+        ),
+        user_input="Verdict each claim listed above.",
+        schema=ClaimVerdicts,
+    )
+    # Fail closed on a judge miscount: a verdict list shorter than the claim
+    # list must not silently shrink the denominator toward a passing score
+    # (zero verdicts would otherwise grade as a perfect 1.0), and extras must
+    # not inflate it.
+    judged = list(verdicts.verdicts[: len(claims)])
+    judged += [
+        ClaimVerdict(claim=claim, supported=False, reason="judge returned no verdict; fail closed")
+        for claim in claims[len(judged) :]
+    ]
+    return judged
+
+
 async def score_faithfulness(
     answer: str, context: str, *, provider: LLMProvider
 ) -> list[ClaimVerdict]:
@@ -179,30 +213,7 @@ async def score_faithfulness(
         user_input=answer,
         schema=ExtractedClaims,
     )
-    if not claims.claims:
-        return []
-    verdicts = await provider.extract(
-        system_prompt=(
-            "You are given a list of claims and a block of reference context. "
-            "For each claim, decide whether the context supports it. A claim "
-            "is supported only if the context states it or directly implies "
-            "it - not if it merely doesn't contradict it.\n\n"
-            f"Reference context:\n{context}\n\n"
-            f"Claims:\n" + "\n".join(f"- {c}" for c in claims.claims)
-        ),
-        user_input="Verdict each claim listed above.",
-        schema=ClaimVerdicts,
-    )
-    # Fail closed on a judge miscount: a verdict list shorter than the claim
-    # list must not silently shrink the denominator toward a passing score
-    # (zero verdicts would otherwise grade as a perfect 1.0), and extras must
-    # not inflate it.
-    judged = list(verdicts.verdicts[: len(claims.claims)])
-    judged += [
-        ClaimVerdict(claim=claim, supported=False, reason="judge returned no verdict; fail closed")
-        for claim in claims.claims[len(judged) :]
-    ]
-    return judged
+    return await judge_claims(claims.claims, context, provider=provider)
 
 
 async def answer_relevancy(
