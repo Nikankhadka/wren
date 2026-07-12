@@ -58,7 +58,8 @@
 **Accept:** a tenant at its cap gets the graceful path; caps configurable per tenant; step-cap loop protection proven with a forced cycle in test.
 **Tests:** limits unit tests (budget math, step cap, timeout wrapping).
 
-### T-029 `[ ]` CI regression gate (4h)
+### T-029 `[x]` CI regression gate (4h)
+> **Founder follow-up (step 3, not yet done):** add `LLM_API_KEY` as a GitHub Actions secret, then open a scratch branch with a deliberate retrieval break and confirm CI goes red, noting the run link in `.agents/memory.md`. The gate and workflow are built, wired, and locally proven (deterministic gate runs green; decision helpers unit-tested on the failing paths); only the live-Actions break-proof remains and it needs the repo secret.
 **Deps:** T-010, T-023, T-026, T-022, T-027. **Stories:** US-130.
 **Read:** root `AGENTS.md` Commands table (the commands CI runs must be exactly these).
 **Files:** `.github/workflows/ci.yml`, `backend/evals/run_gate.py`.
