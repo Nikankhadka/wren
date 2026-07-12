@@ -25,7 +25,7 @@
 **Tests:** the script is the test.
 **Status note:** all infrastructure is built and tested (`evals/judge_calibration.py`, 29-case `datasets/judge_calibration.jsonl`) - see `.agents/memory.md`'s T-024 entry. Every dataset row currently carries `label_source: "agent_placeholder"` (agent-authored, not the founder's) since this ticket's own text requires hand-labels written independently of the judge, which no agent session can substitute for without making the exercise circular. `--gate` structurally fails on `founder_labeled_fraction < 1.0` regardless of the agreement score, so this can never silently read as done. **To close this ticket:** run `uv run python -m evals.judge_calibration --print-blind`, hand-label each case fresh (without looking at the placeholder labels already in the file), flip each row's `label_source` to `"founder"`, then run `uv run python -m evals.judge_calibration --gate`.
 
-### T-025 `[ ]` [EDD] Golden agent-task set (4h)
+### T-025 `[x]` [EDD] Golden agent-task set (4h)
 **Deps:** T-017, T-015. **Stories:** US-070.
 **Files:** `backend/evals/datasets/tenant1_trajectory.jsonl`.
 **Steps:** author 20-30 multi-step tasks: quoting scenarios (incl. budget caps, multi-line quotes), recommendation scenarios, order lookups, escalation triggers, mixed-intent conversations. Each case: opening messages, expected route(s), expected tool calls with argument matchers (e.g. rule_code set), expected terminal state (quote row exists / escalation row exists), forbidden behaviors (no invented items, no model-authored figures).

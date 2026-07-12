@@ -2,7 +2,7 @@
 
 **The one page to check to know where the build is.** Every ticket in the project is listed below with its status, the commit that delivered it, and a one-line plain-English summary of what that commit actually did.
 
-**Right now:** Phases 1 and 2 are fully done. Phase 3 (Eval, CI & console) is in progress - T-023 is committed; T-024's infrastructure is committed but blocked pending founder hand-labeling (see its phase-file status note); the next ticket is **T-025 ([EDD] Golden agent-task set)**.
+**Right now:** Phases 1 and 2 are fully done. Phase 3 (Eval, CI & console) is in progress - T-023 and T-025 are committed; T-024's infrastructure is committed but blocked pending founder hand-labeling (see its phase-file status note); the next ticket is **T-026 (Trajectory scorer)**.
 
 ## How to read this file
 
@@ -62,7 +62,7 @@ Goal: measure answer quality automatically (and gate CI on it), defend against p
 |---|---|---|---|
 | T-023 Generation eval (RAGAS + citation-faithfulness) | done | `aed2086` | An automated grader now checks every AI answer against the business's real knowledge: does every claim actually trace back to a real document (not invented), does the answer actually address what was asked, and - this project's own addition beyond the standard approach - does each individual footnote in the answer actually support the specific sentence it's attached to, not just the topic in general. Real numbers require a live AI model; the free tier used for development is rate-limited, so a full live run is a manual follow-up rather than something proven in this commit. |
 | T-024 Judge calibration | blocked (founder hand-labeling) | `19d68e0` | Built the tool that checks whether the AI grader from T-023 agrees with real human judgment - but the ~30 example cases it checks against need a person to label them independently first, which is the entire point of the exercise. Every label in the committed dataset is clearly marked as a placeholder written by the agent, not the founder, and the pass/fail gate is wired to always fail until real labels replace them - so this can't accidentally look "done" when it isn't. |
-| T-025 Golden agent-task set | not started | - | |
+| T-025 Golden agent-task set | done | `22f9cae` | Wrote the exam the AI agent will be graded against: 30 realistic customer conversations for the demo phone-repair shop - quote requests (including a budget cap where picking the pricier repair is an automatic fail), product recommendations, order status checks by ticket number, requests for a human, and mixed questions - each annotated with what the agent should do (which route, which catalog items or price rules, whether a quote or escalation record should exist afterward) and what it must never do (invent products, state prices the pricing engine didn't compute). Every one of the five specialists is exercised at least four times, enforced by a test. The machinery that actually runs and grades these conversations is the next ticket. |
 | T-026 Trajectory scorer | not started | - | |
 | T-027 Prompt-injection defense + adversarial set | not started | - | |
 | T-028 Per-tenant cost/step caps + timeouts | not started | - | |
