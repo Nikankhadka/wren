@@ -17,12 +17,13 @@
 **Accept:** real numbers reported; per-case failures inspectable (verbose mode prints question, answer, verdict, offending citation).
 **Tests:** metric unit tests with fixture verdicts.
 
-### T-024 `[ ]` [EDD] Judge calibration (4h)
+### T-024 `[!]` [EDD] Judge calibration (4h) - blocked on founder hand-labeling
 **Deps:** T-023. **Stories:** US-032.
 **Files:** `backend/evals/datasets/judge_calibration.jsonl`, `backend/evals/judge_calibration.py`.
 **Steps:** hand-label ~30 (question, answer, citation) cases for faithfulness/citation correctness **before** running the judge on them (labels are the founder's, committed with the dataset); run the LLM judge; report agreement (percent + Cohen's kappa). Threshold: >= 80% agreement, else iterate the judge prompt (documented in the eval report later).
 **Accept:** agreement report generated and committed to eval_runs (run_type generation, metrics include `judge_agreement`); honest number even if below target (then iterate).
 **Tests:** the script is the test.
+**Status note:** all infrastructure is built and tested (`evals/judge_calibration.py`, 29-case `datasets/judge_calibration.jsonl`) - see `.agents/memory.md`'s T-024 entry. Every dataset row currently carries `label_source: "agent_placeholder"` (agent-authored, not the founder's) since this ticket's own text requires hand-labels written independently of the judge, which no agent session can substitute for without making the exercise circular. `--gate` structurally fails on `founder_labeled_fraction < 1.0` regardless of the agreement score, so this can never silently read as done. **To close this ticket:** run `uv run python -m evals.judge_calibration --print-blind`, hand-label each case fresh (without looking at the placeholder labels already in the file), flip each row's `label_source` to `"founder"`, then run `uv run python -m evals.judge_calibration --gate`.
 
 ### T-025 `[ ]` [EDD] Golden agent-task set (4h)
 **Deps:** T-017, T-015. **Stories:** US-070.
