@@ -1,0 +1,123 @@
+name: Deploy (production)
+
+# T-036: the production pipeline, kept as a separate flow from CI (ci.yml is
+# the development gate: lint/typecheck/test on every push/PR). This workflow
+# only runs after CI has already gone green on main (workflow_run trigger),
+# so a broken build can never reach the deploy step.
+#
+# Every AWS/Vercel step is gated on its secrets actually existing (same
+# pattern as ci.yml's eval-gate job gating on LLM_API_KEY) - until T-035's
+# Terraform stands up the ECR repo / ECS service / ALB and the founder adds
+# the secrets below, this workflow no-ops with a clear notice instead of
+# failing. It activates for real the moment that infra + secrets exist, no
+# workflow changes needed.
+#
+# Required repo secrets (none set yet - see infra/main.tf / T-035):
+#   AWS_ROLE_ARN                          - OIDC role deploy assumes (no long-lived AWS keys)
+#   AWS_REGION                            - e.g. us-east-1
+#   ECR_REPOSITORY                        - repo name from terraform output
+#   ECS_CLUSTER / ECS_SERVICE             - from terraform output
+#   SMOKE_TEST_BASE_URL                   - the ALB DNS name / production API URL
+#   (all five above gate backend_ready as one group - a deploy with no way to
+#   verify it landed is treated the same as a deploy that can't run at all)
+#   VERCEL_DEPLOY_HOOK_URL                - Vercel project's production deploy hook
+
+permissions:
+  contents: read
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  check-readiness:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      backend_ready: ${{ steps.check.outputs.backend_ready }}
+      frontend_ready: ${{ steps.check.outputs.frontend_ready }}
+    steps:
+      - id: check
+        env:
+          HAS_AWS: ${{ secrets.AWS_ROLE_ARN != '' && secrets.ECR_REPOSITORY != '' && secrets.ECS_CLUSTER != '' && secrets.ECS_SERVICE != '' && secrets.SMOKE_TEST_BASE_URL != '' }}
+          HAS_VERCEL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL != '' }}
+        run: |
+          echo "backend_ready=${HAS_AWS}" >> "$GITHUB_OUTPUT"
+          echo "frontend_ready=${HAS_VERCEL}" >> "$GITHUB_OUTPUT"
+          if [ "${HAS_AWS}" != "true" ]; then
+            echo "::notice::AWS deploy secrets not set - skipping backend deploy (T-035 Terraform not applied yet)"
+          fi
+          if [ "${HAS_VERCEL}" != "true" ]; then
+            echo "::notice::VERCEL_DEPLOY_HOOK_URL not set - skipping frontend deploy"
+          fi
+
+  deploy-backend:
+    needs: check-readiness
+    if: needs.check-readiness.outputs.backend_ready == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      # workflow_run defaults to checking out the default branch's current
+      # HEAD, not the commit CI actually validated - pin explicitly so a
+      # commit landing on main between CI finishing and this job starting
+      # can never sneak into the image that gets tagged with the older sha.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+      - name: Build and push image
+        working-directory: backend
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          docker build -t "$REGISTRY/$REPOSITORY:$IMAGE_TAG" -t "$REGISTRY/$REPOSITORY:latest" .
+          docker push "$REGISTRY/$REPOSITORY:$IMAGE_TAG"
+          docker push "$REGISTRY/$REPOSITORY:latest"
+      - name: Force new ECS deployment
+        env:
+          CLUSTER: ${{ secrets.ECS_CLUSTER }}
+          SERVICE: ${{ secrets.ECS_SERVICE }}
+        run: aws ecs update-service --cluster "$CLUSTER" --service "$SERVICE" --force-new-deployment
+      - name: Wait for service stability
+        env:
+          CLUSTER: ${{ secrets.ECS_CLUSTER }}
+          SERVICE: ${{ secrets.ECS_SERVICE }}
+        run: aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE"
+
+  deploy-frontend:
+    needs: check-readiness
+    if: needs.check-readiness.outputs.frontend_ready == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Trigger Vercel production deploy hook
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: curl -fsSL -X POST "$DEPLOY_HOOK_URL"
+
+  smoke-test:
+    needs: [deploy-backend, deploy-frontend]
+    if: always() && (needs.deploy-backend.result == 'success' || needs.deploy-frontend.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Backend health check
+        if: needs.deploy-backend.result == 'success'
+        env:
+          BASE_URL: ${{ secrets.SMOKE_TEST_BASE_URL }}
+        run: curl -fsSL "$BASE_URL/health"

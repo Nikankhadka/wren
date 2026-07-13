@@ -1,5 +1,11 @@
 name: CI
 
+# The development gate (T-029): lint/typecheck/test/eval on every PR and every
+# push to main. Kept as a separate workflow from deploy.yml (T-036, the
+# production pipeline) - deploy.yml watches this workflow via workflow_run and
+# only fires once this one is green on main, so a broken build can never
+# reach production.
+
 on:
   push:
     branches: [main]
@@ -77,6 +83,23 @@ jobs:
         run: uv run mypy
       - name: Tests
         run: uv run pytest
+
+  infra:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.5"
+      - name: Format check
+        run: terraform fmt -check -recursive
+      - name: Init (no backend, validate only)
+        run: terraform init -backend=false
+      - name: Validate
+        run: terraform validate
 
   eval-gate:
     runs-on: ubuntu-latest
