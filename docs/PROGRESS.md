@@ -78,7 +78,7 @@ Goal: polish all three surfaces, deploy to real infrastructure, and prove the wh
 |---|---|---|---|
 | T-032 Customer chat surface - final polish | done | `c0adc77` | Every state in the 7.1 checklist works against the real seeded tenant: tenant-configured greeting + starter chips on an empty conversation, Stop button + accessible "Answering..." hint while streaming (stop-before-first-token cleanly drops the placeholder bubble instead of leaving it blank), quote cards, citations, refusal, escalation, and a runtime brand-accent override that respects a WCAG AA contrast gate (falls back to the default look when a tenant's color fails it). Mobile pass at 375px. |
 | T-033 Platform-owner surface | not started | - | |
-| T-034 Tenant dashboards: cost + eval | not started | - | |
+| T-034 Tenant dashboards: cost + eval | in progress | - | Claimed by a parallel session (2026-07-13) - T-033's backend commit and uncommitted frontend WIP (`(platform)/`, `MetricCard.tsx`, `Modal.tsx`) plus T-035's Terraform files belong to the other active session; this session is building T-034 in new files only to avoid collision. |
 | T-035 Terraform AWS backend | in progress | - | Claimed by a parallel session (2026-07-13) so the sequential loop can proceed with T-033/T-034 without collision. |
 | T-036 Deploy end-to-end (CI image push + Vercel wildcard) | not started | - | |
 | T-037 Generalization proof: Tenant 2 by config alone | not started | - | |
