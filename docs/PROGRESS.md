@@ -2,7 +2,7 @@
 
 **The one page to check to know where the build is.** Every ticket in the project is listed below with its status, the commit that delivered it, and a one-line plain-English summary of what that commit actually did.
 
-**Right now:** Phases 1 and 2 are fully done. Phase 3 (Eval, CI & console) is done except T-024, which is committed but blocked pending founder hand-labeling (see its phase-file status note) - Phase 4 (Ship) starts next.
+**Right now:** Phases 1 and 2 are fully done. Phase 3 (Eval, CI & console) is done except T-024, which is committed but blocked pending founder hand-labeling (see its phase-file status note). Phase 4 (Ship) is in progress: T-032 done, CI/CD split into a development gate (`ci.yml`) and a production pipeline (`deploy.yml`, T-036 skeleton, dormant until T-035's Terraform + secrets exist).
 
 ## How to read this file
 
@@ -76,7 +76,7 @@ Goal: polish all three surfaces, deploy to real infrastructure, and prove the wh
 
 | Ticket | Status | Commit | What was done |
 |---|---|---|---|
-| T-032 Customer chat surface - final polish | not started | - | |
+| T-032 Customer chat surface - final polish | done | `c0adc77` | Every state in the 7.1 checklist works against the real seeded tenant: tenant-configured greeting + starter chips on an empty conversation, Stop button + accessible "Answering..." hint while streaming (stop-before-first-token cleanly drops the placeholder bubble instead of leaving it blank), quote cards, citations, refusal, escalation, and a runtime brand-accent override that respects a WCAG AA contrast gate (falls back to the default look when a tenant's color fails it). Mobile pass at 375px. |
 | T-033 Platform-owner surface | not started | - | |
 | T-034 Tenant dashboards: cost + eval | not started | - | |
 | T-035 Terraform AWS backend | not started | - | |
