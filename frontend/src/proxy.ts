@@ -8,11 +8,23 @@ import { resolveHost, SLUG_HEADER, SURFACE_HEADER } from "@/lib/tenant";
  * node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md).
  *
  * `X-Wren-Slug` lets tests force the customer surface without a real subdomain
- * (ticket T-005). Platform/tenant-admin have no root page yet - without this
- * guard, their `/` would silently fall through to the customer surface's
+ * (ticket T-005). Tenant-admin still has no root page (console pages live at
+ * `/conversations` etc, login/signup at their own paths) - without this
+ * guard, its `/` would silently fall through to the customer surface's
  * `(customer)/page.tsx`, which also resolves to `/` (route groups do not
- * segment URLs). Replace this guard with real routing once those surfaces get
- * their own root pages, don't just delete it.
+ * segment URLs).
+ *
+ * Platform (T-033) DOES need a root page and its own `/login` - both of
+ * which the customer and tenant-admin surfaces already occupy. Route groups
+ * can't solve this (they don't segment URLs, Next's file router only sees
+ * literal pathnames - `(platform)/page.tsx` and `(customer)/page.tsx` both
+ * resolve to `/` and fail the build outright as a routing collision). So
+ * platform's pages live under the real top-level segment `admin-surface/`
+ * instead, and every platform-surface request gets internally rewritten from
+ * its public path (e.g. `admin.wren.app/login`) to `/admin-surface/login` -
+ * invisible to the browser (the URL bar is untouched), resolved only by
+ * Next's router. `Link href`s inside admin-surface pages stay as the public
+ * path ("/login", never "/admin-surface/login").
  */
 export function proxy(request: NextRequest): NextResponse {
   const slugOverride = request.headers.get(SLUG_HEADER);
@@ -20,13 +32,20 @@ export function proxy(request: NextRequest): NextResponse {
     ? { surface: "customer" as const, slug: slugOverride }
     : resolveHost(request.headers.get("host") ?? "");
 
-  if ((surface === "platform" || surface === "tenant-admin") && request.nextUrl.pathname === "/") {
+  if (surface === "tenant-admin" && request.nextUrl.pathname === "/") {
     return new NextResponse(null, { status: 404 });
   }
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(SURFACE_HEADER, surface ?? "");
   requestHeaders.set(SLUG_HEADER, slug ?? "");
+
+  if (surface === "platform") {
+    const url = request.nextUrl.clone();
+    url.pathname = `/admin-surface${url.pathname}`;
+    return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+  }
+
   return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
