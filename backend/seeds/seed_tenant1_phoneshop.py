@@ -224,10 +224,29 @@ async def _seed_core(tenant_id: UUID) -> None:
             TENANT_NAME,
         )
         await conn.execute(
-            "insert into tenant_config (tenant_id, tone, escalation_threshold, brand) "
-            "values ($1, 'friendly', 0.5, $2)",
+            "insert into tenant_config (tenant_id, tone, escalation_threshold, brand, config) "
+            "values ($1, 'friendly', 0.5, $2, $3)",
             tenant_id,
             json.dumps({"display_name": TENANT_NAME, "accent": "#D97757"}),
+            # config->'customer' is the T-032 customer-surface block: the
+            # greeting shown as the first assistant bubble and the suggested
+            # starter chips on an empty conversation (frontend.md 7.1).
+            json.dumps(
+                {
+                    "customer": {
+                        "greeting": (
+                            "Hi! Welcome to ByteFix Repairs. I can quote a repair, "
+                            "check on an existing ticket, or answer questions about "
+                            "our services - what can I do for you?"
+                        ),
+                        "starter_questions": [
+                            "How much is a screen replacement?",
+                            "What's the status of my repair?",
+                            "How long do repairs usually take?",
+                        ],
+                    }
+                }
+            ),
         )
 
     async with db.tenant_context(tenant_id, "tenant_admin") as conn:

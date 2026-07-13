@@ -8,6 +8,16 @@ Unknown slugs are 404; known slugs return 200 with their ``status`` (including
 ``suspended``) so the frontend renders the right customer-surface state rather
 than treating a suspended tenant as an error.
 
+T-032 adds ``customer`` to the response: the tenant-configured greeting and
+starter questions (``tenant_config.config -> 'customer'``) the empty-conversation
+state renders (frontend.md 7.1). Deliberately NOT read through the resolver
+function - widening the audited RLS-bypass's four-column contract (pinned by
+test_rls.py / test_migrations.py) is a bigger privilege change than this needs.
+Instead, once the slug resolves to a tenant id, the read happens under a normal
+``tenant_context(tenant_id, "customer")`` like every other customer-surface
+query, and only the ``customer`` subkey ever leaves this endpoint - the rest of
+``config`` (limits, tax, onboarding state) stays private.
+
 Results are cached in-process for 60s per slug (only positive resolutions - a
 negative result is never cached, so a slug becoming valid via signup is visible
 immediately rather than waiting out a stale 404).
@@ -35,9 +45,26 @@ class TenantResolveResponse(BaseModel):
     name: str
     status: str
     brand: dict[str, Any]
+    customer: dict[str, Any]
 
 
 _cache: dict[str, tuple[float, TenantResolveResponse]] = {}
+
+
+async def _customer_config(tenant_id: UUID) -> dict[str, Any]:
+    """The tenant-configured customer-surface bits (greeting, starter
+    questions) - read under the customer tenant context, never through the
+    resolver bypass. Missing/unset config is an empty dict, never an error."""
+    async with db.tenant_context(tenant_id, "customer") as conn:
+        raw = await conn.fetchval(
+            "select config -> 'customer' from tenant_config where tenant_id = $1",
+            tenant_id,
+        )
+    if raw is None:
+        return {}
+    # asyncpg returns jsonb as raw text without an explicit codec registered.
+    parsed = json.loads(raw)
+    return parsed if isinstance(parsed, dict) else {}
 
 
 async def _resolve(slug: str) -> TenantResolveResponse | None:
@@ -58,7 +85,11 @@ async def _resolve(slug: str) -> TenantResolveResponse | None:
     # asyncpg returns jsonb as raw text without an explicit codec registered.
     brand = json.loads(row["brand"])
     result = TenantResolveResponse(
-        id=row["id"], name=row["name"], status=row["status"], brand=brand
+        id=row["id"],
+        name=row["name"],
+        status=row["status"],
+        brand=brand,
+        customer=await _customer_config(row["id"]),
     )
     _cache[slug] = (now + _CACHE_TTL_SECONDS, result)
     return result

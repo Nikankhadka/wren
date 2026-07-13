@@ -32,6 +32,32 @@ export interface TenantResolution {
   name: string;
   status: string;
   brand: Record<string, unknown>;
+  /** T-032: tenant-configured customer-surface block (config->'customer'):
+   * optional greeting + starter_questions. Empty object when unconfigured,
+   * absent entirely if a pre-T-032 backend answered this request. */
+  customer?: Record<string, unknown>;
+}
+
+/**
+ * Typed view over TenantResolution.customer with safe fallbacks. Accepts
+ * undefined so a frontend deployed ahead of a pre-T-032 backend (missing the
+ * `customer` field entirely) degrades to the no-greeting/no-chips state
+ * instead of throwing - deploy order between the two should never matter.
+ */
+export function customerSurfaceConfig(customer: Record<string, unknown> | undefined): {
+  greeting: string | null;
+  starterQuestions: string[];
+} {
+  customer ??= {};
+  const greeting =
+    typeof customer["greeting"] === "string" && customer["greeting"].trim() !== ""
+      ? customer["greeting"]
+      : null;
+  const raw = customer["starter_questions"];
+  const starterQuestions = Array.isArray(raw)
+    ? raw.filter((q): q is string => typeof q === "string" && q.trim() !== "").slice(0, 3)
+    : [];
+  return { greeting, starterQuestions };
 }
 
 /**

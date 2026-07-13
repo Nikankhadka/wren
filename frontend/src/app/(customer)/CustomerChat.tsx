@@ -39,20 +39,34 @@ function renderWithCitations(text: string, citations: Citation[]): ReactNode {
 }
 
 /**
- * T-011: the interactive half of the customer surface. The branded
+ * T-011/T-032: the interactive half of the customer surface. The branded
  * shell/suspended/not-found states stay in page.tsx (server-resolved, T-005)
  * - this component owns the actual conversation once the shell has decided
  * the tenant is active. No EventSource (POST bodies aren't supported by
  * it) - SSE is parsed by hand from a fetch ReadableStream.
  */
-export function CustomerChat({ slug, displayName }: { slug: string; displayName: string }) {
+export function CustomerChat({
+  slug,
+  displayName,
+  greeting,
+  starterQuestions,
+}: {
+  slug: string;
+  displayName: string;
+  greeting: string | null;
+  starterQuestions: string[];
+}) {
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", text: `Hi! How can I help you with ${displayName} today?` },
+    { role: "assistant", text: greeting ?? `Hi! How can I help you with ${displayName} today?` },
   ]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [escalated, setEscalated] = useState(false);
+  // Starter chips only make sense before the customer has said anything -
+  // hidden the moment the first real message goes out, never shown again.
+  const [showStarters, setShowStarters] = useState(starterQuestions.length > 0);
+  const abortRef = useRef<AbortController | null>(null);
   // Cursor for the transcript poll: the created_at of the newest message we
   // have already rendered. Starts undefined so the first poll after escalation
   // fetches the whole tail once, then narrows each tick.
@@ -127,17 +141,22 @@ export function CustomerChat({ slug, displayName }: { slug: string; displayName:
     if (!trimmed || busy || escalated) return;
     setBusy(true);
     setInput("");
+    setShowStarters(false);
     setMessages((prev) => [
       ...prev,
       { role: "customer", text: trimmed },
       { role: "assistant", text: "", streaming: true },
     ]);
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const res = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slug, conversation_id: conversationId, message: trimmed }),
+        signal: controller.signal,
       });
       if (!res.ok || !res.body) throw new Error("chat request failed");
 
@@ -177,13 +196,29 @@ export function CustomerChat({ slug, displayName }: { slug: string; displayName:
           }
         }
       }
-    } catch {
-      updateLastAssistant(() => ({
-        text: "Something went wrong reaching the assistant.",
-        error: true,
-        streaming: false,
-      }));
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        // Customer-initiated stop. Keep whatever text streamed in, but a stop
+        // before the first token would otherwise leave an empty bubble behind
+        // forever - drop it instead of just marking it done.
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === "assistant" && last.text === "") {
+            return prev.slice(0, -1);
+          }
+          const next = [...prev];
+          if (last) next[next.length - 1] = { ...last, streaming: false };
+          return next;
+        });
+      } else {
+        updateLastAssistant(() => ({
+          text: "Something went wrong reaching the assistant.",
+          error: true,
+          streaming: false,
+        }));
+      }
     } finally {
+      abortRef.current = null;
       setBusy(false);
     }
   }
@@ -193,9 +228,13 @@ export function CustomerChat({ slug, displayName }: { slug: string; displayName:
     void send(input);
   }
 
+  function handleStop() {
+    abortRef.current?.abort();
+  }
+
   return (
     <>
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-6 py-4">
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4 sm:px-6">
         {messages.map((message, index) => (
           <ChatBubble key={index} role={message.role}>
             <StreamingText streaming={message.streaming ?? false}>
@@ -213,24 +252,56 @@ export function CustomerChat({ slug, displayName }: { slug: string; displayName:
             ) : null}
           </ChatBubble>
         ))}
+        {showStarters ? (
+          <div className="flex flex-wrap gap-2 pl-1">
+            {starterQuestions.map((question, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => void send(question)}
+                className="rounded-full border border-border bg-surface px-3 py-1.5 text-footnote text-text-secondary transition-colors hover:border-accent hover:text-accent"
+              >
+                {question}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       {escalated ? (
         <EscalationBanner />
       ) : (
-        <form onSubmit={handleSubmit} className="flex items-end gap-2 border-t border-border p-4">
-          <div className="flex-1">
-            <Input
-              label="Message"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              disabled={busy}
-              autoFocus
-            />
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col gap-2 border-t border-border p-4"
+        >
+          {/* Mounted unconditionally (only the text toggles) - screen readers
+              reliably announce content changes inside an existing live
+              region, but often miss one that appears and disappears with its
+              content in the same render. */}
+          <p className="h-4 text-footnote text-text-secondary" aria-live="polite">
+            {busy ? "Answering…" : ""}
+          </p>
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Input
+                label="Message"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                disabled={busy}
+                autoFocus
+              />
+            </div>
+            {busy ? (
+              <Button type="button" variant="secondary" onClick={handleStop}>
+                Stop
+              </Button>
+            ) : (
+              <Button type="submit" loading={busy}>
+                Send
+              </Button>
+            )}
           </div>
-          <Button type="submit" loading={busy}>
-            Send
-          </Button>
         </form>
       )}
     </>

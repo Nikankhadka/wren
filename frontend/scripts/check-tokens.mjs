@@ -14,7 +14,18 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const SRC = join(ROOT, "src");
-const ALLOWED = new Set(["src/styles/theme.css"]);
+// brand.ts computes CSS overrides FROM tenant-supplied runtime hex (T-032) -
+// not a hardcoded design decision, the exact "at runtime, overriding its
+// variables" case frontend.md section 1 itself carves out. Its literals are
+// pure-function math (contrast ratios, HSL derivation) and its own test
+// fixtures, not design-system color choices. Still needs a real allowlist
+// entry rather than silently loosening the regex, per the guard's own
+// "strict beats clever" stance above.
+const ALLOWED = new Set([
+  "src/styles/theme.css",
+  "src/lib/brand.ts",
+  "src/lib/brand.test.ts",
+]);
 const EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".css", ".mjs"]);
 
 const COLOR_LITERAL =

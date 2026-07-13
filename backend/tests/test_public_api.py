@@ -8,6 +8,7 @@ any auth/tenant_context exists).
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import AsyncIterator
 from typing import Any
@@ -36,7 +37,12 @@ async def client(migrated_db: str) -> AsyncIterator[httpx.AsyncClient]:
 
 
 async def _seed_tenant(
-    conn: asyncpg.Connection[Any], *, slug: str, name: str, status: str = "active"
+    conn: asyncpg.Connection[Any],
+    *,
+    slug: str,
+    name: str,
+    status: str = "active",
+    config: str = "{}",
 ) -> uuid.UUID:
     tenant_id = uuid.uuid4()
     async with conn.transaction():
@@ -49,9 +55,10 @@ async def _seed_tenant(
             status,
         )
         await conn.execute(
-            "insert into tenant_config (tenant_id, brand) values ($1, $2)",
+            "insert into tenant_config (tenant_id, brand, config) values ($1, $2, $3)",
             tenant_id,
             '{"display_name": "Bytefix Repairs", "accent": "#D97757"}',
+            config,
         )
     return tenant_id
 
@@ -87,7 +94,7 @@ async def test_resolve_unknown_slug_is_404(client: httpx.AsyncClient) -> None:
     assert response.status_code == 404
 
 
-async def test_resolve_never_leaks_columns_beyond_the_four(
+async def test_resolve_never_leaks_fields_beyond_the_public_five(
     client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
 ) -> None:
     slug = f"leaktest-{uuid.uuid4().hex[:8]}"
@@ -95,4 +102,62 @@ async def test_resolve_never_leaks_columns_beyond_the_four(
 
     response = await client.get(f"/api/public/tenant/{slug}")
     assert response.status_code == 200
-    assert set(response.json().keys()) == {"id", "name", "status", "brand"}
+    assert set(response.json().keys()) == {"id", "name", "status", "brand", "customer"}
+
+
+async def test_resolve_returns_configured_customer_block(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    """T-032: greeting + starter questions reach the pre-auth surface."""
+    slug = f"greeting-{uuid.uuid4().hex[:8]}"
+    customer = {
+        "greeting": "Welcome to Test Co!",
+        "starter_questions": ["What are your hours?", "How much is a repair?"],
+    }
+    await _seed_tenant(
+        superuser_conn,
+        slug=slug,
+        name="Greeting Co",
+        config=json.dumps({"customer": customer}),
+    )
+
+    response = await client.get(f"/api/public/tenant/{slug}")
+    assert response.status_code == 200
+    assert response.json()["customer"] == customer
+
+
+async def test_resolve_customer_block_defaults_empty(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    slug = f"nocustomer-{uuid.uuid4().hex[:8]}"
+    await _seed_tenant(superuser_conn, slug=slug, name="No Customer Co")
+
+    response = await client.get(f"/api/public/tenant/{slug}")
+    assert response.status_code == 200
+    assert response.json()["customer"] == {}
+
+
+async def test_resolve_never_exposes_private_config_keys(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    """Only config->'customer' crosses the pre-auth boundary - the rest of
+    config (limits, tax, onboarding state) must never appear in the response."""
+    slug = f"privcfg-{uuid.uuid4().hex[:8]}"
+    await _seed_tenant(
+        superuser_conn,
+        slug=slug,
+        name="Private Config Co",
+        config=(
+            '{"customer": {"greeting": "Hello!"}, '
+            '"limits": {"daily_cost_usd": 5}, '
+            '"tax": {"rate_bps": 825, "label": "Sales tax"}}'
+        ),
+    )
+
+    response = await client.get(f"/api/public/tenant/{slug}")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["customer"] == {"greeting": "Hello!"}
+    serialized = response.text
+    assert "limits" not in serialized
+    assert "rate_bps" not in serialized
