@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { ChatBubble } from "@/components/ui/ChatBubble";
+import { ChatBubble, type ChatRole } from "@/components/ui/ChatBubble";
 import { StreamingText } from "@/components/ui/StreamingText";
 import { CitationChip, type Citation } from "@/components/ui/CitationChip";
 import { QuoteCard, type QuotePayload } from "@/components/ui/QuoteCard";
@@ -12,13 +12,22 @@ import { EscalationBanner } from "@/components/ui/EscalationBanner";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 interface Message {
-  role: "customer" | "assistant";
+  role: ChatRole;
   text: string;
   citations?: Citation[];
   quote?: QuotePayload;
   streaming?: boolean;
   error?: boolean;
 }
+
+interface PublicMessage {
+  id: string;
+  role: string;
+  content: string;
+  created_at: string;
+}
+
+const POLL_INTERVAL_MS = 5000;
 
 function renderWithCitations(text: string, citations: Citation[]): ReactNode {
   const parts = text.split(/(\[\d+\])/g);
@@ -44,6 +53,65 @@ export function CustomerChat({ slug, displayName }: { slug: string; displayName:
   const [busy, setBusy] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [escalated, setEscalated] = useState(false);
+  // Cursor for the transcript poll: the created_at of the newest message we
+  // have already rendered. Starts undefined so the first poll after escalation
+  // fetches the whole tail once, then narrows each tick.
+  const pollCursor = useRef<string | undefined>(undefined);
+
+  // T-031: an escalated conversation is terminal for the agent, but a human
+  // may still reply (escalations.py's resolve inserts a human_agent message).
+  // No push channel exists, so poll the public transcript endpoint while
+  // escalated and append anything new. Polling stops the moment we leave the
+  // escalated state or unmount (interval cleanup) - it never runs otherwise,
+  // which keeps this off the backend's back for non-escalated tabs.
+  useEffect(() => {
+    if (!escalated || !conversationId) return;
+
+    let cancelled = false;
+
+    async function poll() {
+      const params = new URLSearchParams({ slug });
+      const isFirstTick = pollCursor.current === undefined;
+      if (pollCursor.current) params.set("after", pollCursor.current);
+      try {
+        const res = await fetch(
+          `${API_URL}/api/chat/${conversationId}/messages?${params.toString()}`
+        );
+        if (!res.ok || cancelled) return;
+        const incoming = (await res.json()) as PublicMessage[];
+        if (cancelled || incoming.length === 0) return;
+        pollCursor.current = incoming[incoming.length - 1]?.created_at ?? pollCursor.current;
+        setMessages((prev) => {
+          // Only the first tick (no cursor yet) can re-fetch messages already
+          // on screen - dedupe those by role + content (no server ids in the
+          // streamed transcript). Every later tick is already narrowed by the
+          // `after` cursor, so its results are new by construction; deduping
+          // them against all history would wrongly drop a legitimate repeat.
+          if (!isFirstTick) {
+            const additions = incoming.map<Message>((m) => ({
+              role: m.role as ChatRole,
+              text: m.content,
+            }));
+            return [...prev, ...additions];
+          }
+          const shown = new Set(prev.map((m) => `${m.role}\0${m.text}`));
+          const additions = incoming
+            .filter((m) => !shown.has(`${m.role}\0${m.content}`))
+            .map<Message>((m) => ({ role: m.role as ChatRole, text: m.content }));
+          return additions.length > 0 ? [...prev, ...additions] : prev;
+        });
+      } catch {
+        // Transient network error - the next tick retries.
+      }
+    }
+
+    void poll();
+    const timer = setInterval(() => void poll(), POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [escalated, conversationId, slug]);
 
   function updateLastAssistant(update: (last: Message) => Partial<Message>) {
     setMessages((prev) => {

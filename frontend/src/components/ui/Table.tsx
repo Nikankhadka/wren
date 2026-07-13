@@ -13,6 +13,12 @@ export interface TableProps<T> {
   loading?: boolean;
   error?: string;
   emptyState: ReactNode;
+  /**
+   * When set, each row becomes a pointer target invoking this on click. For
+   * keyboard access, render a real focusable control (e.g. a Link) inside one
+   * of the columns as well - this handler is a convenience, not the only path.
+   */
+  onRowClick?: (row: T) => void;
 }
 
 /**
@@ -21,7 +27,15 @@ export interface TableProps<T> {
  * horizontal scroll within the card at 768px (frontend.md section 8) via
  * the wrapping overflow-x-auto - never the page itself.
  */
-export function Table<T>({ columns, rows, rowKey, loading, error, emptyState }: TableProps<T>) {
+export function Table<T>({
+  columns,
+  rows,
+  rowKey,
+  loading,
+  error,
+  emptyState,
+  onRowClick,
+}: TableProps<T>) {
   if (error) {
     return (
       <div className="rounded-lg border border-border bg-surface p-6 text-body-sm text-danger">
@@ -60,7 +74,13 @@ export function Table<T>({ columns, rows, rowKey, loading, error, emptyState }: 
             </tr>
           ) : (
             rows.map((row) => (
-              <tr key={rowKey(row)} className="border-t border-border hover:bg-surface-sunken">
+              <tr
+                key={rowKey(row)}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                className={`border-t border-border hover:bg-surface-sunken ${
+                  onRowClick ? "cursor-pointer" : ""
+                }`}
+              >
                 {columns.map((column) => (
                   <td key={column.key} className="px-4 py-3 text-text">
                     {column.render(row)}
