@@ -13,6 +13,7 @@ messages through the same lateral-join shape the console renders.
 
 from __future__ import annotations
 
+import json
 import os
 import time
 import uuid
@@ -247,8 +248,6 @@ async def test_inspection_metadata_parseable(
     seeded: dict[str, uuid.UUID], superuser_conn: asyncpg.Connection[Any]
 ) -> None:
     """At least one assistant message carries the inspection shape TraceTree renders."""
-    import json
-
     rows = await superuser_conn.fetch(
         "select metadata from messages where tenant_id = $1 and role = 'assistant' "
         "and metadata is not null",
