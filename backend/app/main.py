@@ -9,6 +9,7 @@ from starlette.middleware.cors import CORSMiddleware
 from app.api import (
     chat,
     conversations,
+    dashboards,
     escalations,
     knowledge,
     onboarding,
@@ -65,6 +66,7 @@ app.include_router(chat.router)
 app.include_router(conversations.router)
 app.include_router(escalations.router)
 app.include_router(pricing.router)
+app.include_router(dashboards.router)
 
 
 @app.get("/health")
