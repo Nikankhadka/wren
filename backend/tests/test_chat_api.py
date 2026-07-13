@@ -350,3 +350,97 @@ async def test_chat_persists_tool_calls_and_cost_logs_for_order_status_turn(
     assert all(row["model"] == "fake-model" for row in cost_rows)
     assert sum(row["input_tokens"] for row in cost_rows) >= 10
     assert all(row["cost_usd"] == 0 for row in cost_rows)  # unknown model prices at $0
+
+
+async def _seed_transcript(conn: asyncpg.Connection[Any], tenant_id: uuid.UUID) -> uuid.UUID:
+    """A conversation holding one message of every role, including 'system' -
+    the public poll endpoint must return everything except the system one."""
+    conversation_id: uuid.UUID = await conn.fetchval(
+        "insert into conversations (tenant_id) values ($1) returning id", tenant_id
+    )
+    for role, content in [
+        ("customer", "where is my order?"),
+        ("assistant", "let me check."),
+        ("system", "internal prompt - never customer-visible"),
+        ("human_agent", "A team member will call you shortly."),
+    ]:
+        await conn.execute(
+            "insert into messages (tenant_id, conversation_id, role, content) "
+            "values ($1, $2, $3, $4)",
+            tenant_id,
+            conversation_id,
+            role,
+            content,
+        )
+    return conversation_id
+
+
+async def test_public_messages_returns_transcript_without_system_messages(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    """T-031: the unauthenticated transcript poll returns customer, assistant
+    and human_agent messages in order - and never a system-role message."""
+    slug = f"chat-{uuid.uuid4().hex[:8]}"
+    tenant_id = await _seed_tenant_with_chunk(superuser_conn, slug=slug)
+    conversation_id = await _seed_transcript(superuser_conn, tenant_id)
+
+    response = await client.get(f"/api/chat/{conversation_id}/messages", params={"slug": slug})
+    assert response.status_code == 200
+    body = response.json()
+    assert [m["role"] for m in body] == ["customer", "assistant", "human_agent"]
+    assert body[2]["content"] == "A team member will call you shortly."
+    assert not any(m["role"] == "system" for m in body)
+
+
+async def test_public_messages_wrong_tenant_slug_is_404(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    """A valid conversation UUID paired with another tenant's slug must 404 -
+    the slug scopes the lookup, so a leaked UUID alone crosses no tenant."""
+    slug_a = f"chat-a-{uuid.uuid4().hex[:8]}"
+    slug_b = f"chat-b-{uuid.uuid4().hex[:8]}"
+    tenant_a = await _seed_tenant_with_chunk(superuser_conn, slug=slug_a)
+    await _seed_tenant_with_chunk(superuser_conn, slug=slug_b)
+    conversation_id = await _seed_transcript(superuser_conn, tenant_a)
+
+    response = await client.get(f"/api/chat/{conversation_id}/messages", params={"slug": slug_b})
+    assert response.status_code == 404
+
+
+async def test_public_messages_unknown_conversation_or_slug_is_404(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    slug = f"chat-{uuid.uuid4().hex[:8]}"
+    await _seed_tenant_with_chunk(superuser_conn, slug=slug)
+
+    response = await client.get(f"/api/chat/{uuid.uuid4()}/messages", params={"slug": slug})
+    assert response.status_code == 404
+
+    response = await client.get(
+        f"/api/chat/{uuid.uuid4()}/messages",
+        params={"slug": f"no-such-{uuid.uuid4().hex[:8]}"},
+    )
+    assert response.status_code == 404
+
+
+async def test_public_messages_after_cursor_returns_only_newer_messages(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    """A client that already has the transcript up to some timestamp should
+    be able to poll for only what's new, instead of re-fetching everything
+    on every 5s tick."""
+    slug = f"chat-{uuid.uuid4().hex[:8]}"
+    tenant_id = await _seed_tenant_with_chunk(superuser_conn, slug=slug)
+    conversation_id = await _seed_transcript(superuser_conn, tenant_id)
+
+    full = await client.get(f"/api/chat/{conversation_id}/messages", params={"slug": slug})
+    assert full.status_code == 200
+    cutoff = full.json()[0]["created_at"]
+
+    response = await client.get(
+        f"/api/chat/{conversation_id}/messages",
+        params={"slug": slug, "after": cutoff},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert [m["role"] for m in body] == ["assistant", "human_agent"]

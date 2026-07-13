@@ -21,10 +21,11 @@ from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from langgraph.errors import GraphRecursionError
 from pydantic import BaseModel, Field
@@ -359,3 +360,53 @@ async def chat(
         ),
         media_type="text/event-stream",
     )
+
+
+class PublicMessage(BaseModel):
+    id: UUID
+    role: str
+    content: str
+    created_at: datetime
+
+
+@router.get("/{conversation_id}/messages", response_model=list[PublicMessage])
+async def get_conversation_messages(
+    conversation_id: UUID,
+    slug: str,
+    after: Annotated[datetime | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 200,
+) -> list[PublicMessage]:
+    """T-031: unauthenticated transcript poll for the customer surface - the
+    only way a resolved escalation's human_agent reply reaches an
+    already-open customer tab (no push/websocket mechanism exists anywhere
+    in this codebase). Trust model matches POST /api/chat's conversation_id:
+    knowing the UUID is the capability, same as the rest of this bare
+    customer surface (no login).
+
+    ``after`` lets a client that already has the transcript up to some
+    timestamp poll for only what's new, rather than re-fetching the whole
+    history on every 5s tick."""
+    tenant_id = await _resolve_active_tenant(slug)
+    async with db.tenant_context(tenant_id, "customer") as conn:
+        exists = await conn.fetchval(
+            "select 1 from conversations where tenant_id = $1 and id = $2",
+            tenant_id,
+            conversation_id,
+        )
+        if exists is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="conversation not found"
+            )
+        rows = await conn.fetch(
+            "select id, role, content, created_at from messages "
+            "where tenant_id = $1 and conversation_id = $2 "
+            "and role in ('customer', 'assistant', 'human_agent') "
+            "and ($3::timestamptz is null or created_at > $3) "
+            "order by created_at asc "
+            "limit $4",
+            tenant_id,
+            conversation_id,
+            after,
+            limit,
+        )
+    return [PublicMessage(**dict(row)) for row in rows]

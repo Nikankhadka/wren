@@ -117,8 +117,187 @@ async def test_list_escalations_requires_auth(client: httpx.AsyncClient) -> None
     assert response.status_code == 401
 
 
+async def test_list_escalations_respects_limit_and_offset(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    token, tenant_id = await _signup_tenant_admin(client)
+    for _ in range(3):
+        await _seed_escalation(superuser_conn, tenant_id)
+
+    first_page = await client.get(
+        "/api/escalations?limit=2", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert first_page.status_code == 200
+    assert len(first_page.json()) == 2
+
+    second_page = await client.get(
+        "/api/escalations?limit=2&offset=2", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert len(second_page.json()) == 1
+
+
 async def test_list_escalations_empty_for_fresh_tenant(client: httpx.AsyncClient) -> None:
     token, _tenant_id = await _signup_tenant_admin(client)
     response = await client.get("/api/escalations", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     assert response.json() == []
+
+
+async def _seed_escalation(
+    conn: asyncpg.Connection[Any], tenant_id: uuid.UUID, *, reason: str = "customer_request"
+) -> tuple[uuid.UUID, uuid.UUID]:
+    conversation_id: uuid.UUID = await conn.fetchval(
+        "insert into conversations (tenant_id, status) values ($1, 'escalated') returning id",
+        tenant_id,
+    )
+    escalation_id: uuid.UUID = await conn.fetchval(
+        "insert into escalations (tenant_id, conversation_id, reason) values ($1, $2, $3) "
+        "returning id",
+        tenant_id,
+        conversation_id,
+        reason,
+    )
+    return escalation_id, conversation_id
+
+
+async def test_claim_escalation_moves_open_to_claimed(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    token, tenant_id = await _signup_tenant_admin(client)
+    escalation_id, _ = await _seed_escalation(superuser_conn, tenant_id)
+
+    response = await client.post(
+        f"/api/escalations/{escalation_id}/claim", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "claimed"
+
+
+async def test_claim_already_claimed_escalation_is_409(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    token, tenant_id = await _signup_tenant_admin(client)
+    escalation_id, _ = await _seed_escalation(superuser_conn, tenant_id)
+    await superuser_conn.execute(
+        "update escalations set status = 'claimed' where id = $1", escalation_id
+    )
+
+    response = await client.post(
+        f"/api/escalations/{escalation_id}/claim", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 409
+
+
+async def test_claim_another_tenants_escalation_is_404(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    token, _tenant_id = await _signup_tenant_admin(client)
+    _other_token, other_tenant_id = await _signup_tenant_admin(client)
+    escalation_id, _ = await _seed_escalation(superuser_conn, other_tenant_id)
+
+    response = await client.post(
+        f"/api/escalations/{escalation_id}/claim", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 404
+
+
+async def test_resolve_with_message_posts_human_agent_message(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    token, tenant_id = await _signup_tenant_admin(client)
+    escalation_id, conversation_id = await _seed_escalation(superuser_conn, tenant_id)
+
+    response = await client.post(
+        f"/api/escalations/{escalation_id}/resolve",
+        json={"message": "A team member will call you shortly."},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "resolved"
+    assert body["resolved_at"] is not None
+
+    rows = await superuser_conn.fetch(
+        "select role, content from messages where tenant_id = $1 and conversation_id = $2 "
+        "and role = 'human_agent'",
+        tenant_id,
+        conversation_id,
+    )
+    assert len(rows) == 1
+    assert rows[0]["content"] == "A team member will call you shortly."
+
+
+async def test_resolve_without_message_posts_nothing(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    token, tenant_id = await _signup_tenant_admin(client)
+    escalation_id, conversation_id = await _seed_escalation(superuser_conn, tenant_id)
+
+    response = await client.post(
+        f"/api/escalations/{escalation_id}/resolve",
+        json={},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+
+    count = await superuser_conn.fetchval(
+        "select count(*) from messages where tenant_id = $1 and conversation_id = $2 "
+        "and role = 'human_agent'",
+        tenant_id,
+        conversation_id,
+    )
+    assert count == 0
+
+
+async def test_resolve_blank_message_is_treated_as_no_message(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    token, tenant_id = await _signup_tenant_admin(client)
+    escalation_id, conversation_id = await _seed_escalation(superuser_conn, tenant_id)
+
+    response = await client.post(
+        f"/api/escalations/{escalation_id}/resolve",
+        json={"message": "   "},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+    count = await superuser_conn.fetchval(
+        "select count(*) from messages where tenant_id = $1 and conversation_id = $2 "
+        "and role = 'human_agent'",
+        tenant_id,
+        conversation_id,
+    )
+    assert count == 0
+
+
+async def test_resolve_already_resolved_escalation_is_409(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    token, tenant_id = await _signup_tenant_admin(client)
+    escalation_id, _ = await _seed_escalation(superuser_conn, tenant_id)
+    await superuser_conn.execute(
+        "update escalations set status = 'resolved', resolved_at = now() where id = $1",
+        escalation_id,
+    )
+
+    response = await client.post(
+        f"/api/escalations/{escalation_id}/resolve",
+        json={},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 409
+
+
+async def test_resolve_another_tenants_escalation_is_404(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    token, _tenant_id = await _signup_tenant_admin(client)
+    _other_token, other_tenant_id = await _signup_tenant_admin(client)
+    escalation_id, _ = await _seed_escalation(superuser_conn, other_tenant_id)
+
+    response = await client.post(
+        f"/api/escalations/{escalation_id}/resolve",
+        json={},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 404

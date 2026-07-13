@@ -6,7 +6,17 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
-from app.api import chat, escalations, knowledge, onboarding, platform, public, tenants
+from app.api import (
+    chat,
+    conversations,
+    escalations,
+    knowledge,
+    onboarding,
+    platform,
+    pricing,
+    public,
+    tenants,
+)
 from app.core import db
 
 # The frontend and backend are always different origins - three tenant-facing
@@ -52,7 +62,9 @@ app.include_router(public.router)
 app.include_router(onboarding.router)
 app.include_router(knowledge.router)
 app.include_router(chat.router)
+app.include_router(conversations.router)
 app.include_router(escalations.router)
+app.include_router(pricing.router)
 
 
 @app.get("/health")
