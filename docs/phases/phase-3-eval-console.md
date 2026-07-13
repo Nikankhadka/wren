@@ -81,7 +81,7 @@
 **Accept:** a full conversation shows as one coherent Langfuse trace; cost_logs rows reconcile with provider token counts; tool_calls populated.
 **Tests:** cost recording unit test (stub provider usage payloads); tool_call persistence test.
 
-### T-031 `[ ]` Tenant admin console core (6h)
+### T-031 `[x]` Tenant admin console core (6h)
 **Deps:** T-006, T-030, T-020, T-016. **Stories:** US-100.
 **Read:** `design/frontend.md` sections 6 and 7.2 in full (this ticket implements 7.2 except Dashboards); `design/database.md` sections 5-6 for the data.
 **Files:** `frontend/src/app/(tenant-admin)/…` - conversations, escalations, pricing pages (+ nav shell); `backend/app/api/` - conversations.py, escalations.py (extend), pricing.py.
@@ -98,8 +98,8 @@
 
 ## Week 3 Definition of Done
 
-- [ ] Three-layer eval (retrieval, generation incl. judge calibration, trajectory) + injection producing real committed numbers.
-- [ ] CI gate green on main and proven to catch a deliberate break; leakage test wired into CI at 100%.
-- [ ] Every agent run traced end-to-end in Langfuse; cost_logs accurate; caps/timeouts protective.
-- [ ] Tenant console core usable end-to-end including pricing edits and escalation handling.
+- [ ] Three-layer eval (retrieval, generation incl. judge calibration, trajectory) + injection producing real committed numbers. Blocked on T-024's founder hand-labeling step (see its status note) - everything else in this line is built and committed.
+- [ ] CI gate green on main and proven to catch a deliberate break; leakage test wired into CI at 100%. Gate is built, wired, and locally proven; the live-Actions break-proof needs `LLM_API_KEY` as a repo secret (T-029 founder follow-up).
+- [ ] Every agent run traced end-to-end in Langfuse; cost_logs accurate; caps/timeouts protective. cost_logs/tool_calls/caps/timeouts are real and verified; Langfuse itself is a `NoOpTracer` until the founder wires a real account (deliberate free-first deferral, see T-030's memory entry).
+- [x] Tenant console core usable end-to-end including pricing edits and escalation handling. Verified live: trace drill-down, claim+resolve with a human reply reaching the customer surface, a price edit reflected in a new quote while a sent quote stayed frozen.
 - [ ] No lint errors, no failing/flaky tests; discoveries in `.agents/memory.md`.
