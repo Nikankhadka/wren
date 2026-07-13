@@ -66,12 +66,21 @@ def _span_attrs(result: dict[str, Any]) -> dict[str, Any]:
     return attrs
 
 
-def _traced(name: str, node: Callable[[AgentState], Awaitable[dict[str, Any]]]) -> SupervisorNode:
+def _traced(name: str, node: Callable[[AgentState], Awaitable[dict[str, Any]]]) -> Any:
     """Wraps a node in a tracing span instead of editing every node body -
     mechanical, applies uniformly to all 8 nodes (including a test's forced
     supervisor_node), and costs nothing when the tracer is the T-030 no-op
     default. get_runtime() works here since the wrapper IS the node LangGraph
-    executes (T-013's get_runtime()-only-inside-a-node constraint still holds)."""
+    executes (T-013's get_runtime()-only-inside-a-node constraint still holds).
+
+    Declared ``Any`` rather than the callable's real type because langgraph's
+    ``add_node`` protocol overloads (``_Node[NodeInputT]`` with a StateLike
+    bound) reject TypedDict-typed callables under mypy 2.2, and the emitted
+    error code flip-flops between ``call-overload`` and ``arg-type`` across
+    incremental-cache states - so no per-line ``type: ignore[code]`` is stable
+    (CI runs cold and local runs warm; each sees a different code). Erasing the
+    type at this one boundary is deterministic; the parameter side stays fully
+    typed."""
 
     async def wrapped(state: AgentState) -> dict[str, Any]:
         turn = get_runtime(GraphContext).context.turn
@@ -116,23 +125,16 @@ def build_graph(
     specific route without needing real intent-classification logic (T-013)
     - production always uses the default (the real supervisor stub/impl)."""
     graph = StateGraph(AgentState, context_schema=GraphContext)
-    # _traced()'s return type (a plain Callable alias, matching supervisor_node's
-    # own pre-existing swappability shape) doesn't structurally match add_node's
-    # narrow _Node[...] protocol overloads the way a directly-referenced
-    # function does - every node now goes through the tracing wrapper, so
-    # every registration needs the same ignore the supervisor line already did.
-    graph.add_node("supervisor", _traced("supervisor", supervisor_node))  # type: ignore[call-overload]
-    graph.add_node("knowledge", _traced("knowledge", knowledge.run))  # type: ignore[call-overload]
-    graph.add_node(  # type: ignore[call-overload]
-        "recommendation", _traced("recommendation", recommendation.run)
-    )
-    graph.add_node("quoting", _traced("quoting", quoting.run))  # type: ignore[call-overload]
-    graph.add_node(  # type: ignore[call-overload]
-        "order_status", _traced("order_status", order_status.run)
-    )
-    graph.add_node("escalation", _traced("escalation", escalation.run))  # type: ignore[call-overload]
-    graph.add_node("price_gate", _traced("price_gate", price_gate.run))  # type: ignore[call-overload]
-    graph.add_node("inspection", _traced("inspection", inspection.run))  # type: ignore[call-overload]
+    # No type: ignore needed on these registrations - see _traced's docstring
+    # for why its return type is erased at the add_node boundary.
+    graph.add_node("supervisor", _traced("supervisor", supervisor_node))
+    graph.add_node("knowledge", _traced("knowledge", knowledge.run))
+    graph.add_node("recommendation", _traced("recommendation", recommendation.run))
+    graph.add_node("quoting", _traced("quoting", quoting.run))
+    graph.add_node("order_status", _traced("order_status", order_status.run))
+    graph.add_node("escalation", _traced("escalation", escalation.run))
+    graph.add_node("price_gate", _traced("price_gate", price_gate.run))
+    graph.add_node("inspection", _traced("inspection", inspection.run))
 
     graph.add_edge(START, "supervisor")
     graph.add_conditional_edges(
