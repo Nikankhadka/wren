@@ -51,6 +51,14 @@ class TenantResolveResponse(BaseModel):
 _cache: dict[str, tuple[float, TenantResolveResponse]] = {}
 
 
+def invalidate_slug_cache(slug: str) -> None:
+    """Drop a cached resolution so the next customer-surface request re-reads
+    the database. Called by platform.py after a status change (suspend/
+    reactivate) - without this, a recently-resolved slug would keep serving
+    its pre-change status for up to _CACHE_TTL_SECONDS."""
+    _cache.pop(slug, None)
+
+
 async def _customer_config(tenant_id: UUID) -> dict[str, Any]:
     """The tenant-configured customer-surface bits (greeting, starter
     questions) - read under the customer tenant context, never through the
