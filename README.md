@@ -43,6 +43,19 @@ The project was fully planned up front, then built ticket by ticket. The docs sp
 
 Prerequisites: Node 22+, [uv](https://docs.astral.sh/uv/), Docker.
 
+### One command (demo-ready)
+
+```bash
+./scripts/demo.sh
+```
+
+Starts a local GoTrue (Supabase Auth) + the database, fixes env files, runs
+migrations and a seeded demo world (two tenants, three logins), and brings up
+the backend + frontend. See [`docs/DEMO.md`](docs/DEMO.md) for the full
+walkthrough, credentials, and troubleshooting.
+
+### Manual
+
 ```bash
 # database (Postgres + pgvector)
 docker compose up -d db
@@ -50,6 +63,7 @@ docker compose up -d db
 # backend
 cd backend
 uv sync
+uv run python -m app.core.migrate
 uv run uvicorn app.main:app --reload          # http://localhost:8000/health
 
 # frontend
@@ -58,7 +72,7 @@ npm install
 npm run dev                                   # http://localhost:3000
 ```
 
-Copy `.env.example` to `.env` and fill in values as tickets wire up each service (Supabase, Azure OpenAI, Langfuse). To get demo data, seed the sample tenant: `cd backend && uv run python seeds/seed_tenant1_phoneshop.py`, then open http://bytefix.localhost:3000.
+Copy `.env.example` to `.env` and fill in values as tickets wire up each service (Supabase, Azure OpenAI, Langfuse). To seed the sample tenant: `cd backend && uv run python -m seeds.seed_tenant1_phoneshop`, then open http://bytefix.localhost:3000. For the full demo world (two tenants + auth users + conversations), run `./scripts/demo.sh` or `cd backend && uv run python -m seeds.seed_demo` (needs local GoTrue - see docs/DEMO.md).
 
 The verified build/lint/test commands live in [`AGENTS.md`](AGENTS.md).
 
