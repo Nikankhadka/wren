@@ -15,5 +15,83 @@ services:
       timeout: 3s
       retries: 10
 
+  # Local GoTrue (Supabase Auth) for demo-ready login/signup. See
+  # docs/DEMO.md and the demo plan: compose-native GoTrue runs its own
+  # migrations into the `auth` schema of the existing wren database as the
+  # postgres superuser, so backend DATABASE_URL, the migrate runner, the
+  # wren_app/wren_resolver roles, and the persistent seeded dev DB are all
+  # untouched. `docker compose up -d db` alone still works exactly as before -
+  # these services are purely additive.
+  #
+  # The JWT secret is interpolated from the caller's environment
+  # (${SUPABASE_JWT_SECRET:?...}) so the same secret in backend/.env signs
+  # both GoTrue tokens and backend verification - run via scripts/demo.sh,
+  # which exports it. A bare `docker compose up auth` without that var fails
+  # fast (the :? is intentional).
+  auth:
+    image: supabase/auth:v2.192.0
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # GoTrue owns the auth schema; it connects as the postgres superuser
+      # (the only role that can create its schema + run its migrations) into
+      # the same wren database the app uses. Schema isolation is clean: wren's
+      # migrate runner and RLS live entirely in public; wren_app/wren_resolver
+      # get no grants on auth and never reference it.
+      GOTRUE_DB_DRIVER: postgres
+      # search_path=auth so GoTrue's unqualified `users`/`sessions`/etc. queries
+      # resolve to the auth schema, not wren's public.users (which has no aud
+      # column). Set via the libpq `options` param (pgx honors it). The
+      # supabase self-hosting stack achieves the same with a dedicated
+      # supabase_auth_admin role whose search_path is auth; connecting as
+      # postgres (so GoTrue can create its schema + run migrations) needs this
+      # explicit search_path instead.
+      GOTRUE_DB_DATABASE_URL: "postgres://postgres:postgres@db:5432/wren?options=-c%20search_path%3Dauth"
+      GOTRUE_DB_NAMESPACE: auth
+      # Single-sourced from backend/.env via scripts/demo.sh so GoTrue signing
+      # and backend verify_token always agree. Non-fatal default (not :?) so
+      # `docker compose up -d db` keeps working on a fresh checkout with no env
+      # (compose parses the whole file even when only db is started). Running
+      # `docker compose up auth` bare, without the secret, fails fast at the
+      # GoTrue layer instead (it refuses to start on an empty JWT secret) - the
+      # documented path is scripts/demo.sh, which exports the real value.
+      GOTRUE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-}
+      GOTRUE_JWT_EXP: "3600"
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_SITE_URL: http://app.localhost:3000
+      GOTRUE_URI_ALLOW_LIST: http://*.localhost:3000
+      # GoTrue's own externally-reachable URL (used to build redirect/confirmation
+      # links and as the JWT issuer). Note: no GOTRUE_ prefix on this one -
+      # supabase's self-hosting compose sets it as bare API_EXTERNAL_URL.
+      # Reached through the auth-proxy on 54321.
+      API_EXTERNAL_URL: http://localhost:54321
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: "9999"
+      # Autoconfirm makes both seeded logins and live demo signup work with no
+      # SMTP - the demo never sends email.
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      GOTRUE_SMS_AUTOCONFIRM: "true"
+      GOTRUE_DISABLE_SIGNUP: "false"
+    # No host port: the frontend reaches GoTrue through the auth-proxy shim on
+    # 54321, which strips the /auth/v1 prefix supabase-js hardcodes (hosted
+    # Supabase's Kong gateway does this in production).
+
+  # Nginx shim: supabase-js hardcodes /auth/v1 as the path prefix; GoTrue
+  # serves routes at / (hosted Supabase strips the prefix in Kong). Config in
+  # docker/auth-proxy.conf. Port 54321 matches the supabase convention and the
+  # URL already sitting in frontend/.env.local.
+  auth-proxy:
+    image: nginx:alpine
+    depends_on:
+      - auth
+    ports:
+      - "54321:80"
+    volumes:
+      - ./docker/auth-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+
 volumes:
   wren-pgdata:
