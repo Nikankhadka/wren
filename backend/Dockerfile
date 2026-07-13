@@ -2,13 +2,13 @@
 # Multi-stage: uv resolves/builds the venv in one layer, the runtime layer only
 # ships the venv + app source, keeping the final image lean.
 #
-# NOTE (flagged, not resolved here): pyproject.toml's sentence-transformers dep
-# (local embedder/reranker, T-009/T-016) pulls in torch - per .agents/memory.md
-# T-016's entry this is documented as too heavy for the 0.25vCPU/0.5GB Fargate
-# task the architecture doc specifies. Flip EMBEDDER/RERANKER to a hosted
-# binding (azure/cohere) via task-def env vars before relying on this image in
-# production, or split sentence-transformers into a dev-only dependency group -
-# that split is real T-035 work, not done as a side effect of this Dockerfile.
+# The image is LEAN by construction: sentence-transformers/torch (the local
+# EMBEDDER/RERANKER dev default, ~100MB+ - too heavy for the 0.25vCPU/0.5GB
+# Fargate task) lives in pyproject's `local-ml` dependency group, installed by
+# default everywhere EXCEPT here (--no-group local-ml below). The ECS task
+# definition therefore binds EMBEDDER/RERANKER to hosted providers
+# (infra/ecs.tf) - launching this image with EMBEDDER=local or RERANKER=local
+# fails at first use with ModuleNotFoundError, by design.
 
 FROM python:3.12-slim AS builder
 
@@ -21,10 +21,10 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never
 
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-install-project --no-dev
+RUN uv sync --frozen --no-install-project --no-dev --no-group local-ml
 
 COPY . .
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --no-group local-ml
 
 FROM python:3.12-slim AS runtime
 

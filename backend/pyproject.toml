@@ -12,11 +12,19 @@ dependencies = [
     "python-multipart>=0.0.32",
     "pypdf>=6.14.2",
     "pgvector>=0.5.0",
-    "sentence-transformers>=5.6.0",
     "langgraph>=1.2.9",
 ]
 
 [dependency-groups]
+# T-035: sentence-transformers pulls in torch (~100MB+), fine for dev but far
+# too heavy for the 0.25vCPU/0.5GB Fargate task. It lives in its own group,
+# installed by default locally and in CI (default-groups below) so the local
+# EMBEDDER/RERANKER dev stack keeps working unchanged - only the production
+# image opts out (backend/Dockerfile: --no-group local-ml), which is why the
+# ECS task definition binds EMBEDDER/RERANKER to hosted providers.
+local-ml = [
+    "sentence-transformers>=5.6.0",
+]
 dev = [
     "httpx>=0.28.1",
     "mypy>=2.2.0",
@@ -26,6 +34,9 @@ dev = [
     "asyncpg-stubs>=0.30.0",
     "hypothesis>=6.156.6",
 ]
+
+[tool.uv]
+default-groups = ["dev", "local-ml"]
 
 [tool.ruff]
 line-length = 100
