@@ -4,7 +4,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 export const SURFACE_HEADER = "x-wren-surface";
 export const SLUG_HEADER = "x-wren-slug";
 
-export type Surface = "platform" | "tenant-admin" | "customer";
+export type Surface = "platform" | "tenant-admin" | "customer" | "marketing";
 
 export interface HostResolution {
   surface: Surface | null;
@@ -12,12 +12,23 @@ export interface HostResolution {
 }
 
 /**
+ * The apex hosts whose bare (or www.) form is the public marketing surface.
+ * "wren.app" mirrors the backend's CORS origin regex (app/main.py) - the one
+ * other place the production base domain is already named.
+ */
+const BASE_HOSTS = ["localhost", "wren.app"];
+
+/**
  * Pure host -> surface/slug mapping (T-005): admin.* -> platform, app.* ->
- * tenant-admin, {slug}.* -> customer. A bare host with no subdomain (e.g. plain
- * "localhost") resolves to neither - the caller decides the fallback.
+ * tenant-admin, {slug}.* -> customer, and the bare base host (or www.) ->
+ * marketing. An empty host resolves to neither - the caller decides the
+ * fallback.
  */
 export function resolveHost(host: string): HostResolution {
   const hostname = host.split(":")[0]?.toLowerCase() ?? "";
+  const bare = hostname.startsWith("www.") ? hostname.slice(4) : hostname;
+  if (BASE_HOSTS.includes(bare)) return { surface: "marketing", slug: null };
+
   const labels = hostname.split(".").filter(Boolean);
   if (labels.length < 2) return { surface: null, slug: null };
 
@@ -25,6 +36,33 @@ export function resolveHost(host: string): HostResolution {
   if (subdomain === "admin") return { surface: "platform", slug: null };
   if (subdomain === "app") return { surface: "tenant-admin", slug: null };
   return { surface: "customer", slug: subdomain ?? null };
+}
+
+export type SurfaceTarget =
+  | { surface: "platform" | "tenant-admin" }
+  | { surface: "customer"; slug: string };
+
+/**
+ * Inverse of resolveHost: an absolute URL for another surface, derived from
+ * the current request host so the base domain and port carry over unchanged
+ * (app.localhost:3000 in dev, app.wren.app in prod - never hardcoded). Any
+ * surface subdomain (or www.) on the current host is stripped before the
+ * target's is prepended. Plain http only for localhost.
+ */
+export function surfaceUrl(target: SurfaceTarget, currentHost: string, path = "/"): string {
+  const [hostname = "", port] = currentHost.toLowerCase().split(":");
+  const { surface } = resolveHost(hostname);
+  const base =
+    surface === "marketing" || surface === null
+      ? hostname.startsWith("www.")
+        ? hostname.slice(4)
+        : hostname
+      : hostname.split(".").slice(1).join(".");
+
+  const subdomain =
+    target.surface === "customer" ? target.slug : target.surface === "platform" ? "admin" : "app";
+  const protocol = base === "localhost" || base.endsWith(".localhost") ? "http" : "https";
+  return `${protocol}://${subdomain}.${base}${port ? `:${port}` : ""}${path}`;
 }
 
 export interface TenantResolution {

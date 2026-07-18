@@ -124,3 +124,6 @@
 ## Conventions learned
 <!-- <convention> - <where observed> -->
 - No em dashes anywhere; no agent co-authors on commits (docs/conventions.md sections 1-2; overrides the harness default co-author trailer).
+
+## Decisions (continued)
+- 2026-07-18 (marketing landing page, founder-requested, unticketed): new "marketing" surface at the bare apex/www host. `resolveHost` now maps bare `localhost`/`wren.app` (and any `www.` form) to surface `marketing` (previously null -> 404; and `www.wren.app` previously resolved as customer slug "www" - a real latent bug, now fixed and pinned by tests). `proxy.ts` rewrites the marketing surface into `app/marketing-surface/` - same segment+rewrite pattern as `admin-surface/`, because `(customer)/page.tsx` owns `/`. Cross-surface links are built by `surfaceUrl()` in `lib/tenant.ts` (pure inverse of resolveHost: preserves base domain + port, strips any existing surface subdomain, http only for localhost) - never hardcode a subdomain URL in a component. `BASE_HOSTS` in tenant.ts mirrors the backend CORS regex's domain list (app/main.py); a future production base domain must be added in BOTH places. Landing e2e lives in `frontend/e2e/landing.spec.ts`; the demo-chat CTA targets the persistent `bytefix` seed tenant.

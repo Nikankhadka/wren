@@ -25,6 +25,10 @@ import { resolveHost, SLUG_HEADER, SURFACE_HEADER } from "@/lib/tenant";
  * invisible to the browser (the URL bar is untouched), resolved only by
  * Next's router. `Link href`s inside admin-surface pages stay as the public
  * path ("/login", never "/admin-surface/login").
+ *
+ * The marketing surface (bare apex / www, resolved by resolveHost) uses the
+ * same rewrite pattern into `marketing-surface/` - the landing page's public
+ * URL is `/` but that pathname is owned by `(customer)/page.tsx`.
  */
 export function proxy(request: NextRequest): NextResponse {
   const slugOverride = request.headers.get(SLUG_HEADER);
@@ -43,6 +47,12 @@ export function proxy(request: NextRequest): NextResponse {
   if (surface === "platform") {
     const url = request.nextUrl.clone();
     url.pathname = `/admin-surface${url.pathname}`;
+    return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+  }
+
+  if (surface === "marketing") {
+    const url = request.nextUrl.clone();
+    url.pathname = `/marketing-surface${url.pathname}`;
     return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
   }
 

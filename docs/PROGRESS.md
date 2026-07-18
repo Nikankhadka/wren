@@ -86,6 +86,12 @@ Goal: polish all three surfaces, deploy to real infrastructure, and prove the wh
 | T-039 Security write-up | not started | - | |
 | T-040 README + LEARNINGS + demo video | not started | - | |
 
+## Unticketed founder additions
+
+| Work | Status | Commit | What was done |
+|---|---|---|---|
+| Marketing landing page | done (uncommitted) | - | The bare apex host (`wren.app` / `localhost:3000`, plus `www.`) now serves a marketing landing page with its own layout that routes each visitor to their front door: business owners to signup/login at `app.*`, customers to the live demo chat at `bytefix.*`, the platform operator to `admin.*/login`. Also fixed a latent bug where `www.wren.app` resolved as a customer tenant named "www". Covered by unit tests and a Playwright e2e spec. |
+
 ## Known gaps (not ticket failures - waiting on external setup)
 
 - **Live LLM calls run against a free OpenRouter model** (`qwen/qwen3-next-80b-a3b-instruct:free`, configured via the provider-seams refactor) and are prone to upstream 429 rate-limiting under real traffic; all LLM-touching code paths are proven with stubbed providers in CI, and live verification (confirmed working end-to-end during T-020) should expect occasional retries until a paid key or Azure OpenAI credentials are provisioned.
