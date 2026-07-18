@@ -16,6 +16,8 @@
   --color-surface: var(--color-surface);
   --color-surface-sunken: var(--color-surface-sunken);
   --color-surface-raised: var(--color-surface-raised);
+  --color-surface-container: var(--color-surface-container);
+  --color-surface-container-high: var(--color-surface-container-high);
   --color-border: var(--color-border);
   --color-border-strong: var(--color-border-strong);
   --color-text: var(--color-text);
@@ -26,6 +28,7 @@
   --color-accent-hover: var(--color-accent-hover);
   --color-accent-active: var(--color-accent-active);
   --color-accent-subtle: var(--color-accent-subtle);
+  --color-accent-container: var(--color-accent-container);
   --color-focus-ring: var(--color-focus-ring);
   --color-success: var(--color-success);
   --color-success-subtle: var(--color-success-subtle);
@@ -43,20 +46,25 @@
 
   --text-caption: var(--text-caption-size);
   --text-caption--line-height: var(--text-caption-leading);
+  --text-caption--letter-spacing: var(--text-caption-tracking);
   --text-footnote: var(--text-footnote-size);
   --text-footnote--line-height: var(--text-footnote-leading);
   --text-body-sm: var(--text-body-sm-size);
   --text-body-sm--line-height: var(--text-body-sm-leading);
   --text-body: var(--text-body-size);
   --text-body--line-height: var(--text-body-leading);
+  --text-body-lg: var(--text-body-lg-size);
+  --text-body-lg--line-height: var(--text-body-lg-leading);
   --text-title-3: var(--text-title-3-size);
   --text-title-3--line-height: var(--text-title-3-leading);
   --text-title-2: var(--text-title-2-size);
   --text-title-2--line-height: var(--text-title-2-leading);
   --text-title-1: var(--text-title-1-size);
   --text-title-1--line-height: var(--text-title-1-leading);
+  --text-title-1--letter-spacing: var(--text-title-1-tracking);
   --text-display: var(--text-display-size);
   --text-display--line-height: var(--text-display-leading);
+  --text-display--letter-spacing: var(--text-display-tracking);
 
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);

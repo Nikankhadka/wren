@@ -6,7 +6,7 @@
  * by the customer surface's server page - accent, hover/active/subtle steps
  * derived via simple HSL lightness shifts, focus ring following the accent.
  * If the accent fails WCAG AA contrast (4.5:1) against the light surface, the
- * whole override is skipped and the default clay ramp stays.
+ * whole override is skipped and the default primary ramp stays.
  *
  * The override is scoped to LIGHT mode only (`prefers-color-scheme: light`
  * plus the explicit `:root[data-theme="light"]` toggle state). Dark mode
@@ -115,8 +115,8 @@ export interface BrandVars {
 /**
  * Derive the full accent step set from a tenant accent, or null when the
  * accent is missing/invalid/fails AA against the light surface (callers then
- * keep the default clay ramp). Lightness deltas mirror the clay ramp's own
- * spacing (500 -> 600 -> 700, and 100 for the subtle wash).
+ * keep the default primary ramp). Lightness deltas mirror the primary ramp's
+ * own spacing (40 -> 35 -> 30, and 90 for the subtle wash).
  */
 export function deriveBrandVars(accent: unknown): BrandVars | null {
   if (typeof accent !== "string") return null;

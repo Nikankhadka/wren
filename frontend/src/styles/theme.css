@@ -6,104 +6,130 @@
  *  - Raw color values (hex/rgb/hsl) may exist ONLY in this file.
  *  - Components use LAYER 2 (semantic) or LAYER 3 (component) tokens, never LAYER 1 primitives.
  *  - Dark mode, tenant branding, and future themes are variable overrides, never component changes.
+ *
+ * Palette: Material 3 style tonal role ramps (primary crimson, secondary teal,
+ * tertiary green, error, neutral + neutral-variant). Ramp step numbers are M3
+ * tones (higher = lighter); Layer 2 selects tones per role and per theme.
  */
 
 /* ============ LAYER 1: PRIMITIVES (the only place raw values may live) ============ */
 :root {
-  /* sand - warm paper neutrals */
-  --sand-50:  #FAF9F5;
-  --sand-100: #F5F3EC;
-  --sand-200: #EBE8DE;
-  --sand-300: #DDD9CB;
-  --sand-400: #B8B5AA;
-  --sand-500: #8E8B80;
-  --sand-600: #5E5D55;
-  --sand-700: #3A3935;
-  --sand-800: #2B2A27;
-  --sand-900: #1F1E1B;
+  /* primary - crimson, the brand accent ramp */
+  --primary-20: #67001B;
+  --primary-30: #870027;
+  --primary-35: #A1002F;
+  --primary-40: #BA0036;
+  --primary-45: #E21E4A;
+  --primary-60: #E14A69;
+  --primary-70: #F76F86;
+  --primary-80: #FFB2BC;
+  --primary-90: #FFD9DC;
+  --primary-95: #FFECEE;
 
-  /* clay - the terracotta accent ramp */
-  --clay-100: #FAEDE6;
-  --clay-300: #EBA285;
-  --clay-500: #D97757;
-  --clay-600: #C05F3C;
-  --clay-700: #9D4A2D;
+  /* secondary - teal (info role) */
+  --secondary-30: #004F53;
+  --secondary-40: #00696D;
+  --secondary-80: #4DD9E2;
+  --secondary-90: #8EEFF4;
 
-  /* functional ramps (muted, warm-leaning) */
-  --green-100: #E8F0E9;
-  --green-300: #8FB89A;
-  --green-500: #4E7E5B;
+  /* tertiary - green (success role) */
+  --tertiary-30: #00522F;
+  --tertiary-40: #006A45;
+  --tertiary-45: #008558;
+  --tertiary-80: #57DFA2;
+  --tertiary-90: #C2F2DA;
+
+  /* error - red (danger role) */
+  --error-30: #93000A;
+  --error-40: #BA1A1A;
+  --error-80: #FFB4AB;
+  --error-90: #FFDAD6;
+
+  /* amber - warm warning ramp (kept from the prior system) */
   --amber-100: #F7EEDC;
   --amber-300: #D9B36A;
   --amber-500: #B07C24;
-  --red-100:   #F8E8E5;
-  --red-300:   #DE9187;
-  --red-500:   #BC4B3C;
-  --blue-100:  #E8EEF3;
-  --blue-300:  #9AB4C9;
-  --blue-500:  #5A7D9A;
 
-  /* dark-surface primitives */
-  --ink-900: #1F1E1B;
-  --ink-800: #262624;
-  --ink-700: #30302E;
-  --ink-600: #3A3937;
-  --ink-500: #45443F;
-  --ink-400: #55534C;
-  --clay-subtle-dark: #4A3327;
+  /* neutral - surface + text stack (warm-leaning greys) */
+  --neutral-100: #FFFFFF;
+  --neutral-98:  #FCF9F8;
+  --neutral-96:  #F6F3F2;
+  --neutral-94:  #F0EDED;
+  --neutral-92:  #EAE7E7;
+  --neutral-90:  #E5E2E1;
+  --neutral-10:  #1B1C1C;
+
+  /* neutral-variant - secondary/tertiary text + strong borders */
+  --neutral-variant-30: #5C3F41;
+  --neutral-variant-50: #906F70;
+  --neutral-variant-80: #D8C2C3;
+
+  /* dark-surface neutral steps */
+  --neutral-6:  #141313;
+  --neutral-8:  #1B1919;
+  --neutral-12: #211F20;
+  --neutral-17: #2B2929;
+  --neutral-22: #363334;
+  --neutral-30: #4A4646;
+  --neutral-80: #C9C6C5;
 
   --white: #FFFFFF;
   --scrim: rgb(0 0 0 / 0.4);
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, ui-sans-serif, sans-serif;
-  --font-display: "New York", ui-serif, Georgia, serif;
+  --font-sans: var(--font-inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, ui-sans-serif, sans-serif);
+  --font-display: var(--font-inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, ui-sans-serif, sans-serif);
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
 
   /* type scale (docs/design/frontend.md section 4) - exposed as Tailwind
-     text-* utilities via the @theme mapping in globals.css */
-  --text-caption-size: 12px;   --text-caption-leading: 16px;
-  --text-footnote-size: 13px;  --text-footnote-leading: 18px;
-  --text-body-sm-size: 15px;   --text-body-sm-leading: 22px;
-  --text-body-size: 17px;      --text-body-leading: 26px;
-  --text-title-3-size: 20px;   --text-title-3-leading: 28px;
-  --text-title-2-size: 24px;   --text-title-2-leading: 32px;
-  --text-title-1-size: 28px;   --text-title-1-leading: 36px;
-  --text-display-size: 34px;   --text-display-leading: 42px;
+     text-* utilities via the @theme mapping in globals.css. Tracking is only
+     set where the scale departs from 0 (display/title-1 tighten, caption opens). */
+  --text-caption-size: 12px;    --text-caption-leading: 16px;   --text-caption-tracking: 0.05em;
+  --text-footnote-size: 13px;   --text-footnote-leading: 18px;
+  --text-body-sm-size: 14px;    --text-body-sm-leading: 20px;
+  --text-body-size: 16px;       --text-body-leading: 24px;
+  --text-body-lg-size: 18px;    --text-body-lg-leading: 28px;
+  --text-title-3-size: 18px;    --text-title-3-leading: 26px;
+  --text-title-2-size: 22px;    --text-title-2-leading: 28px;
+  --text-title-1-size: 32px;    --text-title-1-leading: 40px;   --text-title-1-tracking: -0.01em;
+  --text-display-size: 48px;    --text-display-leading: 56px;   --text-display-tracking: -0.02em;
 }
 
 /* ============ LAYER 2: SEMANTIC - LIGHT (default) ============ */
 :root {
-  --color-bg:             var(--sand-50);
-  --color-surface:        var(--white);
-  --color-surface-sunken: var(--sand-100);
-  --color-surface-raised: var(--white);
-  --color-border:         var(--sand-200);
-  --color-border-strong:  var(--sand-300);
-  --color-text:           var(--sand-900);
-  --color-text-secondary: var(--sand-600);
-  --color-text-tertiary:  var(--sand-500);
-  --color-text-inverse:   var(--sand-50);
+  --color-bg:                    var(--neutral-98);
+  --color-surface:               var(--neutral-100);
+  --color-surface-sunken:        var(--neutral-96);
+  --color-surface-raised:        var(--neutral-100);
+  --color-surface-container:     var(--neutral-94);
+  --color-surface-container-high:var(--neutral-92);
+  --color-border:                var(--neutral-90);
+  --color-border-strong:         var(--neutral-variant-50);
+  --color-text:                  var(--neutral-10);
+  --color-text-secondary:        var(--neutral-variant-30);
+  --color-text-tertiary:         var(--neutral-variant-50);
+  --color-text-inverse:          var(--neutral-100);
 
-  --color-accent:         var(--clay-500);
-  --color-accent-hover:   var(--clay-600);
-  --color-accent-active:  var(--clay-700);
-  --color-accent-subtle:  var(--clay-100);
-  --color-focus-ring:     var(--clay-500);
+  --color-accent:                var(--primary-40);
+  --color-accent-hover:          var(--primary-35);
+  --color-accent-active:         var(--primary-30);
+  --color-accent-subtle:         var(--primary-90);
+  --color-accent-container:      var(--primary-45); /* pairs with text-inverse: white on #E21E4A ~4.65:1 */
+  --color-focus-ring:            var(--primary-40);
 
-  --color-success:        var(--green-500);
-  --color-success-subtle: var(--green-100);
+  --color-success:        var(--tertiary-40);
+  --color-success-subtle: var(--tertiary-90);
   --color-warning:        var(--amber-500);
   --color-warning-subtle: var(--amber-100);
-  --color-danger:         var(--red-500);
-  --color-danger-subtle:  var(--red-100);
-  --color-info:           var(--blue-500);
-  --color-info-subtle:    var(--blue-100);
+  --color-danger:         var(--error-40);
+  --color-danger-subtle:  var(--error-90);
+  --color-info:           var(--secondary-40);
+  --color-info-subtle:    var(--secondary-90);
 
   --color-scrim:          var(--scrim);
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
   --radius-full: 9999px;
 
   --shadow-1: 0 1px 2px rgb(0 0 0 / 0.05);
@@ -117,71 +143,82 @@
 
 /* ============ LAYER 2 OVERRIDES - DARK ============ */
 /* Applied when the user's stored preference is dark, or when the system prefers dark
-   and no explicit light preference is stored. Components never know which is active. */
+   and no explicit light preference is stored. Components never know which is active.
+
+   IMPORTANT: the two dark blocks below (the [data-theme="dark"] rule and the
+   prefers-color-scheme media query) MUST stay literally identical - edit both
+   or neither. brand.ts assumes this duplication when it scopes tenant overrides
+   to light mode only; drift between the blocks would silently break dark mode. */
 :root[data-theme="dark"] {
-  --color-bg:             var(--ink-800);
-  --color-surface:        var(--ink-700);
-  --color-surface-sunken: var(--ink-900);
-  --color-surface-raised: var(--ink-600);
-  --color-border:         var(--ink-500);
-  --color-border-strong:  var(--ink-400);
-  --color-text:           var(--sand-50);
-  --color-text-secondary: var(--sand-400);
-  --color-text-tertiary:  var(--sand-500);
-  --color-text-inverse:   var(--sand-900);
+  --color-bg:                    var(--neutral-6);
+  --color-surface:               var(--neutral-12);
+  --color-surface-sunken:        var(--neutral-8);
+  --color-surface-raised:        var(--neutral-17);
+  --color-surface-container:     var(--neutral-17);
+  --color-surface-container-high:var(--neutral-22);
+  --color-border:                var(--neutral-22);
+  --color-border-strong:         var(--neutral-30);
+  --color-text:                  var(--neutral-90);
+  --color-text-secondary:        var(--neutral-variant-80);
+  --color-text-tertiary:         var(--neutral-80);
+  --color-text-inverse:          var(--neutral-10);
 
-  --color-accent:         var(--clay-300);
-  --color-accent-hover:   var(--clay-500);
-  --color-accent-active:  var(--clay-600);
-  --color-accent-subtle:  var(--clay-subtle-dark);
-  --color-focus-ring:     var(--clay-300);
+  --color-accent:                var(--primary-80);
+  --color-accent-hover:          var(--primary-70);
+  --color-accent-active:         var(--primary-60);
+  --color-accent-subtle:         var(--primary-20);
+  --color-accent-container:      var(--primary-70); /* pairs with text-inverse: near-black on #F76F86 ~6.16:1 */
+  --color-focus-ring:            var(--primary-80);
 
-  --color-success:        var(--green-300);
+  --color-success:        var(--tertiary-80);
   --color-warning:        var(--amber-300);
-  --color-danger:         var(--red-300);
-  --color-info:           var(--blue-300);
-  /* subtle fills keep their light values' role via darker mixes */
-  --color-success-subtle: color-mix(in srgb, var(--green-500) 22%, var(--ink-700));
-  --color-warning-subtle: color-mix(in srgb, var(--amber-500) 22%, var(--ink-700));
-  --color-danger-subtle:  color-mix(in srgb, var(--red-500) 22%, var(--ink-700));
-  --color-info-subtle:    color-mix(in srgb, var(--blue-500) 22%, var(--ink-700));
+  --color-danger:         var(--error-80);
+  --color-info:           var(--secondary-80);
+  /* subtle fills keep their light role via darker mixes over the surface */
+  --color-success-subtle: color-mix(in srgb, var(--tertiary-40) 22%, var(--neutral-12));
+  --color-warning-subtle: color-mix(in srgb, var(--amber-500) 22%, var(--neutral-12));
+  --color-danger-subtle:  color-mix(in srgb, var(--error-40) 22%, var(--neutral-12));
+  --color-info-subtle:    color-mix(in srgb, var(--secondary-40) 22%, var(--neutral-12));
 
   /* depth from surface steps, not shadows */
   --shadow-1: none;
-  --shadow-2: 0 0 0 1px var(--ink-500);
+  --shadow-2: 0 0 0 1px var(--neutral-22);
   --shadow-3: 0 8px 24px rgb(0 0 0 / 0.5);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="dark"]) {
-    --color-bg:             var(--ink-800);
-    --color-surface:        var(--ink-700);
-    --color-surface-sunken: var(--ink-900);
-    --color-surface-raised: var(--ink-600);
-    --color-border:         var(--ink-500);
-    --color-border-strong:  var(--ink-400);
-    --color-text:           var(--sand-50);
-    --color-text-secondary: var(--sand-400);
-    --color-text-tertiary:  var(--sand-500);
-    --color-text-inverse:   var(--sand-900);
+    --color-bg:                    var(--neutral-6);
+    --color-surface:               var(--neutral-12);
+    --color-surface-sunken:        var(--neutral-8);
+    --color-surface-raised:        var(--neutral-17);
+    --color-surface-container:     var(--neutral-17);
+    --color-surface-container-high:var(--neutral-22);
+    --color-border:                var(--neutral-22);
+    --color-border-strong:         var(--neutral-30);
+    --color-text:                  var(--neutral-90);
+    --color-text-secondary:        var(--neutral-variant-80);
+    --color-text-tertiary:         var(--neutral-80);
+    --color-text-inverse:          var(--neutral-10);
 
-    --color-accent:         var(--clay-300);
-    --color-accent-hover:   var(--clay-500);
-    --color-accent-active:  var(--clay-600);
-    --color-accent-subtle:  var(--clay-subtle-dark);
-    --color-focus-ring:     var(--clay-300);
+    --color-accent:                var(--primary-80);
+    --color-accent-hover:          var(--primary-70);
+    --color-accent-active:         var(--primary-60);
+    --color-accent-subtle:         var(--primary-20);
+    --color-accent-container:      var(--primary-70); /* pairs with text-inverse: near-black on #F76F86 ~6.16:1 */
+    --color-focus-ring:            var(--primary-80);
 
-    --color-success:        var(--green-300);
+    --color-success:        var(--tertiary-80);
     --color-warning:        var(--amber-300);
-    --color-danger:         var(--red-300);
-    --color-info:           var(--blue-300);
-    --color-success-subtle: color-mix(in srgb, var(--green-500) 22%, var(--ink-700));
-    --color-warning-subtle: color-mix(in srgb, var(--amber-500) 22%, var(--ink-700));
-    --color-danger-subtle:  color-mix(in srgb, var(--red-500) 22%, var(--ink-700));
-    --color-info-subtle:    color-mix(in srgb, var(--blue-500) 22%, var(--ink-700));
+    --color-danger:         var(--error-80);
+    --color-info:           var(--secondary-80);
+    --color-success-subtle: color-mix(in srgb, var(--tertiary-40) 22%, var(--neutral-12));
+    --color-warning-subtle: color-mix(in srgb, var(--amber-500) 22%, var(--neutral-12));
+    --color-danger-subtle:  color-mix(in srgb, var(--error-40) 22%, var(--neutral-12));
+    --color-info-subtle:    color-mix(in srgb, var(--secondary-40) 22%, var(--neutral-12));
 
     --shadow-1: none;
-    --shadow-2: 0 0 0 1px var(--ink-500);
+    --shadow-2: 0 0 0 1px var(--neutral-22);
     --shadow-3: 0 8px 24px rgb(0 0 0 / 0.5);
   }
 }
