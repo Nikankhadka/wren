@@ -77,6 +77,11 @@ services:
       GOTRUE_SMS_AUTOCONFIRM: "true"
       GOTRUE_DISABLE_SIGNUP: "false"
       GOTRUE_CORS_ALLOWED_ORIGINS: "http://app.localhost:3000,http://admin.localhost:3000,http://bytefix.localhost:3000,http://lumident.localhost:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9999/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     # No host port: the frontend reaches GoTrue through the auth-proxy shim on
     # 54321, which strips the /auth/v1 prefix supabase-js hardcodes (hosted
     # Supabase's Kong gateway does this in production).
@@ -88,7 +93,8 @@ services:
   auth-proxy:
     image: nginx:alpine
     depends_on:
-      - auth
+      auth:
+        condition: service_healthy
     ports:
       - "54321:80"
     volumes:
