@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { Icon, type IconName } from "@/components/ui/Icon";
 
 /**
  * T-031: the Surface-2 admin-console shell (frontend.md 7.2). A left sidebar
@@ -15,16 +16,17 @@ import type { ReactNode } from "react";
  * render as visibly-disabled items rather than dead links so the nav is
  * honest about what exists today.
  *
- * 7.2 specs "icons + labels"; no icon set exists yet in this codebase (see
- * EmptyState's same note), so this ships labels-only until one is chosen.
+ * 7.2 specs "icons + labels": each item carries a Material Symbol; the active
+ * item is an accent-container pill with the filled glyph, inactive items are
+ * quiet text with the outlined glyph.
  */
-const NAV_ITEMS = [
-  { href: "/onboarding", label: "Onboarding" },
-  { href: "/knowledge", label: "Knowledge" },
-  { href: "/conversations", label: "Conversations" },
-  { href: "/escalations", label: "Escalations" },
-  { href: "/pricing", label: "Pricing" },
-] as const;
+const NAV_ITEMS: { href: string; label: string; icon: IconName }[] = [
+  { href: "/onboarding", label: "Onboarding", icon: "rocket_launch" },
+  { href: "/knowledge", label: "Knowledge", icon: "folder_open" },
+  { href: "/conversations", label: "Conversations", icon: "forum" },
+  { href: "/escalations", label: "Escalations", icon: "support_agent" },
+  { href: "/pricing", label: "Pricing", icon: "sell" },
+];
 
 const SOON_ITEMS = ["Dashboards", "Settings"] as const;
 
@@ -47,12 +49,13 @@ export default function ConsoleLayout({ children }: { children: ReactNode }) {
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={[
-                    "block rounded-md px-3 py-2 text-body-sm font-medium transition-colors duration-fast",
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-body-sm font-medium transition-colors duration-fast",
                     active
-                      ? "bg-accent-subtle text-accent"
-                      : "text-text-secondary hover:bg-surface hover:text-text",
+                      ? "bg-accent-container text-text-inverse"
+                      : "text-text-secondary hover:bg-surface-container hover:text-text",
                   ].join(" ")}
                 >
+                  <Icon name={item.icon} filled={active} size={20} />
                   {item.label}
                 </Link>
               </li>

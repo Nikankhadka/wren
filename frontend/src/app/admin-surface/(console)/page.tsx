@@ -247,12 +247,14 @@ export default function PlatformHome() {
           value={metrics ? String(metrics.tenant_count) : ""}
           loading={!metrics && !metricsError}
           error={metricsError ?? undefined}
+          icon="groups"
         />
         <MetricCard
           label="Total cost"
           value={metrics ? formatUsd(metrics.total_cost_usd) : ""}
           loading={!metrics && !metricsError}
           error={metricsError ?? undefined}
+          icon="paid"
         />
       </div>
 
@@ -264,6 +266,7 @@ export default function PlatformHome() {
         error={tenantsError ?? undefined}
         emptyState={
           <EmptyState
+            icon="groups"
             title="No tenants yet"
             description="Provision the first business to get started."
             action={<Button onClick={openProvision}>Provision tenant</Button>}
