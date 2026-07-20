@@ -12,15 +12,16 @@ import { Icon, type IconName } from "@/components/ui/Icon";
  * the URL, so /knowledge and /onboarding are unchanged by living under
  * (console).
  *
- * Dashboards and Settings are specced (7.2) but land in T-034/later - they
- * render as visibly-disabled items rather than dead links so the nav is
- * honest about what exists today.
+ * Settings is specced (7.2) but lands later - it renders as a visibly-disabled
+ * item rather than a dead link so the nav is honest about what exists today.
+ * Dashboards is live as of T-034.
  *
  * 7.2 specs "icons + labels": each item carries a Material Symbol; the active
  * item is an accent-container pill with the filled glyph, inactive items are
  * quiet text with the outlined glyph.
  */
 const NAV_ITEMS: { href: string; label: string; icon: IconName }[] = [
+  { href: "/dashboards", label: "Dashboards", icon: "dashboard" },
   { href: "/onboarding", label: "Onboarding", icon: "rocket_launch" },
   { href: "/knowledge", label: "Knowledge", icon: "folder_open" },
   { href: "/conversations", label: "Conversations", icon: "forum" },
@@ -28,7 +29,7 @@ const NAV_ITEMS: { href: string; label: string; icon: IconName }[] = [
   { href: "/pricing", label: "Pricing", icon: "sell" },
 ];
 
-const SOON_ITEMS = ["Dashboards", "Settings"] as const;
+const SOON_ITEMS = ["Settings"] as const;
 
 export default function ConsoleLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
