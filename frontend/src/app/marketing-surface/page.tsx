@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { surfaceUrl } from "@/lib/tenant";
+import { Icon } from "@/components/ui/Icon";
 
 /**
  * The landing page at the bare apex (wren.app / localhost:3000). Presents the
@@ -57,10 +58,10 @@ export default async function MarketingHome() {
           <p className="rounded-full border border-border bg-surface px-3 py-1 text-footnote font-medium text-text-secondary">
             AI support &amp; sales for any small business
           </p>
-          <h1 className="max-w-[22ch] text-balance font-display text-display font-semibold text-text">
+          <h1 className="max-w-[22ch] text-balance font-display text-display font-bold text-text">
             Give your business its own AI agent.
           </h1>
-          <p className="max-w-[62ch] text-body text-text-secondary">
+          <p className="max-w-[62ch] text-body-lg text-text-secondary">
             Wren onboards your business through a conversation and puts a private, branded
             assistant at your own address. It recommends, answers from your knowledge with
             citations, produces exact quotes, and brings in a human when it should.
@@ -89,7 +90,13 @@ export default async function MarketingHome() {
             One product, three front doors
           </h2>
           <div className="grid gap-4 sm:grid-cols-3">
-            <article className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-6 shadow-1">
+            <article className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-6 shadow-1 transition-shadow duration-fast hover:shadow-2">
+              <span
+                aria-hidden="true"
+                className="flex h-10 w-10 items-center justify-center rounded-md bg-accent-subtle text-accent"
+              >
+                <Icon name="rocket_launch" size={22} />
+              </span>
               <h3 className="text-title-3 font-semibold text-text">I run a business</h3>
               <p className="flex-1 text-body-sm text-text-secondary">
                 Onboard in minutes, upload your knowledge, set your prices, and watch every
@@ -111,7 +118,13 @@ export default async function MarketingHome() {
               </div>
             </article>
 
-            <article className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-6 shadow-1">
+            <article className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-6 shadow-1 transition-shadow duration-fast hover:shadow-2">
+              <span
+                aria-hidden="true"
+                className="flex h-10 w-10 items-center justify-center rounded-md bg-accent-subtle text-accent"
+              >
+                <Icon name="forum" size={22} />
+              </span>
               <h3 className="text-title-3 font-semibold text-text">I&apos;m a customer</h3>
               <p className="flex-1 text-body-sm text-text-secondary">
                 No account, no app. You chat at the business&apos;s own address, in their branding
@@ -127,7 +140,13 @@ export default async function MarketingHome() {
               </div>
             </article>
 
-            <article className="flex flex-col gap-3 rounded-lg border border-border bg-surface-sunken p-6">
+            <article className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-6 shadow-1 transition-shadow duration-fast hover:shadow-2">
+              <span
+                aria-hidden="true"
+                className="flex h-10 w-10 items-center justify-center rounded-md bg-accent-subtle text-accent"
+              >
+                <Icon name="verified_user" size={22} />
+              </span>
               <h3 className="text-title-3 font-semibold text-text">I operate the platform</h3>
               <p className="flex-1 text-body-sm text-text-secondary">
                 Provision tenants, suspend or reactivate them, and watch per-tenant
@@ -157,7 +176,7 @@ export default async function MarketingHome() {
               <li key={step.title} className="flex flex-col gap-2">
                 <span
                   aria-hidden="true"
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-subtle font-display text-body font-semibold text-accent"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-container font-display text-body font-semibold text-text-inverse"
                 >
                   {i + 1}
                 </span>
