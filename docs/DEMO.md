@@ -57,7 +57,12 @@ doesn't, add `127.0.0.1 bytefix.localhost lumident.localhost app.localhost admin
    made (search_knowledge, get_quote_inputs, lookup_order_or_ticket), and the
    per-message cost. Open **Escalations**: claim the seeded open escalation,
    type a reply, resolve it, then reload the customer chat to see your reply
-   land in the transcript. Browse **Knowledge** (seeded policy/FAQ/price-list
+   land in the transcript. Open **Dashboards** - the bento cost cards (today,
+   this month, avg per conversation, conversations, escalation rate) with their
+   trend footnotes, the full-width 30-day cost sparkline, and the eval section's
+   honest empty state (the demo seed writes cost_logs but no eval_runs, so a
+   fresh business correctly shows "no eval runs recorded yet" instead of a blank
+   panel). Browse **Knowledge** (seeded policy/FAQ/price-list
    docs), **Pricing** (edit a price inline - typed in dollars, stored in exact
    cents), and **Onboarding**.
 3. **Platform admin** ([http://admin.localhost:3000](http://admin.localhost:3000), [founder@wren.dev](mailto:founder@wren.dev) /
@@ -75,6 +80,11 @@ doesn't, add `127.0.0.1 bytefix.localhost lumident.localhost app.localhost admin
 5. **Live signup** (optional). [http://app.localhost:3000/signup](http://app.localhost:3000/signup) - because
   GoTrue is configured with autoconfirm, a brand-new business signs up and
    immediately lands in onboarding with zero founder intervention.
+
+The marketing site's new **/demo** page ([http://localhost:3000/demo](http://localhost:3000/demo))
+carries a self-serve version of this same tour - the three persona walkthroughs
+and the public credentials - for visitors reading along who aren't running the
+local stack interactively.
 
 
 
