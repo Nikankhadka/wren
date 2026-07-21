@@ -36,6 +36,7 @@ from app.onboarding.flow import (
     ToneDraft,
     advance,
     next_prompt,
+    resolve_threshold,
 )
 
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
@@ -145,7 +146,7 @@ async def confirm(
         services = ServicesDraft.model_validate(state.draft["services"])
         pricing_rules = PricingRulesDraft.model_validate(state.draft["pricing_rules"])
         escalation = EscalationDraft.model_validate(state.draft["escalation_threshold"])
-        threshold = max(0.0, min(1.0, escalation.threshold))
+        threshold = resolve_threshold(escalation)
 
         system_prompt = (
             "You are the AI support and sales assistant for this business. "
@@ -171,14 +172,34 @@ async def confirm(
                 price_cents,
             )
 
+        # Defence in depth behind flow._incomplete_rules: a rule with no
+        # usable amount must never reach pricing_rules, because the pricing
+        # engine would then deterministically compute a real service as $0.
+        # The flow re-asks rather than advancing, so reaching here means the
+        # draft was tampered with or an older half-finished record was
+        # resumed - fail loud instead of storing a placeholder price.
+        unpriced = [
+            rule.code
+            for rule in pricing_rules.rules
+            if rule.unit_amount_dollars is None or rule.unit_amount_dollars <= 0
+        ]
+        if unpriced:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"pricing rules missing a positive amount: {sorted(unpriced)}",
+            )
+
         for rule in pricing_rules.rules:
+            amount = rule.unit_amount_dollars
+            if amount is None:  # pragma: no cover - the guard above rejects these
+                continue
             await conn.execute(
                 "insert into pricing_rules (tenant_id, code, label, unit_amount_cents, unit) "
                 "values ($1, $2, $3, $4, $5)",
                 admin.tenant_id,
                 rule.code,
                 rule.label,
-                _cents(rule.unit_amount_dollars),
+                _cents(amount),
                 rule.unit,
             )
 
