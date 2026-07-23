@@ -7,6 +7,7 @@ abstraction's pattern (app/llm/provider.py).
 
 from __future__ import annotations
 
+import math
 from abc import ABC, abstractmethod
 from dataclasses import replace
 from typing import TYPE_CHECKING
@@ -15,6 +16,20 @@ import httpx
 from starlette.concurrency import run_in_threadpool
 
 from app.retrieval.types import RetrievedChunk
+
+
+def _sigmoid(x: float) -> float:
+    """Logistic map from an unbounded logit to a [0, 1] probability.
+
+    Written out (rather than reaching for scipy) and guarded against
+    overflow on very negative logits, which the local cross-encoder produces
+    for the clearly-irrelevant candidates in a fused batch (scores near -11).
+    """
+    if x >= 0:
+        return 1.0 / (1.0 + math.exp(-x))
+    z = math.exp(x)
+    return z / (1.0 + z)
+
 
 if TYPE_CHECKING:
     from sentence_transformers import CrossEncoder
@@ -32,7 +47,19 @@ class Reranker(ABC):
         self, *, query: str, candidates: list[RetrievedChunk], top_k: int
     ) -> list[RetrievedChunk]:
         """Re-score ``candidates`` against ``query`` and return the top ``top_k``,
-        each with ``score`` replaced by the reranker's own relevance score."""
+        each with ``score`` replaced by the reranker's relevance score.
+
+        Contract: the returned ``score`` is a **normalized relevance
+        probability in [0, 1]**, identical in meaning across every backend, so
+        a caller's absolute cutoff (knowledge's refusal threshold) means the
+        same thing whichever reranker is configured. This is load-bearing:
+        Cohere returns a [0, 1] ``relevance_score`` natively, but a raw cross-
+        encoder emits unbounded logits (routinely negative for a genuinely
+        relevant passage). Applying one absolute threshold to both scales,
+        which the code used to do, refuses almost everything on the local
+        backend and almost nothing on Cohere. Each implementation is
+        responsible for delivering the [0, 1] contract.
+        """
         raise NotImplementedError
 
 
@@ -105,7 +132,12 @@ class LocalCrossEncoderReranker(Reranker):
         ranked = sorted(
             zip(candidates, scores, strict=True), key=lambda pair: pair[1], reverse=True
         )
-        return [replace(chunk, score=float(score)) for chunk, score in ranked[:top_k]]
+        # The model emits a raw logit; the sigmoid maps it to the [0, 1]
+        # relevance probability the Reranker contract promises (this is the
+        # documented way to read an ms-marco cross-encoder score). Sigmoid is
+        # monotonic, so the ranking order is unchanged - only the absolute
+        # scale is fixed, which is what the refusal threshold reads.
+        return [replace(chunk, score=_sigmoid(float(score))) for chunk, score in ranked[:top_k]]
 
 
 def get_reranker(settings: Settings) -> Reranker:

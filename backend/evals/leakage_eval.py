@@ -21,7 +21,7 @@ import asyncio
 import json
 import subprocess
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 from uuid import UUID
 
@@ -73,8 +73,11 @@ def metrics_from(results: list[CheckResult]) -> dict[str, Any]:
 
 
 class _PassthroughReranker(Reranker):
+    # Honors the Reranker [0, 1] relevance contract: the seeded chunk is the
+    # intended match, so score it as relevant (1.0). Passing the raw fused
+    # score through would land below the knowledge refusal threshold.
     async def rerank(self, *, query: str, candidates: list[Any], top_k: int) -> list[Any]:
-        return candidates[:top_k]
+        return [replace(c, score=1.0) for c in candidates[:top_k]]
 
 
 async def _check_retrieval(

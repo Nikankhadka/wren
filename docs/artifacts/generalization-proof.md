@@ -125,24 +125,37 @@ Run through `POST /api/chat` against the real graph, free-tier model
 
 ## Honest misses
 
-**Knowledge answering is unreliable on the free model, for both tenants.**
-Four in-domain questions to the clinic (cancellation policy, walk-ins,
-children, parking) were refused or escalated despite the answers being
-plainly present in the uploaded documents. The escalation reason recorded
-for the cancellation question was `inspection:grounding` - the T-021
-inspection layer rejected the draft twice and handed off.
+**A retrieval bug this surfaced - since fixed.** Several in-domain questions
+to the clinic (cancellation policy, children) and to `bytefix` (warranty
+policy) were refused with "I don't have information about that" despite the
+answer being plainly in the uploaded documents. Diagnosing it turned up a
+real, model-independent defect, not free-tier quality: the local cross-
+encoder reranker returns raw logits (routinely negative for a genuinely
+relevant passage), while the Cohere backend returns a [0, 1] probability, and
+the knowledge agent applied one absolute `score > 0.0` cutoff to both. The
+reranker was ranking the correct chunk **#1** - "warranty policy" -> the
+policy.md Warranty passage at logit -0.11, "treat children" -> the right FAQ
+chunk at -1.45 - and the gate then threw the #1 result away. On the local
+backend it refused almost everything; on Cohere the same cutoff would have
+refused nothing. Fixed by making the Reranker contract return a normalized
+[0, 1] relevance probability on every backend (sigmoid over the cross-encoder
+logit) and setting the refusal threshold to 0.05, which sits in the wide gap
+between correctly-ranked matches (0.19-0.95) and noise (< 0.002). After the
+fix the previously-refused chunks retrieve and reach the model; "where can I
+park", whose best chunk scores 0.0004, still correctly refuses - a genuine
+retrieval miss where the parking sentence was buried in a large chunk. See
+`app/retrieval/rerank.py`, `app/agents/knowledge.py`,
+`tests/test_rerank_normalization.py`.
 
-This is not a tenant-2 defect, and the check that establishes that is the
-control: the same class of question put to `bytefix` (tenant 1, seeded by
-direct writes) also refuses - "do I need an appointment" answered with a
-correct citation, "what is your warranty policy" refused, from a document
-that plainly contains a Warranty section. Chunking is equivalent across the
-two ingestion paths (1.3k-2.0k chars per chunk on both), so the upload API
-and the seed script produce comparable inputs. The weakness is retrieval
-precision plus grounding strictness on a free-tier model, affecting both
-tenants equally - it is the known gap already recorded for generation eval,
-not a generalization failure. It does mean the end-to-end answer quality
-claim for either tenant is unproven until a stronger model is provisioned.
+**What remains is genuinely the free model.** With retrieval fixed, the
+correct chunk now reaches generation, but some answers are still bounced by
+the T-021 inspection/grounding gate on the weak free model (the refusal text
+changes accordingly, from "I don't have information about that" - the
+retrieval refusal - to "I wasn't able to put together a reliable answer" -
+the post-inspection handoff), and the free endpoint drops streams under load.
+This affects both tenants equally, so it is the known generation-quality gap,
+not a generalization failure. End-to-end answer quality for either tenant
+stays unproven until a stronger model is provisioned.
 
 Worth noting which way it fails: every miss refused or escalated. None
 invented an answer.

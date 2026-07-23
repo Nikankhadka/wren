@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import uuid
 from collections.abc import AsyncIterator
+from dataclasses import replace
 from typing import Any, get_args
 from uuid import UUID
 
@@ -62,10 +63,12 @@ class FakeGenerationProvider(BaseFakeProvider):
 
 
 class PassthroughReranker(Reranker):
+    # Scores the kept chunk at the top of the [0, 1] relevance contract so it
+    # clears the knowledge refusal threshold; the raw fused score would not.
     async def rerank(
         self, *, query: str, candidates: list[RetrievedChunk], top_k: int
     ) -> list[RetrievedChunk]:
-        return candidates[:top_k]
+        return [replace(chunk, score=1.0) for chunk in candidates[:top_k]]
 
 
 @pytest.fixture(autouse=True)

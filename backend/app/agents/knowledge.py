@@ -26,7 +26,18 @@ from app.llm.provider import ChatMessage
 from app.retrieval.service import retrieve
 from app.retrieval.types import RetrievedChunk
 
-REFUSAL_SCORE_THRESHOLD = 0.0
+# A chunk is kept only if the reranker's normalized relevance probability
+# (Reranker contract: [0, 1], same meaning on every backend) clears this
+# bar; below it, retrieval found nothing good enough and the agent refuses
+# rather than letting the model answer from weak context. Set from the
+# observed separation on the local cross-encoder: a correctly top-ranked,
+# genuinely-relevant chunk lands around 0.19-0.95, while irrelevant fused
+# candidates collapse to < 0.002 once the logit is passed through a sigmoid.
+# 0.05 sits in that wide gap - low enough to keep the real answer that used
+# to be discarded (a warranty passage ranked #1 at logit -0.11 -> 0.47), high
+# enough to still refuse a query with no real match ("where can I park",
+# whose best chunk is a genuine retrieval miss at 0.0004).
+REFUSAL_SCORE_THRESHOLD = 0.05
 REFUSAL_MESSAGE = (
     "I don't have information about that. Please contact the business directly for help."
 )

@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import uuid
 from collections.abc import AsyncIterator
+from dataclasses import replace
 from typing import Any
 
 import asyncpg
@@ -39,13 +40,16 @@ class FakeKnowledgeProvider(BaseFakeProvider):
 
 
 class PassthroughReranker(Reranker):
-    """RRF-fused scores are already positive (1/(k+rank)), so no rescoring is
-    needed for the refusal-threshold check (> 0.0) to behave correctly."""
+    """Keeps input order but honors the Reranker [0, 1] relevance contract:
+    the candidates handed to it in these tests are the intended-relevant
+    chunk, so it scores them at the top of the range (1.0). Returning the raw
+    RRF-fused score instead would land near 0.016 and now be refused, which
+    would test the threshold rather than the node."""
 
     async def rerank(
         self, *, query: str, candidates: list[RetrievedChunk], top_k: int
     ) -> list[RetrievedChunk]:
-        return candidates[:top_k]
+        return [replace(chunk, score=1.0) for chunk in candidates[:top_k]]
 
 
 def _initial_state(message: str) -> AgentState:
