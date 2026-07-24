@@ -57,17 +57,17 @@
 3. Write the proof doc: what was configured, transcript excerpts, the "git diff is empty" evidence, eval numbers if the golden-set pattern is reused.
 **Accept:** dental clinic live at its subdomain on identical code; the proof doc holds up to a skeptical reader.
 
-### T-038 `[ ]` Eval report (4h)
+### T-038 `[x]` Eval report (4h)
 **Deps:** T-029. **Files:** `docs/artifacts/eval-report.md`.
 **Steps:** real numbers only, from eval_runs: retrieval (recall@k, MRR, nDCG), generation (faithfulness, relevancy, citation-faithfulness), judge calibration agreement, trajectory (tool correctness, efficiency, cost-per-task), injection pass rate, leakage 100%, quote-provenance status; methodology per layer (dataset sizes, judge models, thresholds); honest analysis of misses; the WON'T/deferral table copied forward from the PRD with any updates.
 **Accept:** every figure traceable to an eval_runs row (include run ids); no rounded-up marketing numbers.
 
-### T-039 `[ ]` Security write-up (3h)
+### T-039 `[x]` Security write-up (3h)
 **Deps:** T-022, T-027. **Files:** `docs/artifacts/security.md`.
 **Steps:** OWASP LLM Top 10 mapping (addressed: LLM01 spotlighting + input scan + inspection, with the honest injection pass rate; LLM07 leak checks; LLM08 RLS + leakage test as the signature proof; LLM10 caps/timeouts; classic web controls), each with pointers to code + tests; deliberate deferrals (guardrails framework, formal red team, SSO/certs) stated as decisions.
 **Accept:** a security-literate reviewer can verify every claim from the linked tests.
 
-### T-040 `[ ]` README + LEARNINGS + demo video (5h)
+### T-040 `[~]` README + LEARNINGS + demo video (5h) - README + LEARNINGS done; demo video is a founder recording step (marked in README)
 **Deps:** T-038, T-039. **Files:** `README.md`, `LEARNINGS.md`, video link in README.
 **Steps:** README: what Wren is, the three-surface diagram (redraw from the frozen PRD section 2), quickstart (verified against root AGENTS.md commands on a clean clone), architecture summary linking the design docs, deferral rationale table, links to artifacts. LEARNINGS.md: per subsystem (tenancy/RLS, RAG, agents, pricing, eval, security, observability, infra) - what was learned, what surprised, what would change (the Research doc's section 4.1 intent; open it only if the rubric is needed). Record the 5-10 minute walkthrough: three surfaces, a quote with trace drill-down, the generalization proof, the eval report.
 **Accept:** clean-clone quickstart works as written; video linked; release criteria checklist below all green.

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { apiFetch, ApiError } from "@/lib/api";
@@ -15,10 +16,11 @@ interface TenantMe {
 
 /**
  * T-004: tenant-admin login. On success it proves the full auth path by
- * calling the authed backend probe (GET /api/tenants/me) and showing the
- * caller's tenant. The real admin console shell arrives in later tickets.
+ * calling the authed backend probe (GET /api/tenants/me), showing the
+ * caller's tenant, and redirecting into the admin console shell.
  */
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -27,11 +29,14 @@ export default function LoginPage() {
 
   useEffect(() => {
     // Resume an existing session on load so a signed-in admin is not shown
-    // the login form again.
+    // the login form again - redirect straight into the console.
     apiFetch<TenantMe>("/api/tenants/me")
-      .then(setMe)
+      .then((data) => {
+        setMe(data);
+        router.replace("/dashboards");
+      })
       .catch(() => setMe(null));
-  }, []);
+  }, [router]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -46,7 +51,8 @@ export default function LoginPage() {
         setError(authError.message);
         return;
       }
-      setMe(await apiFetch<TenantMe>("/api/tenants/me"));
+      await apiFetch<TenantMe>("/api/tenants/me");
+      router.replace("/dashboards");
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
         // Valid account, no tenant yet (e.g. confirmed email but never finished
@@ -60,23 +66,17 @@ export default function LoginPage() {
     }
   }
 
-  async function handleSignOut() {
-    await getSupabase().auth.signOut();
-    setMe(null);
-  }
-
   if (me) {
     return (
       <main className="flex min-h-screen items-center justify-center p-8">
         <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-6 shadow-1">
           <h1 className="text-title-2 font-semibold">Signed in</h1>
           <p className="mt-2 text-body-sm text-text-secondary">
-            You are signed in to <span className="font-medium text-text">{me.name}</span> (
-            {me.slug}).
+            Redirecting to the admin console...
           </p>
           <div className="mt-6">
-            <Button variant="secondary" onClick={handleSignOut}>
-              Sign out
+            <Button variant="secondary" onClick={() => router.push("/dashboards")}>
+              Go to Dashboards
             </Button>
           </div>
         </div>
