@@ -15,38 +15,56 @@ Detected from the scaffold (phase 0); pinned by the Architecture Doc:
 - **Frontend (all 3 surfaces):** Next.js 16 / React 19 / TypeScript 5, Tailwind v4 (npm) - one app, deployed to Vercel. All visual values live in `frontend/src/styles/theme.css` design tokens (CI-enforced).
 - **Backend (agents, RAG, pricing, eval):** Python 3.12 (pinned via `.python-version`), FastAPI, managed with **uv** - one service on AWS ECS Fargate via Terraform
 - **Database/Auth:** Supabase (Postgres + pgvector + Auth + RLS); local dev via `docker compose up -d db` (pgvector/pgvector:pg16)
-- **LLM:** Azure OpenAI (GPT-4o-mini, text-embedding-3-small) behind a thin provider abstraction
+- **LLM:** Provider abstraction (`backend/app/llm/provider.py`) with `openai_compat` (OpenRouter/Groq/Ollama, the proven default used by CI and `scripts/demo.sh`) and Azure (supported, requires credentials)
 - **Orchestration:** LangGraph (supervisor + specialist agents)
 - **Eval:** RAGAS + custom trajectory scorer; **Observability:** Langfuse (OTel-based)
 - **CI/CD:** GitHub Actions
 
 ## Commands
 
-All verified. Frontend commands run in `frontend/`, backend commands in `backend/`.
+All verified. Run from repo root via `make <target>` (the friendly entry point); the underlying raw command is shown in the second column for reference.
 
-| Purpose | Command |
-|---|---|
-| Build (frontend) | `npm run build` |
-| Lint (frontend) | `npm run lint` |
-| Token guard (frontend) | `npm run check:tokens` |
-| Typecheck (frontend) | `npm run typecheck` |
-| Test (frontend) | `npm run test` (vitest) |
-| Dev server (frontend) | `npm run dev` |
-| Lint (backend) | `uv run ruff check .` |
-| Format check (backend) | `uv run ruff format --check .` |
-| Typecheck (backend) | `uv run mypy` (strict) |
-| Test (backend) | `uv run pytest` |
-| Dev server (backend) | `uv run uvicorn app.main:app --reload` |
-| Local database | `docker compose up -d db` (repo root) |
+| Purpose | `make` target | Raw command |
+|---|---|---|
+| One-command demo | `make demo` | `./scripts/demo.sh` |
+| Dev servers (both) | `make dev` | backend: `uv run uvicorn app.main:app --reload` + frontend: `npm run dev` |
+| Dev server (frontend) | `make dev-frontend` | `cd frontend && npm run dev` |
+| Dev server (backend) | `make dev-backend` | `cd backend && uv run uvicorn app.main:app --reload` |
+| Local database | `make db` | `docker compose up -d db` |
+| DB + auth (full demo infra) | `make db-full` | `docker compose up -d db auth auth-proxy` |
+| Tear down DB (volumes) | `make db-down` | `docker compose down -v` |
+| Apply migrations | `make migrate` | `cd backend && uv run python -m app.core.migrate` |
+| Seed demo world | `make seed` | `cd backend && uv run python -m seeds.seed_demo` |
+| Seed tenant 1 | `make seed-tenant1` | `cd backend && uv run python -m seeds.seed_tenant1_phoneshop` |
+| Seed tenant 2 | `make seed-tenant2` | `cd backend && uv run python -m seeds.seed_tenant2_dental` |
+| Install deps | `make install` | `cd frontend && npm ci` + `cd backend && uv sync` |
+| Lint (frontend) | `make lint-frontend` | `cd frontend && npm run lint && npm run check:tokens` |
+| Lint (backend) | `make lint-backend` | `cd backend && uv run ruff check .` |
+| Lint (both) | `make lint` | frontend + backend lint |
+| Format check | `make format-check` | `cd backend && uv run ruff format --check .` |
+| Auto-format | `make format` | `cd backend && uv run ruff format .` (writes) |
+| Typecheck (frontend) | `make typecheck-frontend` | `cd frontend && npm run typecheck` |
+| Typecheck (backend) | `make typecheck-backend` | `cd backend && uv run mypy` |
+| Typecheck (both) | `make typecheck` | frontend + backend typecheck |
+| Test (frontend) | `make test-frontend` | `cd frontend && npm run test` (vitest) |
+| Test (backend) | `make test-backend` | `cd backend && uv run pytest` |
+| Test (both) | `make test` | frontend + backend tests |
+| E2E tests | `make test-e2e` | `cd frontend && npm run test:e2e` (Playwright) |
+| E2E UI mode | `make test-e2e-ui` | `cd frontend && npm run test:e2e:ui` |
+| Eval gate | `make eval` | `cd backend && uv run python -m evals.run_gate` |
+| Eval (deterministic only) | `make eval-skip-llm` | `cd backend && uv run python -m evals.run_gate --skip-llm` |
+| Fast inner loop | `make check` | lint + typecheck + test |
+| Full CI (local) | `make ci` | check + format-check + build |
+| Clean | `make clean` | remove node_modules, .venv, __pycache__ |
 
-No E2E harness yet - added when the first surface flow exists (phase 1/4; see phase files).
+Run `make help` for the full list with descriptions.
 
 ## Structure
 
 - `docs/` - documentation system; start at `docs/INDEX.md` (phase router). Progress tracker at `docs/PROGRESS.md`, binding conventions at `docs/conventions.md`, design docs in `docs/design/`, executable tickets in `docs/phases/`, frozen planning docs in `docs/source/`.
 - `frontend/` - Next.js app (three surfaces via route groups; tokens in `src/styles/theme.css`)
 - `backend/` - FastAPI app (`app/`), tests, and (from phase 1) migrations, seeds, evals
-- `infra/` - Terraform (stub until T-035)
+- `infra/` - Terraform (7-file AWS stack: VPC, ALB, ECR, ECS Fargate, IAM, Secrets Manager)
 - `.agents/` - generated file map and session memory
 
 See `.agents/map.md` for the full generated file map.

@@ -1,7 +1,7 @@
 > **NAVIGATION:** Always binding - this is the one source doc every session still obeys in full (root `AGENTS.md` summarizes it). Route implementation work via `docs/INDEX.md`.
 
 # WREN - Agent Conventions
-> **Version:** 2.0 | **Applies to:** any AI agent (Claude Code or otherwise) executing work against the Charter/PRD, Architecture Doc, Sprint Plan, or Research doc.
+ > **Version:** 2.0 | **Applies to:** any AI agent (Claude Code or otherwise) executing work against the Charter/PRD (`docs/source/product-requirements.md`), Architecture Doc (`docs/source/architecture.md`), Sprint Plan (`docs/source/sprint-plan.md`), or Research doc (`docs/source/research.md`).
 > Read this alongside those documents, not instead of them. Where a ticket's acceptance criteria and this document seem to conflict, this document wins on *how* work is done; the PRD/Architecture/Sprint docs win on *what* is being built.
 
 ---
@@ -63,8 +63,8 @@ A single vertical-branch in agent or tool logic invalidates the platform's centr
 
 ## 10. Where this shows up in the existing docs
 
-- The Charter/PRD's Release Criteria section should be read as including: no known lint errors, and no failing or flaky tests, in CI at the time v1 is called shipped, and zero model-authored monetary figures (per section 8 above).
-- The Sprint Plan's per-week Definition of Done should be read as including: engineering hygiene (section 7 above) is maintained continuously, not swept up at the end.
+- The Charter/PRD's (`product-requirements.md`) Release Criteria section should be read as including: no known lint errors, and no failing or flaky tests, in CI at the time v1 is called shipped, and zero model-authored monetary figures (per section 8 above).
+- The Sprint Plan's (`sprint-plan.md`) per-week Definition of Done should be read as including: engineering hygiene (section 7 above) is maintained continuously, not swept up at the end.
 - Any ticket touching a customer- or tenant-facing surface should be read as including: fix visibly broken UI encountered along the way, per section 6 above.
 - Any ticket touching agent, tool, retrieval, or pricing logic should be read as including: no vertical-specific branching, per section 9 above.
 

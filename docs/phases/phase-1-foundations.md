@@ -29,6 +29,8 @@ infra/                       Terraform (phase 4)
 docker-compose.yml           local Postgres + pgvector
 ```
 
+> This is a subset contract pinned at phase 1 - not the full file tree. See `.agents/map.md` for the authoritative complete tree.
+
 ---
 
 ### T-001 `[x]` Monorepo scaffold

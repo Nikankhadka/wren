@@ -1,36 +1,28 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Wren Frontend
 
-## Getting Started
+Next.js 16 + React 19 + TypeScript 5 + Tailwind v4. One app, three surfaces via route groups:
 
-First, run the development server:
+- **Customer chat** at `{slug}.wren.app` - streaming Q&A with citations, quotes, escalation
+- **Tenant admin** at `app.wren.app` - onboarding, knowledge, conversations, pricing, dashboards
+- **Platform owner** at `admin.wren.app` - all-tenants view, provisioning, suspend/reactivate
+
+All visual values live in `src/styles/theme.css` design tokens (3-layer, CI-enforced by `check:tokens`). Components reference semantic tokens only - never hardcode colors.
+
+## Conventions
+
+See [`frontend/AGENTS.md`](./AGENTS.md) for Next.js-specific agent rules, and [`../AGENTS.md`](../AGENTS.md) at the repo root for the stack, hard rules, and verified commands.
+
+## Running
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# From repo root:
+make dev-frontend     # frontend dev server only (:3000)
+make dev              # backend + frontend concurrently
+make install-frontend # npm ci
+make lint-frontend    # ESLint + token guard
+make typecheck-frontend # tsc --noEmit
+make test-frontend    # vitest
+make test-e2e         # Playwright e2e tests
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See `../docs/DEMO.md` for the full demo walkthrough and `../Makefile` for all targets.

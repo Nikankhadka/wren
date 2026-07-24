@@ -63,16 +63,13 @@ report) - the one release-criteria item that needs a person, not the codebase.
 
 ```
 frontend/   Next.js + TypeScript + Tailwind - one app serving all three surfaces
-            (platform owner, tenant admin, customer chat). All colors/spacing
-            live as design tokens in src/styles/theme.css (CI-enforced).
-backend/    Python + FastAPI - the agents (LangGraph), search over uploaded
-            knowledge (RAG), the deterministic pricing engine, DB migrations,
-            seeds, and evals.
-infra/      Terraform for AWS - empty until the deploy phase (ticket T-035).
-docs/       All documentation - see the guide below.
-.agents/    Working files for AI coding agents (file map, session memory,
-            overnight-build instructions). Useful to skim, not required reading.
+backend/    Python + FastAPI - agents, RAG, pricing engine, migrations, seeds, evals
+infra/      Terraform (7-file AWS stack: VPC, ALB, ECR, ECS Fargate, IAM, Secrets Manager)
+docs/       All documentation - see the guide below
+.agents/    Working files for AI coding agents (file map, session memory)
 ```
+
+See [`.agents/map.md`](.agents/map.md) for the full generated file tree.
 
 ## How the docs work
 
