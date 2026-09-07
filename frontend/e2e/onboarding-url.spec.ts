@@ -23,6 +23,15 @@ test("pasting a link reads the site and reads it back", async ({
   page,
   request,
 }) => {
+  // Unlike the other onboarding specs, this one stubs nothing: the backend
+  // really fetches the page and really asks the model to structure it. With no
+  // provider there is nothing to wait for, so skip rather than time out. The
+  // Makefile derives E2E_LLM from backend/.env.
+  test.skip(
+    !process.env.E2E_LLM,
+    "no LLM provider configured (set LLM_API_KEY in backend/.env) - this spec drives the real URL ingest",
+  );
+
   // A fresh (never-onboarded) owner: the demo tenants are seeded already
   // onboarded, and this flow needs the interview to be live.
   await loginInChat(page, request, `o3-${Date.now()}@founder.dev`);
