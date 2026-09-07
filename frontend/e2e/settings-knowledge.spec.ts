@@ -17,6 +17,14 @@ test("a pasted link is read back as sections, then saved", async ({
   page,
   request,
 }) => {
+  // The read-back is the model's work on a really-fetched page, nothing
+  // stubbed, so with no provider there is nothing to wait for - skip rather
+  // than time out. The Makefile derives E2E_LLM from backend/.env.
+  test.skip(
+    !process.env.E2E_LLM,
+    "no LLM provider configured (set LLM_API_KEY in backend/.env) - this spec drives the real URL ingest",
+  );
+
   await loginAsTenantAdmin(page, request, DEMO_USERS[0]);
 
   // Relative, like every other spec: since D22 there is one origin, so the

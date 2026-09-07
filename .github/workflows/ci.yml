@@ -246,8 +246,11 @@ jobs:
     # every value the containers read comes from backend/.env and the compose
     # `environment:` blocks, which point at db:5432 inside the network.
     #
-    # No LLM credentials either: the onboarding specs stub the model-backed
+    # No LLM credentials either: nearly every spec stubs the model-backed
     # endpoints at the network layer with page.route, so no provider is called.
+    # The two that deliberately drive the real URL ingest skip themselves when
+    # none is configured, the same way the eval gate above falls back to its
+    # deterministic run - see E2E_LLM in the Makefile.
     needs: [frontend, backend]
     runs-on: ubuntu-latest
     steps:
