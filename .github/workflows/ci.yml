@@ -227,3 +227,67 @@ jobs:
             echo "LLM_API_KEY not set - running deterministic gate only"
             uv run python -m evals.run_gate --skip-llm
           fi
+
+  e2e:
+    # R-5: the Playwright suite runs here, not only on a developer's machine.
+    # The whole compose stack has to come up first, which makes this the most
+    # expensive job in the workflow - so it waits on the two cheap jobs that
+    # cover the same code it exercises. A frontend lint/typecheck/unit failure
+    # or a backend test failure now reports in minutes instead of behind a full
+    # stack build. `api-types` and `infra` touch nothing the browser drives, so
+    # they stay parallel.
+    #
+    # No env setup step, on purpose: scripts/dev.sh (behind `make demo`) is
+    # self-bootstrapping. It copies the committed .env.example to backend/.env,
+    # generates WREN_APP_DB_PASSWORD and SUPABASE_JWT_SECRET, writes the root
+    # .env that compose interpolates GOTRUE_JWT_SECRET from, and mints
+    # frontend/.env.local with an anon key derived from that same secret. The
+    # workflow-level DATABASE_URL/WREN_APP_DB_PASSWORD above are inert here -
+    # every value the containers read comes from backend/.env and the compose
+    # `environment:` blocks, which point at db:5432 inside the network.
+    #
+    # No LLM credentials either: the onboarding specs stub the model-backed
+    # endpoints at the network layer with page.route, so no provider is called.
+    needs: [frontend, backend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install container dependencies
+        # The e2e image installs nothing at boot - unlike the backend and
+        # frontend dev images, whose entrypoints self-heal - so on a fresh
+        # runner its node_modules volume is empty and `playwright test` would
+        # not resolve. `make install` is where that install already lives, and
+        # it warms the frontend volume in the same pass, so `next dev` answers
+        # inside dev.sh's readiness window instead of running `npm ci` in it.
+        run: make install
+      - name: Start and seed the stack
+        # dev.sh --seed: infra, migrations, demo world, then backend+frontend.
+        # `make test-e2e` requires exactly this state.
+        run: make demo
+      - name: Wait for the stack
+        # dev.sh polls both ports already but only warns when they stay quiet,
+        # which would hand Playwright a dead stack and 105 timeouts instead of
+        # one legible failure. Same bounded poll, hard failure, plus the logs
+        # needed to read it.
+        run: |
+          for _ in $(seq 1 60); do
+            curl -fsS http://localhost:8000/health >/dev/null 2>&1 \
+              && curl -fsS http://localhost:3000 >/dev/null 2>&1 && exit 0
+            sleep 2
+          done
+          echo "backend :8000 or frontend :3000 never answered"
+          docker compose logs --tail 200 backend frontend
+          exit 1
+      - name: Playwright suite
+        run: make test-e2e
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          # The html reporter's default output folder: playwright.config.ts
+          # names no outputFolder, and the runner bind-mounts ./frontend, so the
+          # report lands on the runner's filesystem. Traces (on-first-retry) and
+          # failure screenshots are attached inside it.
+          path: frontend/playwright-report/
+          retention-days: 7

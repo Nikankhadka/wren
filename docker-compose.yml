@@ -89,6 +89,13 @@ services:
       # The paste-a-link specs hand this URL to the backend, which fetches it
       # from inside the compose network (localhost would be the backend).
       E2E_SITE_URL: http://frontend:3000/fixtures/example-business.html
+      # Forwarded, not hardcoded: playwright.config.ts reads process.env.CI for
+      # forbidOnly and retries, and `docker compose run` passes nothing from the
+      # host unless it is declared here. GitHub Actions sets CI=true, so the
+      # suite gets forbidOnly and 2 retries there; locally CI is unset and the
+      # empty string is falsy in JS, so a developer's run keeps retries: 0 and
+      # can still use test.only.
+      CI: ${CI:-}
     ports:
       - "9323:9323"   # html report / ui mode while the container runs
     volumes:
