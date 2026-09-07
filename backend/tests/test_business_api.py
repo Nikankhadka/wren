@@ -599,10 +599,22 @@ async def test_profile_patch_moves_both_keys_together(client: httpx.AsyncClient)
     assert saved.status_code == 200, saved.text
     # Stored as the digits, the way the interview stores them - the formatting
     # is the screen's job.
-    assert saved.json() == {"abn": "51824753556", "gst": "yes"}
+    assert saved.json() == {
+        "abn": "51824753556",
+        "gst": "yes",
+        # W-9: the profile response carries the voice the assistant speaks in.
+        # An owner who never reached the voice beat reads the default back.
+        "customer_voice_preset": "warm_casual",
+        "customer_voice_custom_style": "",
+    }
 
     read_back = await client.get("/api/business/profile", headers=headers)
-    assert read_back.json() == {"abn": "51824753556", "gst": "yes"}
+    assert read_back.json() == {
+        "abn": "51824753556",
+        "gst": "yes",
+        "customer_voice_preset": "warm_casual",
+        "customer_voice_custom_style": "",
+    }
 
     config = await _config_of(tenant_id)
     assert config["profile"]["abn"] == "51824753556"
@@ -617,7 +629,14 @@ async def test_profile_patch_leaves_absent_fields_alone(client: httpx.AsyncClien
         "/api/business/profile", json={"abn": "51824753556", "gst": "yes"}, headers=headers
     )
     saved = await client.patch("/api/business/profile", json={"gst": "no"}, headers=headers)
-    assert saved.json() == {"abn": "51824753556", "gst": "no"}
+    assert saved.json() == {
+        "abn": "51824753556",
+        "gst": "no",
+        # W-9: the profile response carries the voice the assistant speaks in.
+        # An owner who never reached the voice beat reads the default back.
+        "customer_voice_preset": "warm_casual",
+        "customer_voice_custom_style": "",
+    }
 
 
 async def test_a_cleared_abn_is_the_stated_no(client: httpx.AsyncClient) -> None:

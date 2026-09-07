@@ -51,6 +51,36 @@ test.describe("the public storefront", () => {
     await expect(page.getByRole("button", { name: "Ask a question" })).toHaveCount(0);
   });
 
+  /**
+   * W-9 US-8: the assistant says what it is before anything else, and a tenant
+   * that configured its own welcome is not greeted a second time. Both demo
+   * tenants have a configured `config->customer.greeting` and both of those
+   * greetings open with a hello, so this is the case that used to double up.
+   * `lib/greeting.test.ts` covers the normalizer; this is the surface.
+   */
+  for (const tenant of [
+    { slug: "bytefix", name: "Bytefix Repairs", adds: "I can quote a repair" },
+    { slug: "lumident", name: "Lumident Dental", adds: "I can help you understand a treatment" },
+  ]) {
+    test(`${tenant.slug} opens with the identity line and greets once`, async ({ page }) => {
+      await page.goto(`/${tenant.slug}`);
+      await page.getByRole("button", { name: `Chat with ${tenant.name}` }).click();
+      const sheet = page.getByRole("dialog", { name: `Chat with ${tenant.name}` });
+      await expect(sheet).toBeVisible();
+
+      const identity = `Hi, I'm ${tenant.name}'s assistant. How can I help today?`;
+      await expect(sheet).toContainText(identity);
+
+      // The identity line leads; the configured welcome is what follows it.
+      const opening = await sheet.innerText();
+      expect(opening.indexOf(identity)).toBeGreaterThanOrEqual(0);
+      expect(opening.indexOf(tenant.adds)).toBeGreaterThan(opening.indexOf(identity));
+
+      // And hello is said exactly once, by the identity line.
+      expect(opening.match(/\b(hi|hello|hey)\b/gi) ?? []).toHaveLength(1);
+    });
+  }
+
   test("an unknown slug still gets the calm not-found page", async ({ page }) => {
     await page.goto("/no-such-business");
     // Asserted on what renders, not on the status: Next streams this page, so

@@ -137,7 +137,7 @@ async def test_both_tenants_exist_with_data(
         # the same end-state a real confirm leaves behind.
         assert row["name"] in config_row["system_prompt"]
         assert config["onboarding"]["completed"] is True
-        assert config["onboarding"]["version"] == 3
+        assert config["onboarding"]["version"] == 4
         assert config["onboarding"]["draft"] == profile
         assert config["profile"] == profile
 

@@ -15,6 +15,7 @@ import time
 from langgraph.config import get_stream_writer
 
 from app.llm.provider import ChatMessage, LLMProvider
+from app.shared.text import plain_dashes
 
 logger = logging.getLogger("app.agents.drafting")
 
@@ -37,11 +38,20 @@ MONEY_GUIDANCE = (
 async def stream_draft(provider: LLMProvider, messages: list[ChatMessage]) -> str:
     """Stream ``messages`` through ``provider``, forwarding each delta as a
     ``token`` event, and return the accumulated draft text. Must run inside a
-    graph node (it uses the run-scoped stream writer)."""
+    graph node (it uses the run-scoped stream writer).
+
+    W-9: each delta is em-dash normalized on the way out (conventions.md 1 bans
+    the character and the reproduction showed a prompt rule alone does not hold
+    it). Per delta rather than on the whole draft because the token events are
+    what the customer eventually reads; the accumulated return value is built
+    from the same normalized text, so what is persisted and what is shown can
+    never disagree.
+    """
     writer = get_stream_writer()
     started = time.perf_counter()
     text = ""
-    async for delta in provider.chat_stream(messages):
+    async for raw_delta in provider.chat_stream(messages):
+        delta = plain_dashes(raw_delta)
         text += delta
         writer({"type": "token", "text": delta})
     logger.info(

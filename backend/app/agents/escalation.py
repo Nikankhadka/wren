@@ -34,11 +34,7 @@ from app.shared import db
 # Names what is being handed off and keeps the door open. Deliberately not a
 # sign-off: "someone will get back to you" reads as the end of a conversation,
 # and after C-5 the conversation is not over.
-HANDOFF_MESSAGE = (
-    "I've asked someone from the business to take a look at that one, and "
-    "they'll follow up with you. I'm still here in the meantime - ask me "
-    "anything else."
-)
+HANDOFF_MESSAGE = "I’ve forwarded your query to the business. They can reply to you here."
 
 _DEFAULT_REASON = "unspecified"
 

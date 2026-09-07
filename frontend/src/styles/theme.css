@@ -215,6 +215,12 @@
   --radius-field: 14px;          /* .se-input, .se-save-btn */
   --size-topbar: 58px;           /* .dst-topbar */
   --size-icon-btn: 36px;         /* .bk-btn / .x-btn */
+  /* The 44px floor frontend.md sets for anything a thumb has to hit. The
+     prototype draws its glyph buttons at 36px on purpose, so the control takes
+     this for its box and pulls the difference back out with negative margin -
+     the glyph stays where the prototype put it, the target grows. Same split as
+     `--size-send` and `--size-send-hit` above. */
+  --size-icon-btn-hit: 44px;
 
   /* Thread geometry, read off the prototype's onboarding screen. The gaps are
      deliberately off the 4px grid (14px/18px) - the prototype's values win over

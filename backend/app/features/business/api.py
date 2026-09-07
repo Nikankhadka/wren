@@ -26,6 +26,7 @@ from app.llm.dependency import get_embedder_dependency
 from app.llm.embedder import Embedder
 from app.onboarding.beats import NO_ABN
 from app.shared import auth
+from app.shared.voice import CUSTOM_VOICE, CUSTOM_VOICE_MAX, VOICE_PRESETS
 
 router = APIRouter(prefix="/api/business", tags=["business"])
 
@@ -273,9 +274,23 @@ async def remove_offering(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+class BusinessProfile(BaseModel):
+    """The editable profile, every field present.
+
+    The response the console reads and the type the frontend generates from, so
+    each field is a plain string rather than an optional: a value that was never
+    captured is the empty string, which is what the screens already render.
+    """
+
+    abn: str
+    gst: str
+    customer_voice_preset: str
+    customer_voice_custom_style: str
+
+
 class ProfileUpdate(BaseModel):
-    """The ABN and its GST answer - the slice of the profile that stays
-    correctable after go-live.
+    """The ABN and its GST answer, and how the public assistant sounds - the
+    slice of the profile that stays correctable after go-live.
 
     Extra keys are refused rather than ignored: the rest of the profile is
     frozen at confirm, and a request that thought otherwise should hear so.
@@ -285,6 +300,8 @@ class ProfileUpdate(BaseModel):
 
     abn: str | None = None
     gst: str | None = None
+    customer_voice_preset: str | None = None
+    customer_voice_custom_style: str | None = None
 
     def normalized(self) -> dict[str, str]:
         """The fields as they are stored, or a ValueError an owner can read.
@@ -301,7 +318,31 @@ class ProfileUpdate(BaseModel):
             if gst not in ("yes", "no"):
                 raise ValueError("GST is either yes or no.")
             fields["gst"] = gst
+        if self.customer_voice_preset is not None or self.customer_voice_custom_style is not None:
+            fields.update(
+                _normalize_voice(self.customer_voice_preset, self.customer_voice_custom_style)
+            )
         return fields
+
+
+def _normalize_voice(preset: str | None, custom_style: str | None) -> dict[str, str]:
+    """The voice as `app/shared/voice.py` stores it, or a ValueError.
+
+    Both halves are always written together: a description belongs to `custom`
+    alone, so choosing a preset clears whatever description was there rather
+    than leaving a value the contract would never render.
+    """
+    chosen = (preset or "").strip()
+    style = (custom_style or "").strip()
+    if chosen not in (*VOICE_PRESETS, CUSTOM_VOICE):
+        raise ValueError("Pick one of the voices offered.")
+    if chosen != CUSTOM_VOICE:
+        return {"customer_voice_preset": chosen, "customer_voice_custom_style": ""}
+    if not style:
+        raise ValueError("Describe how you want your assistant to sound.")
+    if len(style) > CUSTOM_VOICE_MAX:
+        raise ValueError(f"Keep the description to {CUSTOM_VOICE_MAX} characters or fewer.")
+    return {"customer_voice_preset": CUSTOM_VOICE, "customer_voice_custom_style": style}
 
 
 def _normalize_abn(value: str) -> str:
@@ -319,14 +360,14 @@ def _normalize_abn(value: str) -> str:
     return digits
 
 
-@router.get("/profile", response_model=dict[str, str])
+@router.get("/profile", response_model=BusinessProfile)
 async def get_profile(
     admin: Annotated[auth.AuthedTenantAdmin, Depends(auth.require_owner)],
 ) -> dict[str, str]:
     return await service.read_profile(tenant_id=admin.tenant_id)
 
 
-@router.patch("/profile", response_model=dict[str, str])
+@router.patch("/profile", response_model=BusinessProfile)
 async def patch_profile(
     body: ProfileUpdate,
     admin: Annotated[auth.AuthedTenantAdmin, Depends(auth.require_owner)],

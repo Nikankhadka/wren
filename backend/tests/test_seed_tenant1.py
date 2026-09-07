@@ -111,7 +111,7 @@ async def test_seed_pre_onboards_the_tenant(
 
     config = json.loads(row["config"])
     assert config["onboarding"]["completed"] is True
-    assert config["onboarding"]["version"] == 3
+    assert config["onboarding"]["version"] == 4
     assert config["onboarding"]["draft"] == BYTEFIX_PROFILE
     assert config["profile"] == BYTEFIX_PROFILE
 

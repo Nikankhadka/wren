@@ -161,6 +161,7 @@
   --spacing-code-cell-h: var(--size-code-cell-h);
   --spacing-topbar: var(--size-topbar);
   --spacing-icon-btn: var(--size-icon-btn);
+  --spacing-icon-btn-hit: var(--size-icon-btn-hit);
   --spacing-tabbar: var(--size-tabbar);
   --spacing-tab: var(--size-tab);
   --spacing-tab-inset: var(--size-tab-inset);

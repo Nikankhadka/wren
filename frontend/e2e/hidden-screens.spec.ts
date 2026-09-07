@@ -28,6 +28,15 @@ const FOUNDER = DEMO_USERS.find((u) => u.surface === "platform")!;
  */
 const HIDDEN = ["/conversations", "/escalations", "/pricing", "/knowledge", "/dashboards"];
 
+/**
+ * Matched as patterns, not exact text, for the reason tab-shell.spec.ts
+ * already records: the Chats link carries a waiting-count badge inside it
+ * (W-1), so its text becomes "Chats4" as soon as a customer is queued, and an
+ * exact-text assertion goes red on whatever the seed and the specs before it
+ * left in the queue rather than on anything the nav did.
+ */
+const DESTINATIONS = [/^Home\b/, /^Chats\b/, /^Business\b/];
+
 test.describe("advanced screens: hidden, not deleted", () => {
 
   test("none of them appears in the tenant nav", async ({ page, request }) => {
@@ -35,7 +44,11 @@ test.describe("advanced screens: hidden, not deleted", () => {
     await page.goto("/home");
 
     const nav = page.getByRole("navigation", { name: "Console" });
-    await expect(nav.getByRole("link")).toHaveText(["Home", "Chats", "Business"]);
+    const links = nav.getByRole("link");
+    await expect(links).toHaveCount(DESTINATIONS.length);
+    for (const [index, destination] of DESTINATIONS.entries()) {
+      await expect(links.nth(index)).toHaveAccessibleName(destination);
+    }
     for (const href of HIDDEN) {
       await expect(nav.locator(`a[href="${href}"]`)).toHaveCount(0);
     }

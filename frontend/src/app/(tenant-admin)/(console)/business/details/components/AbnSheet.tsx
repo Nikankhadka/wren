@@ -5,11 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { Sheet } from "@/components/ui/Sheet";
 import { formatAbn, isGstRegistered, NO_ABN } from "@/lib/abn";
-
-export interface BusinessProfile {
-  abn: string;
-  gst: string;
-}
+import type { BusinessProfile, ProfileUpdate } from "@/lib/api-schemas";
 
 export interface AbnSheetProps {
   open: boolean;
@@ -17,7 +13,7 @@ export interface AbnSheetProps {
   busy: boolean;
   error: string | null;
   onClose: () => void;
-  onSave: (profile: BusinessProfile) => void;
+  onSave: (update: ProfileUpdate) => void;
 }
 
 /**
@@ -56,7 +52,7 @@ function AbnEditor({
   profile: BusinessProfile;
   busy: boolean;
   error: string | null;
-  onSave: (profile: BusinessProfile) => void;
+  onSave: (update: ProfileUpdate) => void;
 }) {
   // "none" is the stated "I do not have one" - an empty field, not the word.
   const [abn, setAbn] = useState(() =>

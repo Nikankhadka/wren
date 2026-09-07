@@ -11,12 +11,14 @@ from pydantic import BaseModel, Field
 
 from app.features.business.media import Cloudinary, MediaUploadError, UploadedMedia, classify_url
 from app.features.business.offering_candidates import normalize_name
+from app.features.tenants.service import invalidate_slug_cache
 from app.ingestion.pipeline import ingest_offerings
 from app.llm.dependency import get_llm_provider
 from app.llm.embedder import Embedder
 from app.llm.provider import LLMProvider
 from app.shared import db
 from app.shared.config import get_settings
+from app.shared.voice import voice_from_config
 
 # The four places a small business is already found. Fixed, because the
 # prototype's row is four tiles - an open-ended list is a different screen.
@@ -720,6 +722,12 @@ async def read_public_cover(*, tenant_id: UUID) -> tuple[str, bytes, Any] | None
 # why, and a settings tree that edits all of it is not being built.
 PROFILE_FIELDS = ("abn", "gst")
 
+# W-9: how the public assistant sounds. Editable here beside the ABN, but kept
+# at `config->customer_voice` rather than in the profile object, because that is
+# the one shape `app/shared/voice.py` reads and the voice beat's confirm writes.
+VOICE_FIELDS = ("customer_voice_preset", "customer_voice_custom_style")
+EDITABLE_FIELDS = PROFILE_FIELDS + VOICE_FIELDS
+
 
 async def read_profile(*, tenant_id: UUID) -> dict[str, str]:
     """The editable profile fields, empty string where nothing was captured.
@@ -735,30 +743,62 @@ async def read_profile(*, tenant_id: UUID) -> dict[str, str]:
     config = json.loads(raw) if isinstance(raw, str) else (raw or {})
     profile = config.get("profile") or {}
     draft = (config.get("onboarding") or {}).get("draft") or {}
-    return {key: str(profile.get(key) or draft.get(key) or "") for key in PROFILE_FIELDS}
+    fields = {key: str(profile.get(key) or draft.get(key) or "") for key in PROFILE_FIELDS}
+    # The voice is read through the same normalizer the customer contract uses,
+    # so the editor opens on the voice the assistant is actually speaking in -
+    # including the default a tenant who never reached the voice beat resolves to.
+    voice = voice_from_config(config)
+    fields["customer_voice_preset"] = voice.preset
+    fields["customer_voice_custom_style"] = voice.custom_style
+    return fields
 
 
 async def write_profile(*, tenant_id: UUID, fields: dict[str, str]) -> dict[str, str]:
-    """Merge `fields` into both places the profile is kept.
+    """Merge `fields` into the places each of them is kept.
 
     `config->profile` is what confirm writes and what the E-5 spec names;
     `config->onboarding.draft` is what the Booking page reads. They are already
     allowed to diverge - this does not add a second way for them to, so one
     statement moves both. Each object is rebuilt from itself with `||` so a
     tenant missing either key gains it rather than silently keeping the old
-    value.
+    value. The voice is written whole to `config->customer_voice`, the shape
+    `app/shared/voice.py` reads, so the two never half-agree.
+
+    Both writes bump `tenant_config.updated_at`, which `knowledge_version`
+    already turns into an agent-prompt cache bust. The customer surface's own
+    60-second slug cache is a separate path, so it is dropped here too - without
+    that, a saved change waits out the cache before a customer sees it.
     """
-    patch = json.dumps({key: value for key, value in fields.items() if key in PROFILE_FIELDS})
+    profile_patch = {key: value for key, value in fields.items() if key in PROFILE_FIELDS}
+    voice = (
+        {
+            "preset": fields["customer_voice_preset"],
+            "custom_style": fields.get("customer_voice_custom_style") or None,
+        }
+        if "customer_voice_preset" in fields
+        else None
+    )
     async with db.tenant_context(tenant_id, "tenant_admin") as conn:
-        await conn.execute(
-            "update tenant_config set config = jsonb_set("
-            "  jsonb_set(config, '{profile}', "
-            "    coalesce(config->'profile', '{}'::jsonb) || $2::jsonb, true), "
-            "  '{onboarding}', "
-            "    coalesce(config->'onboarding', '{}'::jsonb) || jsonb_build_object('draft', "
-            "      coalesce(config->'onboarding'->'draft', '{}'::jsonb) || $2::jsonb), true"
-            "), updated_at = now() where tenant_id = $1",
-            tenant_id,
-            patch,
-        )
+        if profile_patch:
+            await conn.execute(
+                "update tenant_config set config = jsonb_set("
+                "  jsonb_set(config, '{profile}', "
+                "    coalesce(config->'profile', '{}'::jsonb) || $2::jsonb, true), "
+                "  '{onboarding}', "
+                "    coalesce(config->'onboarding', '{}'::jsonb) || jsonb_build_object('draft', "
+                "      coalesce(config->'onboarding'->'draft', '{}'::jsonb) || $2::jsonb), true"
+                "), updated_at = now() where tenant_id = $1",
+                tenant_id,
+                json.dumps(profile_patch),
+            )
+        if voice is not None:
+            await conn.execute(
+                "update tenant_config set config = jsonb_set(config, '{customer_voice}', "
+                "$2::jsonb, true), updated_at = now() where tenant_id = $1",
+                tenant_id,
+                json.dumps(voice),
+            )
+        slug = await conn.fetchval("select slug from tenants where id = $1", tenant_id)
+    if slug:
+        invalidate_slug_cache(str(slug))
     return await read_profile(tenant_id=tenant_id)

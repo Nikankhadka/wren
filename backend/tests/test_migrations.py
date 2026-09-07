@@ -59,8 +59,10 @@ async def test_all_migrations_recorded(superuser_conn: asyncpg.Connection[Any]) 
     # role-branched RLS policies, and carries the M-2 media tables
     # (offerings.category, tenant_media) in the same file; 0026 adds W-6's
     # documents.offerings, the candidates extracted once at ingest instead of
-    # re-derived on every read.
-    assert len(on_disk) == 26, "expected migrations 0001-0026"
+    # re-derived on every read; 0027 back-fills W-9's config->customer_voice from
+    # the free-text tone column, which application code stops reading with that
+    # ticket - the columns themselves are dropped by a later ticket, not this one.
+    assert len(on_disk) == 27, "expected migrations 0001-0027"
     applied = await superuser_conn.fetch("select version from schema_migrations order by version")
     assert [r["version"] for r in applied] == on_disk
 

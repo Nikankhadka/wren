@@ -120,7 +120,9 @@ primary** (already the shipped M3 tonal ramps in `frontend/src/styles/theme.css`
 CI-enforced by `check:tokens`) and **Plus Jakarta Sans** via `next/font` (a
 token-level swap: `--font-sans` re-point, no component changes). The teal accent
 from the Agencx planning design is retired, not carried forward. Copy never says
-"AI", "agent", "automated" or "assistant" (PRD copy rules).
+"AI", "agent", "automated" or "virtual" (PRD copy rules; W-9's copy-rule
+amendment of 2026-09-06 took "assistant" off that list and put "virtual" on it,
+because both mandated openings name the assistant as what the surface is).
 
 **Why:** The merge decision locked "AgenCX PRD/design, Wren's Supabase auth +
 crimson primary". The Wren rebrand proved the tokens-only path (a full visual

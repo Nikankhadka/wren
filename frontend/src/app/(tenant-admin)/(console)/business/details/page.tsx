@@ -5,9 +5,16 @@ import { RowLink } from "@/components/ui/RowLink";
 import { ScreenTopbar } from "@/components/ui/ScreenTopbar";
 import { abnSummary } from "@/lib/abn";
 import { apiFetch, ApiError } from "@/lib/api";
-import { AbnSheet, type BusinessProfile } from "./components/AbnSheet";
+import type { BusinessProfile, ProfileUpdate } from "@/lib/api-schemas";
+import { AbnSheet } from "./components/AbnSheet";
+import { VoiceSheet, voiceSummary } from "./components/VoiceSheet";
 
-const EMPTY: BusinessProfile = { abn: "", gst: "" };
+const EMPTY: BusinessProfile = {
+  abn: "",
+  gst: "",
+  customer_voice_preset: "warm_casual",
+  customer_voice_custom_style: "",
+};
 
 /**
  * Business details, built from `renderScreen('business')` in agencx-prototype-v6.html:
@@ -24,7 +31,8 @@ const EMPTY: BusinessProfile = { abn: "", gst: "" };
  */
 export default function BusinessDetailsPage() {
   const [profile, setProfile] = useState<BusinessProfile>(EMPTY);
-  const [editing, setEditing] = useState(false);
+  // Which sheet is open, if any - the rows share one save path and one error.
+  const [editing, setEditing] = useState<"abn" | "voice" | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,19 +42,19 @@ export default function BusinessDetailsPage() {
       .catch(() => setProfile(EMPTY));
   }, []);
 
-  async function save(next: BusinessProfile) {
+  async function save(next: ProfileUpdate) {
     setBusy(true);
     setError(null);
     try {
       // An empty ABN is the owner saying they do not have one, so GST goes
       // with it rather than being saved as an answer to a question that no
       // longer applies.
-      const body = next.abn ? next : { abn: "" };
+      const body = next.abn === "" ? { abn: "" } : next;
       setProfile(await apiFetch<BusinessProfile>("/api/business/profile", {
         method: "PATCH",
         body: JSON.stringify(body),
       }));
-      setEditing(false);
+      setEditing(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.detail : "That didn't save. Try again.");
     } finally {
@@ -70,16 +78,33 @@ export default function BusinessDetailsPage() {
           detail={abnSummary(profile)}
           onClick={() => {
             setError(null);
-            setEditing(true);
+            setEditing("abn");
+          }}
+        />
+        <RowLink
+          label="Assistant voice"
+          icon="forum"
+          detail={voiceSummary(profile)}
+          onClick={() => {
+            setError(null);
+            setEditing("voice");
           }}
         />
       </div>
       <AbnSheet
-        open={editing}
+        open={editing === "abn"}
         profile={profile}
         busy={busy}
         error={error}
-        onClose={() => setEditing(false)}
+        onClose={() => setEditing(null)}
+        onSave={save}
+      />
+      <VoiceSheet
+        open={editing === "voice"}
+        profile={profile}
+        busy={busy}
+        error={error}
+        onClose={() => setEditing(null)}
         onSave={save}
       />
     </main>

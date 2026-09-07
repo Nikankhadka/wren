@@ -940,6 +940,24 @@ export interface components {
             /** Warning */
             warning: boolean;
         };
+        /**
+         * BusinessProfile
+         * @description The editable profile, every field present.
+         *
+         *     The response the console reads and the type the frontend generates from, so
+         *     each field is a plain string rather than an optional: a value that was never
+         *     captured is the empty string, which is what the screens already render.
+         */
+        BusinessProfile: {
+            /** Abn */
+            abn: string;
+            /** Gst */
+            gst: string;
+            /** Customer Voice Preset */
+            customer_voice_preset: string;
+            /** Customer Voice Custom Style */
+            customer_voice_custom_style: string;
+        };
         /** CatalogItemResponse */
         CatalogItemResponse: {
             /**
@@ -1498,8 +1516,8 @@ export interface components {
         };
         /**
          * ProfileUpdate
-         * @description The ABN and its GST answer - the slice of the profile that stays
-         *     correctable after go-live.
+         * @description The ABN and its GST answer, and how the public assistant sounds - the
+         *     slice of the profile that stays correctable after go-live.
          *
          *     Extra keys are refused rather than ignored: the rest of the profile is
          *     frozen at confirm, and a request that thought otherwise should hear so.
@@ -1509,6 +1527,10 @@ export interface components {
             abn?: string | null;
             /** Gst */
             gst?: string | null;
+            /** Customer Voice Preset */
+            customer_voice_preset?: string | null;
+            /** Customer Voice Custom Style */
+            customer_voice_custom_style?: string | null;
         };
         /** PublicMessage */
         PublicMessage: {
@@ -2975,9 +2997,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["BusinessProfile"];
                 };
             };
             /** @description Problem details error */
@@ -3010,9 +3030,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["BusinessProfile"];
                 };
             };
             /** @description Validation failed */

@@ -37,6 +37,7 @@ from langgraph.config import get_stream_writer
 from langgraph.runtime import get_runtime
 from pydantic import BaseModel, Field
 
+from app.agents.contract import contract_prelude
 from app.agents.draft_node import citation_source
 from app.agents.drafting import MONEY_GUIDANCE
 from app.agents.spotlight import Spotlight, new_spotlight
@@ -48,6 +49,7 @@ from app.services.context_package import ContextPackage, get_package
 from app.services.retrieval import get_business_context
 from app.shared import db
 from app.shared.limits import with_timeout
+from app.shared.text import plain_dashes
 
 logger = logging.getLogger("app.agents.agent_node")
 
@@ -150,6 +152,16 @@ class SelectionChoice(BaseModel):
 
 class GetQuoteInputsArgs(BaseModel):
     selections: list[SelectionChoice] = Field(description="Items/services to quote")
+
+
+class CalculateQuoteArgs(BaseModel):
+    selections: list[SelectionChoice] = Field(
+        description="Fixed-price catalog item ids and quantities for the complete basket"
+    )
+
+
+class ShowCatalogArgs(BaseModel):
+    pass
 
 
 class _LookupOrderArgs(BaseModel):
@@ -319,8 +331,13 @@ _WIRE_ROLES = {"customer": "user", "assistant": "assistant", "human_agent": "ass
 
 
 def _system_prompt(package: ContextPackage, spotlight: Spotlight) -> str:
-    """The turn's system prompt, built fresh so the spotlight token is fresh."""
-    parts = [package.system_prompt, f"Tone: {package.tone}."]
+    """The turn's system prompt, built fresh so the spotlight token is fresh.
+
+    W-9: it opens with the code-owned contract and the tenant's voice, and
+    everything after that is business data - which is exactly what the
+    contract's own BUSINESS KNOWLEDGE section tells the model to expect.
+    """
+    parts = [contract_prelude(package.business_name, package.voice)]
     profile = package.profile_text()
     if profile:
         parts.append(f"Business facts the owner gave you:\n{profile}")
@@ -361,6 +378,28 @@ def _system_prompt(package: ContextPackage, spotlight: Spotlight) -> str:
     return "\n\n".join(parts)
 
 
+def _structured_followup_context(messages: list[dict[str, Any]]) -> str:
+    """Expose the latest server-produced basket to the next selection call."""
+    for message in reversed(messages):
+        response = message.get("response")
+        if not isinstance(response, dict) or response.get("type") != "price_summary":
+            continue
+        summary = response.get("summary")
+        if not isinstance(summary, dict):
+            continue
+        basket = [
+            {"catalog_item_id": item.get("item_id"), "quantity": item.get("quantity")}
+            for item in summary.get("line_items", [])
+            if isinstance(item, dict) and item.get("item_id")
+        ]
+        if basket:
+            return (
+                "Latest server-produced basket for follow-up changes. It is internal "
+                "selection context; do not show ids to the customer:\n" + json.dumps(basket)
+            )
+    return ""
+
+
 def _tools_for(package: ContextPackage) -> list[ToolSpec]:
     """The tool set for this turn.
 
@@ -377,8 +416,28 @@ def _tools_for(package: ContextPackage) -> list[ToolSpec]:
     tools = [
         ToolSpec(
             name="get_quote_inputs",
-            description="Produce a price quote for selected items/services",
+            description=(
+                "Build an explicit formal quote requested by the customer. Use only "
+                "for a quote, not for a basket total or quantity calculation."
+            ),
             args_schema=GetQuoteInputsArgs,
+        ),
+        ToolSpec(
+            name="calculate_quote",
+            description=(
+                "Calculate a complete basket or quantity total from fixed-price "
+                "catalog item ids. Select every item and its quantity; do not use "
+                "for formal quotes, rules, discounts, or custom work."
+            ),
+            args_schema=CalculateQuoteArgs,
+        ),
+        ToolSpec(
+            name="show_catalog",
+            description=(
+                "Show the complete current active catalog when the customer asks "
+                "for the full menu or list"
+            ),
+            args_schema=ShowCatalogArgs,
         ),
         ToolSpec(
             name="lookup_order_or_ticket",
@@ -444,15 +503,23 @@ async def run(state: AgentState) -> dict[str, Any]:
     engine_quote: dict[str, Any] | None = None
     lookup_result: dict[str, Any] | None = None
     answer_text = ""
+    structured_response: dict[str, Any] | None = None
+    deterministic_text: str | None = None
 
     async with db.tenant_context(ctx.tenant_id, "customer") as conn:
         # P-3: assembled at chat open and cached by (tenant, knowledge_version),
         # so this is normally a version check, not an assembly.
         package = await get_package(conn, ctx.tenant_id)
+        # W-5/W-9: state-borne for the same reason as offerings_text below - the
+        # draft node re-enters on a redraft with no package of its own, and
+        # re-reading the tenant there is the per-turn query this ticket removes.
+        contract = contract_prelude(package.business_name, package.voice)
         tools = _tools_for(package)
-        messages: list[ChatMessage] = [
-            ChatMessage(role="system", content=_system_prompt(package, spotlight)),
-        ]
+        system_prompt = _system_prompt(package, spotlight)
+        followup_context = _structured_followup_context(state["messages"])
+        if followup_context:
+            system_prompt += "\n\n" + followup_context
+        messages: list[ChatMessage] = [ChatMessage(role="system", content=system_prompt)]
         tail = state["messages"][-_HISTORY_MESSAGES:]
         for m in tail:
             messages.append(
@@ -479,7 +546,11 @@ async def run(state: AgentState) -> dict[str, Any]:
             )
 
             if not turn.tool_calls:
-                answer_text = (turn.text or "").strip()
+                # conventions.md 1 bans the em dash, and a prompt rule alone does
+                # not hold it (Appendix D item 3). Normalized here, where the
+                # one-call answer is complete, and in drafting.stream_draft for
+                # every other prose route.
+                answer_text = plain_dashes((turn.text or "").strip())
                 break
 
             if turn.history_message is None:
@@ -561,6 +632,67 @@ async def run(state: AgentState) -> dict[str, Any]:
                                 "latency_ms": int((time.perf_counter() - started) * 1000),
                             }
                         )
+                    elif call.name == "calculate_quote":
+                        summary_args = CalculateQuoteArgs.model_validate(call.args)
+                        raw_sel = [
+                            selection.model_dump(exclude_none=True)
+                            for selection in summary_args.selections
+                        ]
+                        if any(selection.get("rule_code") for selection in raw_sel):
+                            raise ValueError(
+                                "price summaries accept fixed-price catalog items only"
+                            )
+                        summary = await _get_quote_inputs_impl(conn, ctx.tenant_id, raw_sel)
+                        summary["disclaimer"] = (
+                            "Based on the business's current confirmed prices. "
+                            "This is not a formal quote."
+                        )
+                        structured_response = {"type": "price_summary", "summary": summary}
+                        writer(structured_response)
+                        result_text = _tool_result(
+                            spotlight,
+                            {"calculated": True, "items": len(summary["line_items"])},
+                        )
+                        writer(
+                            {
+                                "type": "tool_call",
+                                "name": "calculate_quote",
+                                "arguments": call.args,
+                                "result": {
+                                    "items": len(summary["line_items"]),
+                                    "total_cents": summary["total_cents"],
+                                },
+                                "success": True,
+                                "latency_ms": int((time.perf_counter() - started) * 1000),
+                            }
+                        )
+                    elif call.name == "show_catalog":
+                        ShowCatalogArgs.model_validate(call.args)
+                        catalog = {
+                            "offerings": [
+                                {
+                                    "id": offering.id,
+                                    "name": offering.name,
+                                    "description": offering.description,
+                                    "category": offering.category,
+                                    "price_cents": offering.price_cents,
+                                }
+                                for offering in package.offerings
+                            ]
+                        }
+                        structured_response = {"type": "catalog", "catalog": catalog}
+                        writer(structured_response)
+                        result_text = _tool_result(spotlight, {"shown": len(catalog["offerings"])})
+                        writer(
+                            {
+                                "type": "tool_call",
+                                "name": "show_catalog",
+                                "arguments": call.args,
+                                "result": {"offerings": len(catalog["offerings"])},
+                                "success": True,
+                                "latency_ms": int((time.perf_counter() - started) * 1000),
+                            }
+                        )
                     elif call.name == "lookup_order_or_ticket":
                         lo_args = _LookupOrderArgs.model_validate(call.args)
                         result = await with_timeout(
@@ -632,6 +764,11 @@ async def run(state: AgentState) -> dict[str, Any]:
                 except Exception as exc:
                     failed = True
                     logger.exception("tool %s failed", call.name)
+                    if call.name == "calculate_quote":
+                        deterministic_text = (
+                            "I couldn't match every item to a confirmed offering. "
+                            "Which items would you like me to include?"
+                        )
                     result_text = _tool_result(spotlight, {"error": str(exc)})
                     writer(
                         {
@@ -669,13 +806,41 @@ async def run(state: AgentState) -> dict[str, Any]:
                     }
                 )
 
+                if structured_response is not None or deterministic_text is not None:
+                    break
+
             messages.append(turn.history_message)
             messages.extend(tool_result_messages)
 
-            if "create_escalation" in called_tools:
+            if (
+                "create_escalation" in called_tools
+                or structured_response is not None
+                or deterministic_text is not None
+            ):
                 break
 
     route = _determine_route(called_tools, has_corpus=bool(package.chunks))
+
+    if structured_response is not None or deterministic_text is not None:
+        response_text = deterministic_text or (
+            "Here is the current price summary."
+            if structured_response and structured_response["type"] == "price_summary"
+            else "Here is the current catalog."
+        )
+        writer({"type": "token", "text": response_text})
+        return {
+            "route": "structured",
+            "draft_response": response_text,
+            "draft_deterministic": True,
+            **({"response": structured_response} if structured_response else {}),
+            "selections": selections,
+            "engine_quote": engine_quote,
+            "lookup": lookup_result,
+            "owner_material": package.owner_material(),
+            "offerings_text": package.offerings_text(),
+            "contract": contract,
+            "author_node": "agent",
+        }
 
     if route == "escalation":
         return {
@@ -732,6 +897,7 @@ async def run(state: AgentState) -> dict[str, Any]:
             "lookup": lookup_result,
             "owner_material": package.owner_material(),
             "offerings_text": package.offerings_text(),
+            "contract": contract,
             "author_node": "agent",
         }
 
@@ -753,4 +919,5 @@ async def run(state: AgentState) -> dict[str, Any]:
         "lookup": lookup_result,
         "owner_material": package.owner_material(),
         "offerings_text": package.offerings_text(),
+        "contract": contract,
     }

@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 from app.ingestion.pipeline import ingest_offerings, process_document
 from app.llm.embedder import Embedder
 from app.onboarding.agent import OnboardingRecord
-from app.onboarding.flow import ProfileDraft, system_prompt_for
+from app.onboarding.flow import ProfileDraft, customer_voice_for, system_prompt_for
 from app.shared import db
 from app.shared.storage import document_key, get_storage
 
@@ -72,15 +72,17 @@ async def insert_tenant_core(
 
     ``profile`` pre-onboards the tenant: when given, the tenants row gains its
     ``business_name`` and the tenant_config row is written exactly as a real
-    onboarding confirm leaves it (system_prompt from the profile, ``profile``
-    and a completed ``onboarding`` record in ``config``), so a seeded demo
-    tenant never shows the interview. Built from the same dataclasses the
-    confirm path uses - no duplicated shape to drift.
+    onboarding confirm leaves it (system_prompt from the profile, ``profile``,
+    ``customer_voice`` and a completed ``onboarding`` record in ``config``), so a
+    seeded demo tenant never shows the interview. Built from the same dataclasses
+    the confirm path uses - no duplicated shape to drift.
     """
     merged_config = dict(config or {})
     if profile is not None:
         business_name = business_name or profile.get("business_name")
-        merged_config["profile"] = ProfileDraft(**profile).model_dump()
+        draft = ProfileDraft(**profile)
+        merged_config["profile"] = draft.model_dump()
+        merged_config["customer_voice"] = customer_voice_for(draft)
         merged_config["onboarding"] = OnboardingRecord(draft=profile, completed=True).to_jsonb()
         if not system_prompt and profile.get("business_type"):
             system_prompt = system_prompt_for(

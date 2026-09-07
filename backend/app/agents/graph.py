@@ -40,6 +40,8 @@ def _price_gate_route(state: AgentState) -> str:
 
 def _agent_route(state: AgentState) -> str:
     """Straight to the gates when the agent already wrote the draft (P-3)."""
+    if state.get("response"):
+        return "structured"
     if state.get("escalated") or not state.get("draft_response"):
         return "draft"
     return "price_gate"
@@ -69,7 +71,7 @@ def build_graph() -> CompiledStateGraph[AgentState, GraphContext, AgentState, Ag
     graph.add_conditional_edges(
         "agent",
         _agent_route,
-        {"draft": "draft", "price_gate": "price_gate"},
+        {"draft": "draft", "price_gate": "price_gate", "structured": "inspection"},
     )
     # C-2: every draft passes the money gate, not only the two money routes.
     # A knowledge answer is where figures now come from, so leaving that route

@@ -25,6 +25,7 @@ from app.llm.provider import LLMProvider
 from app.onboarding import beats
 from app.onboarding.agent import (
     OnboardingRecord,
+    confirm_pending_name,
     prepare_turn,
     prepare_url_turn,
     progress,
@@ -33,7 +34,13 @@ from app.onboarding.agent import (
     selection_reply,
     stream_reply,
 )
-from app.onboarding.flow import PendingOffering, ProfileDraft, merge_offerings, system_prompt_for
+from app.onboarding.flow import (
+    PendingOffering,
+    ProfileDraft,
+    customer_voice_for,
+    merge_offerings,
+    system_prompt_for,
+)
 from app.onboarding.tools import request_finalize
 from app.shared.limits import DEFAULT_LLM_TIMEOUT_S, TimeLimitedProvider
 
@@ -159,10 +166,12 @@ def response_from_record(record_data: dict[str, Any]) -> dict[str, Any]:
             break
     if not prompt:
         # The opening ends with the first beat's own ask rather than a
-        # paraphrase of it - same seam W-2 closes for every later question.
+        # paraphrase of it - same seam W-2 closes for every later question. W-9
+        # fixes the wording; the composition is unchanged, so the question is
+        # still written once, by the beat.
         prompt = (
-            "Hi! I'm your Agencx setup assistant. I'll help you get your business "
-            f"ready. {beats.BEAT_ORDER[0].ask}"
+            "Hi, I'm the Agencx setup assistant. I'll help set up your business. "
+            f"{beats.BEAT_ORDER[0].ask}"
         )
     return {
         "stage": stage,
@@ -257,20 +266,41 @@ async def run_selection(*, tenant_id: UUID, beat_key: str, values: list[str]) ->
             detail="finish the paused field before selecting an answer",
         )
     current = beats.next_beat(onboarding.draft, onboarding.skipped, onboarding.deferred)
-    if current is None or current.key != beat_key:
-        stage = current.key if current is not None else "confirm"
+    # A name waiting to be confirmed holds the interview on its own beat, which
+    # is not always the one `next_beat` would ask next - a correction can leave
+    # an earlier beat still open. `progress` emits the same key to the client.
+    stage = (
+        onboarding.pending_name["target"]
+        if onboarding.pending_name
+        else (current.key if current is not None else "confirm")
+    )
+    if stage != beat_key:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"stale selection - current beat is {stage}",
         )
-    try:
-        user_message = beats.apply_selection(onboarding.draft, beat_key, values)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(exc),
-        ) from exc
-    reply = selection_reply(onboarding)
+    # W-9 US-1: while a name waits on the owner's yes, the beat's own chips are
+    # replaced by the confirmation chip, so this is the one selection
+    # `apply_selection` does not own - it cannot see the proposal, and the
+    # import direction (beats knows nothing of the record) is deliberate.
+    pending = onboarding.pending_name
+    if pending is not None and beat_key == pending["target"]:
+        if values != ["yes"]:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="select one valid answer"
+            )
+        user_message = "Yes"
+        ack = f"Saved as {confirm_pending_name(onboarding)}."
+    else:
+        try:
+            user_message = beats.apply_selection(onboarding.draft, beat_key, values)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=str(exc),
+            ) from exc
+        ack = "Got it."
+    reply = selection_reply(onboarding, ack)
     onboarding.history.append({"role": "user", "content": user_message})
     onboarding.history.append({"role": "assistant", "content": reply})
     record_data = onboarding.to_jsonb()
@@ -521,6 +551,10 @@ async def confirm(
             business_name=profile.business_name,
             slug=public_slug,
             profile=profile.model_dump(),
+            # W-9: the voice the owner picked, in the structured shape the
+            # customer assistant reads. Expression only - it never carries a
+            # fact, a price, or an escalation rule.
+            customer_voice=customer_voice_for(profile),
             completed_record=onboarding.to_jsonb(),
             offering_candidates=onboarding.offering_candidates,
             embedder=embedder,

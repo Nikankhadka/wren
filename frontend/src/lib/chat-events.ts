@@ -1,5 +1,7 @@
 import type { Citation } from "@/components/ui/CitationChip";
 import type { QuotePayload } from "@/components/ui/QuoteCard";
+import type { CatalogPayload } from "@/components/ui/CatalogCard";
+import type { PriceSummaryPayload } from "@/components/ui/PriceSummaryCard";
 
 /**
  * The customer-chat SSE protocol, mirroring the events the backend emits in
@@ -25,6 +27,8 @@ export type ChatStreamEvent =
   | { type: "conversation"; conversation_id: string }
   | { type: "citations"; citations: Citation[] }
   | { type: "quote"; quote: QuotePayload }
+  | { type: "price_summary"; summary: PriceSummaryPayload }
+  | { type: "catalog"; catalog: CatalogPayload }
   | { type: "progress"; stage: ProgressStage }
   | { type: "redraft" }
   | { type: "token"; text: string }

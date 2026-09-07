@@ -325,6 +325,15 @@ $10/month (decision D16).
 
 ## 13. Copy rules
 
-- Never say "AI", "agent", "automated" or "assistant" in user-facing copy
+- "Assistant" may name the surface, on both owner-facing (onboarding) and
+  customer-facing copy - the onboarding opening ("I'm the Agencx setup
+  assistant") and the customer opening ("I'm [Business]'s assistant") both
+  depend on this. "AI", "agent", "automated", and "virtual" stay out of
+  routine copy on both surfaces regardless. A customer who asks directly
+  whether they're talking to a human or an AI is answered honestly - the
+  exemption above is about the noun used in routine copy, never a license to
+  mislead when asked outright. (Amended 2026-09-06, W-9 - see
+  `spec/active/13-walkthrough.md` Amendment 3; the original blanket rule
+  predates both mandated openings.)
 - Lead with outcomes, not features
 - Plain dash, never the em dash (U+2014)

@@ -21,8 +21,16 @@ cap implies.
 
 W-7 adds the missing half: a beat now knows what a *plausible* answer looks
 like (``valid``) and what to say when it does not get one (``reject``). Both
-are deterministic and server-owned, so a junk answer is challenged in the
-beat's own words with no model call at all.
+are deterministic and server-owned. W-9 makes the second half true: until then
+``reject`` was read by nothing and a junk answer went back through the model,
+which embellished the beat's ``example`` into a fact ("No worries at all,
+Nikan!" - the owner addressed by the name beat's own example). A rejected beat
+is now answered in the beat's own words with no model call at all.
+
+W-9 also adds the voice beat - which of four voices the public assistant speaks
+in - as one more chip beat. Its fourth chip swaps the composer to a text widget
+for the owner's own bounded description, and every answer is validated here, so
+no model ever chooses how the business sounds to its customers.
 """
 
 from __future__ import annotations
@@ -33,6 +41,8 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+from app.shared.voice import CUSTOM_VOICE, CUSTOM_VOICE_MAX, VOICE_PRESETS
 
 WidgetKind = Literal["text", "chips", "masked", "cta", "phone"]
 
@@ -81,16 +91,19 @@ class Beat:
     """One question in the interview.
 
     W-2 splits the beats in two. A ``optional`` beat is one nothing downstream
-    reads (``name``, ``headcount``) or one the owner can still edit after
+    reads (``owner_display_name``, ``headcount``) or one the owner can still edit after
     go-live (``services`` via Business > What you offer, ``abn``/``gst`` via
     Business > details) - it resolves to its ``default`` or to nothing rather
     than being asked a third time. A required beat has neither property, so it
     is deferred to a second pass instead of being dropped.
 
-    ``example`` is the concrete answer worked into a retry, and ``reject`` is
-    what the beat says when it gets something that cannot be its answer. Both
-    are server-owned strings: W-7 answers a junk turn without a model call at
-    all, so there is nothing in that reply for a model to embellish.
+    ``reject`` is what the beat says when it gets something that cannot be its
+    answer, and it is spoken verbatim: a rejected beat's reply is the beat's own
+    ``reject`` plus the beat's own ``ask``, with no model call at all, so there
+    is nothing in that reply for a model to embellish. ``example`` is the
+    concrete answer worked into the second-ask nudge, which is still
+    model-composed - keep it free of anything a model could read back as a fact
+    about this owner.
 
     ``valid`` is what makes a junk answer junk. ``complete`` only asks whether
     the field is non-empty, which is satisfied by "34234234" as a name; this
@@ -180,14 +193,16 @@ def _gst_complete(draft: dict[str, Any]) -> bool:
 
 BEAT_ORDER: tuple[Beat, ...] = (
     Beat(
-        key="name",
+        key="owner_display_name",
         label="your name",
         # W-7: "What name would you like me to use?" landed right after a
         # sentence about setting the *business* up, and read as a question
         # about the business name. The two name beats now say which is which.
-        ask="First - what should I call you? I'll ask about the business next.",
+        # W-9: the opening line the controller composes says the business comes
+        # next, so this asks one thing and says nothing about what follows.
+        ask="Before we start, what should I call you?",
         kind="text",
-        complete=_complete("name"),
+        complete=_complete("owner_display_name"),
         # Nothing downstream reads the owner's name, and it cannot be guessed,
         # so this is the one beat that skips to a genuine blank.
         optional=True,
@@ -254,7 +269,33 @@ BEAT_ORDER: tuple[Beat, ...] = (
         optional=True,
         valid=_wordish,
         reject="I couldn't read that as something you offer.",
-        example='a short list is plenty - "haircuts, colour, beard trims"',
+        # I8: the example teaches the shape of the answer - a few items, plainly
+        # named - and names no trade, so a cafe is never nudged in a salon's
+        # vocabulary (W-9).
+        example="two or three of the things you do most, in your own words, is plenty",
+    ),
+    Beat(
+        key="customer_voice_preset",
+        label="assistant voice",
+        # I8: the question is about wording, warmth and pacing - never about
+        # what the business does - so it is the same question for every trade.
+        ask="How should your assistant sound to customers?",
+        kind="text",
+        complete=_complete("customer_voice_preset"),
+        chips=(
+            ChipSpec(label="Warm and casual", value=VOICE_PRESETS[0]),
+            ChipSpec(label="Clear and professional", value=VOICE_PRESETS[1]),
+            ChipSpec(label="Direct and concise", value=VOICE_PRESETS[2]),
+            # The fourth chip answers nothing on its own: it swaps the composer
+            # to a text widget and the owner's own description is what gets
+            # sent, bounded so a voice cannot become a second system prompt.
+            ChipSpec(label="Describe it myself", value=CUSTOM_VOICE, dashed=True, widget="text"),
+        ),
+        # Editable after go-live at Business > details, and the first preset is
+        # what an unanswered voice resolves to, so it never blocks the interview.
+        optional=True,
+        default=VOICE_PRESETS[0],
+        example="pick one, or describe the voice in your own words",
     ),
     Beat(
         key="contact",
@@ -374,7 +415,30 @@ def apply_selection(draft: dict[str, Any], key: str, values: list[str]) -> str:
     if key == "gst" and value in labels:
         draft[key] = "yes" if value == "yes" else "no"
         return labels[value]
+    if key == "customer_voice_preset":
+        # W-9: a preset is one of a fixed vocabulary; anything else the owner
+        # sends on this beat is their own bounded description of the voice. The
+        # custom chip's own value is reserved - tapping it swaps the composer
+        # and submits nothing, so arriving here it is not a description.
+        if value in labels:
+            draft[key] = value
+            draft.pop("customer_voice_custom_style", None)
+            return labels[value]
+        if value != CUSTOM_VOICE and 0 < len(value) <= CUSTOM_VOICE_MAX:
+            draft[key] = CUSTOM_VOICE
+            draft["customer_voice_custom_style"] = value
+            return value
     raise ValueError("select one valid answer")
+
+
+# W-9 US-1: what the composer offers while a name waits to be confirmed. One
+# chip commits the proposal; typing past it is a new proposal, never a
+# rejection, which is why the pill stays and the placeholder still invites it.
+NAME_CONFIRM_INPUT = InputSpec(
+    kind="text",
+    placeholder=CHIPPED_PLACEHOLDER,
+    chips=[ChipSpec(label="Yes", value="yes")],
+)
 
 
 # The optional website/documents ask (see agent._completion_reply) is not a

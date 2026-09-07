@@ -28,6 +28,7 @@ Production database: hosted Supabase, migrated and seeded with `bytefix`
 | Product polish and hygiene | B-1, B-3, D-2, E-3, F-1, F-2, F-3, G-1 |
 | Developer experience and deployment | K-1, B-4; containerized development, two Vercel services, same-origin routing, hosted embedding and reranking |
 | Security and API reliability | R-1, R-2, R-4 US-1, R-5 US-1; Problem Details, safe SSE errors, request correlation, SSRF protection, Google tool-history fix |
+| Customer-agent contract | W-9 base contract merged to `development`; Amendment 4 implemented with deterministic basket summaries, catalog cards, transcript parity, and in-chat handoff |
 
 Detailed records live in [`spec/completed/`](spec/completed/).
 
@@ -47,9 +48,32 @@ Detailed records live in [`spec/completed/`](spec/completed/).
 - [x] W-7: make the interview read like a person - challenge junk input, drop the
   skip chip, keep replies short, address-only go-live, priced offering cards.
 - [x] W-8: review a large import without losing information - shared structured document review, five-item preview and editor pages, explicit duplicate decisions, owner-only source evidence, and catalog-only offering publication.
-- [ ] W-9: correct captured information conversationally - conservative wording cleanup, explicit corrections on any beat, offering correction operations, and a single acknowledgement for a captured or corrected name.
+- [ ] W-9: the definitive onboarding and customer-assistant contract - name
+  confirmation, corrections from any beat, offering operations, a code-owned
+  customer-agent contract applied to every prose route, structured customer
+  voice, deterministic basket pricing, structured catalog responses, and
+  non-terminal handoff. The base contract and Amendment 4 are merged to
+  `development`; the ticket remains active only for configured-provider
+  evaluation and production evidence.
+- [ ] W-10: drop `tenant_config.system_prompt` and `.tone` and their last
+  writers, after W-9 is verified in production
+  ([`spec/active/14-schema-drop.md`](spec/active/14-schema-drop.md)).
+- [ ] W-11: retain and review multi-file document drafts safely, publish
+  successful documents independently, expose retryable failures, and disclose
+  tenant-isolated storage and configured AI processing
+  ([`spec/active/15-document-review.md`](spec/active/15-document-review.md)).
 
-**Phase 13 specification amended 2026-09-05** (`docs/phase13-walkthrough-refinement`): a second walkthrough round and its planning refined W-3 through W-6, added W-8 and W-9, and corrected the phase introduction to nine tickets. W-1, W-2, W-7, and W-8 are shipped; W-3 through W-6 and W-9 retain their software delivery statuses open.
+**Phase 13 specification amended four times.** 2026-09-05
+(`docs/phase13-walkthrough-refinement`): a second walkthrough round and its
+planning refined W-3 through W-6, added W-8 and W-9, and corrected the phase
+introduction to nine tickets. 2026-09-06: W-9 was rewritten into the phase's
+single authoritative closing ticket (Amendment 3 in `13-walkthrough.md`),
+2026-09-07: Amendment 4 added deterministic basket pricing, catalog responses,
+and the non-terminal handoff contract, and 2026-09-08: the base contract and
+Amendment 4 were merged to `development` sequentially. **W-1 through W-8 are
+shipped; W-9 remains open only for provider-backed evaluation and production
+evidence.** W-11 is documented separately in Phase 15 and can now proceed
+independently from the merge dependency, though it remains unimplemented.
 
 ## Known gaps and deliberate deferrals
 
@@ -267,6 +291,46 @@ makes timing non-deterministic, and a mocked `/api/chat` would mock away the
 server-side prompt assembly that is the whole change. Before and after were run
 twice each against `bytefix`.
 
+**W-9 was delivered sequentially to `development`** (2026-09-08). The original
+contract branch was squash-merged first as `7ae710e`; the Amendment 4 branch was
+then validated and squash-merged as the second delivery. The deterministic
+verification is green: 943 backend tests, 110 frontend tests, frontend and
+backend lint/type/format checks, the full 105-test browser suite, and the
+targeted mobile voice-sheet rerun after fixing the shared topbar's flex-shrink
+touch-target bug. The ticket remains in `spec/active/` because the configured
+provider-backed `make eval` and production evidence still require external
+provider capacity and a live deployment; the deterministic `make eval-skip-llm`
+gate is the local regression gate.
+
+What the reproduction changed about the ticket is worth keeping. Five of the six
+failures the ticket names reproduced through the real onboarding UI, and the
+drive surfaced four the ticket had not: a beat's own `example` reaching the
+owner as a fact (the owner greeted as "Nikan", the founder's name in the name
+beat), the model answering the question it was one turn away from asking, em
+dashes in assistant output against a repo-wide rule, and a value typed during
+another beat landing nowhere. The sixth named failure, the owner's name standing
+in for the business name, turned out to be latent rather than user-visible: the
+summary carrying that fallback renders only once every required beat is
+satisfied, and `business_name` is required. It is removed anyway, and the ticket
+record says plainly that no user-visible bug was fixed by removing it.
+
+Two consequences worth carrying forward. The customer contract and its voice
+block measure 3,682 characters at their longest, where the retired
+`tenant_config.system_prompt` measured 202, so the fast-path budget now accounts
+for a much larger prompt and a tenant sitting within about 3,500 characters of
+that budget takes the hybrid path where it used to take the fast path - honest
+accounting, but a real behavior change on live tenants. And the pin that carries
+that cost into the budget, `_CONTRACT_OVERHEAD_CHARS`, is a number rather than a
+measurement, because the import contract forbids `app.services` from importing
+`app.agents`; a test that imports both fails the moment the contract outgrows
+it.
+
+`tenant_config.system_prompt` and `.tone` are read by no application code after
+this ticket, but the columns and their seed writes are still in place. Dropping
+them is W-10 (`spec/active/14-schema-drop.md`), deliberately its own ticket
+because one squash-merge cannot both deploy forward-compatible code and run the
+destructive migration after it is verified.
+
 **Chats-list row identity is unticketed UI polish** (founder request,
 2026-09-06, `fix/chats-row-identity`). Every row on the owner's Chats list read
 "Customer", because the web chat surface never captures a name - `chat/service.py`
@@ -304,7 +368,9 @@ stubs the unnamed case the seed cannot produce.
 |---|---|---|
 | [`spec/active/08-deferred.md`](spec/active/08-deferred.md) | Deferred | B-2, D-1, D-3 |
 | [`spec/active/12-refinement.md`](spec/active/12-refinement.md) | Open | R-3, R-4, R-5 |
-| [`spec/active/13-walkthrough.md`](spec/active/13-walkthrough.md) | Open | W-1 through W-9 (W-1, W-2, W-5, W-7 delivered; amended 2026-09-05) |
+| [`spec/active/13-walkthrough.md`](spec/active/13-walkthrough.md) | Open | W-1 through W-8 delivered; W-9's base contract and Amendment 4 are merged, with provider-backed evaluation and production evidence open |
+| [`spec/active/14-schema-drop.md`](spec/active/14-schema-drop.md) | Open | W-10, blocked on W-9 production verification |
+| [`spec/active/15-document-review.md`](spec/active/15-document-review.md) | Open | W-11, implementation may proceed now that W-9 is merged to `development` |
 | [`spec/completed/`](spec/completed/) | Complete | All delivered feature, deployment, and supporting phases |
 | [`docs/archive/phase1-complete/`](../archive/phase1-complete/) | Historical | Completed R-1 and R-2 records |
 

@@ -1,5 +1,12 @@
 """T-044: Draft node - composes the final customer-facing response from data
 collected by the agent node's tool calls.
+
+W-9: every route that asks a model for prose now opens with the same code-owned
+contract (``app/agents/contract.py``), carried in graph state by the agent node.
+Conversation, recommendation, and quoting saw no tenant configuration at all
+before this, and knowledge read ``tenant_config`` itself, once per turn. What is
+left per route is only what makes that route different: its grounding material
+and the rules that follow from it.
 """
 
 from __future__ import annotations
@@ -21,30 +28,45 @@ from app.shared import db
 # from. Public because evals and API tests assert on the exact customer-facing
 # text; this node is where that text is produced.
 REFUSAL_MESSAGE = (
-    "I don't have information about that. Please contact the business directly for help."
+    "I don't have information about that. I can forward your question to the business "
+    "here if you'd like."
 )
 _RECOMMENDATION_REFUSAL = (
     "I don't have anything that matches what you're looking for. "
-    "Please contact the business directly for help."
+    "I can forward your question to the business here if you'd like."
 )
 _QUOTING_NO_CANDIDATES = (
     "I can't put together a quote for that - the business hasn't listed "
-    "anything I could price it from. Please contact them directly."
+    "anything I could price it from. I can forward your question to the business "
+    "here if you'd like."
 )
 _ORDER_NOT_FOUND_TEMPLATE = "I can't find {ref_code} - please double-check the code."
 _ORDER_ASK_FOR_CODE = "Could you share the order, repair, or ticket code so I can look it up?"
 _ORDER_FOUND_TEMPLATE = 'Your {kind} {ref_code} is currently "{status}".'
 
+# Identity and warmth used to be stated here; both now come from the contract
+# and the tenant's voice, so what is left is what this route alone knows: the
+# customer asked nothing the business material has to answer.
 _SYSTEM_PROMPT_CONVERSATION = (
-    "You are a friendly customer-support assistant. The customer sent a "
-    "greeting, said thanks, or asked a meta question about who you are or "
-    "what you can do. Respond naturally and warmly - greet them back, "
-    "introduce yourself as an assistant, and offer to help with questions "
-    "about products, services, pricing, or orders. Keep it short (1-2 "
-    "sentences). Never answer questions about the business itself - if they "
-    "ask what something costs or how something works, say 'I can help you "
-    "find out about that' instead of guessing."
+    "The customer sent a greeting, said thanks, or asked a meta question about "
+    "who you are or what you can do. Respond naturally - greet them back and "
+    "offer to help with questions about products, services, pricing, or orders. "
+    "Keep it short (1-2 sentences). Never answer questions about the business "
+    "itself - if they ask what something costs or how something works, say 'I "
+    "can help you find out about that' instead of guessing.\n"
+    f"{MONEY_GUIDANCE}"
 )
+
+
+def _with_contract(state: AgentState, route_prompt: str) -> str:
+    """The contract first, then the route's own instructions.
+
+    Order is the authority statement: the contract is what the model reads
+    before anything a tenant configured, and everything after it is business
+    data by the contract's own terms.
+    """
+    contract = state.get("contract", "")
+    return f"{contract}\n\n{route_prompt}" if contract else route_prompt
 
 
 def _redraft_note(violations: list[str] | None, extra: str = "") -> str:
@@ -66,8 +88,6 @@ def _redraft_note(violations: list[str] | None, extra: str = "") -> str:
 
 def _build_knowledge_prompt(
     chunks: list[dict[str, Any]],
-    tenant_prompt: str,
-    tone: str,
     violations: list[str] | None,
     *,
     offerings_text: str = "",
@@ -76,7 +96,6 @@ def _build_knowledge_prompt(
     context_block = "\n\n".join(
         f"[{i + 1}] {spotlight.wrap(c['content'])}" for i, c in enumerate(chunks)
     )
-    base = tenant_prompt or "You are the AI support and sales assistant for this business."
     # W-5: the confirmed catalog reaches this prompt as a second grounded block
     # alongside the numbered chunks - it is state-borne (see AgentState.
     # offerings_text) rather than fetched here, because the corpus retrieval
@@ -86,7 +105,7 @@ def _build_knowledge_prompt(
     # its own system prompt).
     offerings_block = f"\n\n{spotlight.wrap(offerings_text)}" if offerings_text else ""
     prompt = (
-        f"{base}\nTone: {tone or 'friendly'}.\n{spotlight.instruction()}\n"
+        f"{spotlight.instruction()}\n"
         "Answer the customer's question using ONLY the confirmed offerings and "
         "the numbered context below. Cite every factual claim with its bracket "
         "number, e.g. [1]. If the context doesn't fully answer the question, "
@@ -109,9 +128,10 @@ def _build_recommendation_prompt(
         for i, sel in enumerate(selections)
     )
     prompt = (
-        "You are a sales assistant recommending items to a customer. Recommend "
-        "ONLY from the numbered list below, with a short reason for each - never "
-        "invent an item or a price that isn't listed.\n"
+        "You are recommending items to a customer. Recommend ONLY from the "
+        "numbered list below, with a short reason for each - never invent an "
+        "item or a price that isn't listed.\n"
+        f"{MONEY_GUIDANCE}\n"
         f"{spotlight.instruction()}\n\nAvailable items:\n{items_block}"
     )
     return prompt + _redraft_note(
@@ -176,7 +196,12 @@ async def run(state: AgentState) -> dict[str, Any]:
 
     if route == "conversation":
         messages: list[ChatMessage] = [
-            {"role": "system", "content": _SYSTEM_PROMPT_CONVERSATION + _redraft_note(violations)},
+            {
+                "role": "system",
+                "content": _with_contract(
+                    state, _SYSTEM_PROMPT_CONVERSATION + _redraft_note(violations)
+                ),
+            },
             {"role": "user", "content": query},
         ]
         text = await stream_draft(ctx.provider, messages)
@@ -202,17 +227,13 @@ async def run(state: AgentState) -> dict[str, Any]:
             for i, c in enumerate(retrieved_chunks)
         ]
         writer({"type": "citations", "citations": citations})
-        async with db.tenant_context(ctx.tenant_id, "customer") as conn:
-            config_row = await conn.fetchrow(
-                "select system_prompt, tone from tenant_config where tenant_id = $1",
-                ctx.tenant_id,
-            )
-        system_prompt = _build_knowledge_prompt(
-            retrieved_chunks,
-            tenant_prompt=config_row["system_prompt"] if config_row else "",
-            tone=config_row["tone"] if config_row else "",
-            violations=violations,
-            offerings_text=state.get("offerings_text", ""),
+        system_prompt = _with_contract(
+            state,
+            _build_knowledge_prompt(
+                retrieved_chunks,
+                violations=violations,
+                offerings_text=state.get("offerings_text", ""),
+            ),
         )
         messages = [
             {"role": "system", "content": system_prompt},
@@ -236,7 +257,7 @@ async def run(state: AgentState) -> dict[str, Any]:
                 "draft_deterministic": True,
                 "author_node": "draft",
             }
-        system_prompt = _build_recommendation_prompt(selections, violations)
+        system_prompt = _with_contract(state, _build_recommendation_prompt(selections, violations))
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": query},
@@ -277,7 +298,7 @@ async def run(state: AgentState) -> dict[str, Any]:
             engine_quote["quote_id"] = str(quote_id)
             engine_quote["status"] = "sent"
         writer({"type": "quote", "quote": engine_quote})
-        system_prompt = _build_quoting_prompt(engine_quote, violations)
+        system_prompt = _with_contract(state, _build_quoting_prompt(engine_quote, violations))
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": query},
@@ -330,7 +351,12 @@ async def run(state: AgentState) -> dict[str, Any]:
         "draft_node: unknown route %s, falling back to conversation", route
     )
     messages = [
-        {"role": "system", "content": _SYSTEM_PROMPT_CONVERSATION + _redraft_note(violations)},
+        {
+            "role": "system",
+            "content": _with_contract(
+                state, _SYSTEM_PROMPT_CONVERSATION + _redraft_note(violations)
+            ),
+        },
         {"role": "user", "content": query},
     ]
     text = await stream_draft(ctx.provider, messages)

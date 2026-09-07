@@ -29,6 +29,7 @@ from app.services import context_package
 from app.services.context_package import build_package, clear_cache, get_package
 from app.shared import db
 from app.shared.config import get_settings
+from app.shared.voice import CustomerVoice
 from tests.conftest import _app_dsn_for
 from tests.fakes import EMBEDDING_DIM, ToolAwareFakeProvider, ZeroEmbedder
 
@@ -92,7 +93,17 @@ async def _seed_tenant(
         "values ($1, $2, 'warm', $3::jsonb)",
         tenant_id,
         "You are the assistant for Package Test Co.",
-        json.dumps({"profile": profile or {"hours": "Mon-Fri 9-5", "services": "Repairs"}}),
+        json.dumps(
+            {
+                "profile": profile
+                or {
+                    "business_name": "Package Test Co",
+                    "hours": "Mon-Fri 9-5",
+                    "services": "Repairs",
+                },
+                "customer_voice": {"preset": "direct_concise", "custom_style": None},
+            }
+        ),
     )
     if contents:
         document_id = await conn.fetchval(
@@ -151,7 +162,7 @@ async def _conversation_for(conn: asyncpg.Connection[Any], tenant_id: uuid.UUID)
 # --- assembly ------------------------------------------------------------------
 
 
-async def test_package_carries_prompt_profile_and_corpus(
+async def test_package_carries_voice_profile_and_corpus(
     superuser_conn: asyncpg.Connection[Any],
 ) -> None:
     tenant_id = await _seed_tenant(superuser_conn)
@@ -159,8 +170,10 @@ async def test_package_carries_prompt_profile_and_corpus(
     async with db.tenant_context(tenant_id, "customer") as conn:
         package = await build_package(conn, tenant_id)
 
-    assert package.system_prompt == "You are the assistant for Package Test Co."
-    assert package.tone == "warm"
+    # W-9: the structured voice and the public business name, never the
+    # free-text system_prompt/tone pair - those columns are read by nothing now.
+    assert package.business_name == "Package Test Co"
+    assert package.voice == CustomerVoice(preset="direct_concise")
     assert package.fast_path is True
     assert [c.content for c in package.chunks] == ["We are open weekdays 9-5."]
     assert "Mon-Fri 9-5" in package.profile_text()
@@ -189,8 +202,8 @@ async def test_package_carries_active_offerings_in_storefront_order(
     assert [offering.name for offering in package.offerings] == ["Coffee", "Pita bowls"]
     assert package.offerings_text() == (
         "Current confirmed offerings:\n"
-        "- Coffee: Freshly brewed ($3.50)\n"
-        "- Pita bowls: Choose your filling"
+        f"- [catalog_id={package.offerings[0].id}] Coffee: Freshly brewed ($3.50)\n"
+        f"- [catalog_id={package.offerings[1].id}] Pita bowls: Choose your filling"
     )
     assert package.owner_material().endswith(package.offerings_text())
 
@@ -217,7 +230,10 @@ async def test_hybrid_package_also_carries_active_offerings(
 
     assert package.fast_path is False
     assert package.offerings[0].name == "Coffee"
-    assert "Coffee: Freshly brewed ($3.50)" in package.offerings_text()
+    assert (
+        f"[catalog_id={package.offerings[0].id}] Coffee: Freshly brewed ($3.50)"
+        in package.offerings_text()
+    )
 
 
 async def test_offering_change_invalidates_the_cached_package(
@@ -256,7 +272,10 @@ async def test_package_without_a_profile_still_assembles(
 
     assert package.profile_text() == ""
     assert package.chunks == []
-    assert package.system_prompt  # the default persona, never empty
+    # No profile means no confirmed public name yet, and the default voice - the
+    # contract renders both without a tenant having to supply either.
+    assert package.business_name == ""
+    assert package.voice == CustomerVoice()
 
 
 # --- the cache -----------------------------------------------------------------
