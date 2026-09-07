@@ -344,7 +344,19 @@ async def test_line_item_to_dict_matches_quotes_schema_shape(
     ),
     tax_rate_bps=st.integers(min_value=0, max_value=2000),
 )
-@settings(max_examples=25, suppress_health_check=[HealthCheck.function_scoped_fixture])
+# deadline=None because every example does real database work - _seed_tenant,
+# _seed_rule, and the compute_quote round trip - and Hypothesis's default 200ms
+# deadline is a per-example wall-clock budget. On a cold first example that
+# budget measures connection warm-up and CI runner contention, not this code:
+# the failure that prompted this took 300.76ms on its first call and 2.75ms on
+# the retry, which Hypothesis reports as FlakyFailure rather than a real
+# falsification. A deadline detects performance regressions in deterministic
+# code; the property asserted here is arithmetic, not latency.
+@settings(
+    max_examples=25,
+    deadline=None,
+    suppress_health_check=[HealthCheck.function_scoped_fixture],
+)
 async def test_total_always_equals_subtotal_plus_tax(
     superuser_conn: asyncpg.Connection[Any], quantities: list[int], tax_rate_bps: int
 ) -> None:
