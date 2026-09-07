@@ -13,7 +13,7 @@ import asyncpg
 import pytest
 from pydantic import BaseModel
 
-from app.agents.agent_node import GetQuoteInputsArgs, SelectionChoice
+from app.agents.agent_node import CalculateQuoteArgs, GetQuoteInputsArgs, SelectionChoice
 from app.agents.graph import build_graph
 from app.agents.state import AgentState, GraphContext
 from app.ingestion.chunker import chunk_catalog_item
@@ -119,6 +119,32 @@ def _quoting_provider(
     )
 
 
+def _summary_provider(*, selections: list[dict[str, Any]]) -> ToolAwareFakeProvider:
+    return ToolAwareFakeProvider(
+        tool_call_sequence=[
+            ToolTurn(
+                tool_calls=[
+                    ToolCall(
+                        id="call_summary",
+                        name="calculate_quote",
+                        args={"selections": selections},
+                    )
+                ]
+            )
+        ],
+        stream_text="This text must never be generated for a summary.",
+    )
+
+
+def _catalog_provider() -> ToolAwareFakeProvider:
+    return ToolAwareFakeProvider(
+        tool_call_sequence=[
+            ToolTurn(tool_calls=[ToolCall(id="call_catalog", name="show_catalog", args={})])
+        ],
+        stream_text="This text must never be generated for a catalog.",
+    )
+
+
 @pytest.fixture(autouse=True)
 async def _pool(migrated_db: str) -> AsyncIterator[None]:
     await db.create_pool(dsn=_app_dsn_for(migrated_db), min_size=1, max_size=4)
@@ -172,6 +198,93 @@ async def test_catalog_item_selection_is_priced_from_db(
     assert engine_quote["line_items"][0]["unit_amount_cents"] == 1500
 
 
+async def test_basket_quote_emits_price_summary_without_quote_row_or_second_generation(
+    superuser_conn: asyncpg.Connection[Any],
+) -> None:
+    tenant_id, conversation_id, item_id = await _seed_quoting_tenant(superuser_conn)
+    second_item_id: uuid.UUID = await superuser_conn.fetchval(
+        "insert into offerings (tenant_id, name, description, price_cents, position) "
+        "values ($1, 'Pita pocket', 'Fresh pita', 2000, 1) returning id",
+        tenant_id,
+    )
+    provider = _summary_provider(
+        selections=[
+            {"catalog_item_id": str(item_id), "quantity": 1},
+            {"catalog_item_id": str(second_item_id), "quantity": 2},
+        ]
+    )
+
+    final_state = await build_graph().ainvoke(
+        _initial_state("one protector and two pita pockets", conversation_id),
+        context=_context(tenant_id, provider),
+    )
+
+    response = final_state["response"]
+    assert response["type"] == "price_summary"
+    assert response["summary"]["subtotal_cents"] == 5500
+    assert response["summary"]["total_cents"] == 5500
+    assert "quote_id" not in response["summary"]
+    assert provider.tool_call_messages[0][0]["role"] == "system"
+    assert len(provider.tool_call_messages) == 1
+    assert (
+        await superuser_conn.fetchval(
+            "select count(*) from quotes where tenant_id = $1 and conversation_id = $2",
+            tenant_id,
+            conversation_id,
+        )
+        == 0
+    )
+
+
+async def test_full_catalog_emits_ordered_structured_payload_without_drafting(
+    superuser_conn: asyncpg.Connection[Any],
+) -> None:
+    tenant_id, conversation_id, item_id = await _seed_quoting_tenant(superuser_conn)
+    await superuser_conn.execute(
+        "insert into offerings (tenant_id, name, description, price_cents, category, position) "
+        "values ($1, 'Pita pocket', 'Fresh pita', null, 'Food', 1)",
+        tenant_id,
+    )
+    provider = _catalog_provider()
+
+    final_state = await build_graph().ainvoke(
+        _initial_state("show me everything", conversation_id),
+        context=_context(tenant_id, provider),
+    )
+
+    response = final_state["response"]
+    offerings = response["catalog"]["offerings"]
+    assert response["type"] == "catalog"
+    assert [item["id"] for item in offerings] == [str(item_id), offerings[1]["id"]]
+    assert offerings[1]["price_cents"] is None
+    assert len(provider.tool_call_messages) == 1
+
+
+async def test_follow_up_sees_the_latest_summary_item_ids(
+    superuser_conn: asyncpg.Connection[Any],
+) -> None:
+    tenant_id, conversation_id, item_id = await _seed_quoting_tenant(superuser_conn)
+    provider = _summary_provider(selections=[{"catalog_item_id": str(item_id), "quantity": 2}])
+    state = _initial_state("make that two", conversation_id)
+    state["messages"] = [
+        {
+            "role": "assistant",
+            "content": "Here is the current price summary.",
+            "response": {
+                "type": "price_summary",
+                "summary": {
+                    "line_items": [{"item_id": str(item_id), "quantity": 1}],
+                },
+            },
+        },
+        {"role": "customer", "content": "make that two"},
+    ]
+
+    await build_graph().ainvoke(state, context=_context(tenant_id, provider))
+
+    assert str(item_id) in provider.tool_call_messages[0][0]["content"]
+
+
 async def test_bad_selection_does_not_produce_quote(
     superuser_conn: asyncpg.Connection[Any],
 ) -> None:
@@ -201,6 +314,7 @@ def test_selection_schema_has_no_money_fields() -> None:
     # F-1: the schema moved from the deleted quoting specialist into the agent
     # node's get_quote_inputs tool; the invariant it pins did not move.
     assert_clean(GetQuoteInputsArgs)
+    assert_clean(CalculateQuoteArgs)
     assert_clean(SelectionChoice)
     int_fields = [
         name

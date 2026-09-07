@@ -169,6 +169,8 @@ async def stream_chat_response(
     verdicts: dict[str, object] = {}
     tool_calls: list[dict[str, object]] = []
     author_node: str | None = None
+    response_payload: dict[str, object] | None = None
+    price_summary_ms: float | None = None
     # Every in-graph escalation path (create_escalation tool, price_gate,
     # inspection) routes through escalation.py's node, which always emits
     # this - the one reliable signal, from inside the custom stream, that
@@ -243,6 +245,11 @@ async def stream_chat_response(
                         # move, and the redraft paths never re-emit them), so it
                         # is safe to show immediately instead of holding it back.
                         yield event
+                    elif etype in ("price_summary", "catalog"):
+                        response_payload = dict(event)
+                        if etype == "price_summary":
+                            price_summary_ms = _ms_since(turn_started)
+                        buffer.append(event)
                     elif etype == "token":
                         if first_model_token_ms is None:
                             first_model_token_ms = _ms_since(turn_started)
@@ -380,6 +387,8 @@ async def stream_chat_response(
         tool_calls=tool_calls,
         usages=usages,
         author_node=author_node,
+        response=response_payload,
+        price_summary_ms=price_summary_ms,
     )
     if handoff_seen:
         escalation_summary.schedule(

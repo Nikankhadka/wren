@@ -15,6 +15,8 @@ import { Chip } from "@/components/ui/Chip";
 import { StreamingText } from "@/components/ui/StreamingText";
 import { CitationChip, type Citation } from "@/components/ui/CitationChip";
 import { QuoteCard, type QuotePayload } from "@/components/ui/QuoteCard";
+import { PriceSummaryCard, type PriceSummaryPayload } from "@/components/ui/PriceSummaryCard";
+import { CatalogCard, type CatalogPayload } from "@/components/ui/CatalogCard";
 import { EscalationBanner } from "@/components/ui/EscalationBanner";
 import { PROGRESS_LABELS, parseChatStreamEvent, type ProgressStage } from "@/lib/chat-events";
 import { customerOpening } from "@/lib/greeting";
@@ -26,6 +28,8 @@ interface Message {
   text: string;
   citations?: Citation[];
   quote?: QuotePayload;
+  priceSummary?: PriceSummaryPayload;
+  catalog?: CatalogPayload;
   streaming?: boolean;
   error?: boolean;
 }
@@ -224,6 +228,12 @@ export function CustomerChat({
             case "quote":
               updateLastAssistant(() => ({ quote: event.quote }));
               break;
+            case "price_summary":
+              updateLastAssistant(() => ({ priceSummary: event.summary }));
+              break;
+            case "catalog":
+              updateLastAssistant(() => ({ catalog: event.catalog }));
+              break;
             case "progress":
               setStage(event.stage);
               break;
@@ -310,6 +320,8 @@ export function CustomerChat({
               {renderWithCitations(message.text, message.citations ?? [])}
             </StreamingText>
             {message.quote ? <QuoteCard quote={message.quote} /> : null}
+            {message.priceSummary ? <PriceSummaryCard summary={message.priceSummary} /> : null}
+            {message.catalog ? <CatalogCard catalog={message.catalog} /> : null}
             {message.error ? (
               <button
                 type="button"

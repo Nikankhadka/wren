@@ -9,6 +9,7 @@ import { TraceTree, type TraceToolCall, type TraceCheckVerdict } from "@/compone
 import { ApiError } from "@/lib/api";
 import { useApiQuery, errorMessage } from "@/lib/useApiQuery";
 import { formatUsd } from "@/lib/money";
+import { StructuredResponse } from "@/components/ui/StructuredResponse";
 
 interface MessageDetail {
   id: string;
@@ -127,14 +128,19 @@ export default function ConversationDetailPage() {
             <div key={message.id} className="flex flex-col gap-1">
               <ChatBubble role={role}>{message.content}</ChatBubble>
               {role === "assistant" ? (
-                <div className="max-w-[85%] self-start">
-                  <TraceTree
-                    agentNode={message.agent_node}
-                    costUsd={message.cost_usd}
-                    toolCalls={message.tool_calls}
-                    inspection={message.metadata?.inspection}
-                  />
-                </div>
+                <>
+                  <div className="max-w-[85%] self-start">
+                    <StructuredResponse response={message.metadata.response} />
+                  </div>
+                  <div className="max-w-[85%] self-start">
+                    <TraceTree
+                      agentNode={message.agent_node}
+                      costUsd={message.cost_usd}
+                      toolCalls={message.tool_calls}
+                      inspection={message.metadata?.inspection}
+                    />
+                  </div>
+                </>
               ) : null}
             </div>
           );

@@ -12,6 +12,7 @@ from typing import Any
 import asyncpg
 import pytest
 
+from app.agents.escalation import HANDOFF_MESSAGE
 from app.agents.graph import build_graph
 from app.agents.state import AgentState, GraphContext
 from app.llm.provider import ToolCall, ToolTurn
@@ -98,10 +99,7 @@ async def test_escalation_records_the_handoff_and_leaves_the_chat_open(
         _initial_state(tenant_id=tenant_id, conversation_id=conversation_id), context=context
     )
     assert final_state["escalated"] is True
-    handoff = final_state["draft_response"].lower()
-    # Names the handoff and keeps the door open - never a sign-off.
-    assert "asked someone from the business" in handoff
-    assert "anything else" in handoff
+    assert final_state["draft_response"] == HANDOFF_MESSAGE
     escalation_row = await superuser_conn.fetchrow(
         "select reason, status from escalations where conversation_id = $1", conversation_id
     )

@@ -198,6 +198,8 @@ async def persist_assistant_turn(
     tool_calls: list[dict[str, object]],
     usages: list[TokenUsage],
     author_node: str | None = None,
+    response: dict[str, Any] | None = None,
+    price_summary_ms: float | None = None,
 ) -> None:
     """Persist the approved assistant message, its tool-call trace rows, and
     per-turn token costs in one transaction.
@@ -207,6 +209,11 @@ async def persist_assistant_turn(
     None when no graph ran (the limit-escalation paths write their own rows).
     """
     async with db.tenant_context(tenant_id, "customer") as conn:
+        metadata: dict[str, Any] = {"inspection": verdicts} if verdicts else {}
+        if response:
+            metadata["response"] = response
+        if price_summary_ms is not None:
+            metadata["price_summary_ms"] = price_summary_ms
         message_id = await conn.fetchval(
             "insert into messages (tenant_id, conversation_id, role, content, "
             "agent_node, metadata) "
@@ -215,7 +222,7 @@ async def persist_assistant_turn(
             conversation_id,
             full_text,
             author_node,
-            json.dumps({"inspection": verdicts} if verdicts else {}),
+            json.dumps(metadata),
         )
         # T-030: tool_calls rows (the Surface-2 TraceTree) and cost_logs rows
         # (per-turn token accounting, backing the T-028 daily budget).
@@ -237,7 +244,7 @@ async def persist_assistant_turn(
 
 async def recent_messages(
     *, tenant_id: UUID, conversation_id: UUID, limit: int
-) -> list[dict[str, str]]:
+) -> list[dict[str, Any]]:
     """The tail of a conversation, oldest first, as plain role/content dicts.
 
     The agent's view of the thread (P-3). Ordered newest-first in SQL so the
@@ -246,7 +253,7 @@ async def recent_messages(
     """
     async with db.tenant_context(tenant_id, "customer") as conn:
         rows = await conn.fetch(
-            "select role, content from messages "
+            "select role, content, metadata from messages "
             "where tenant_id = $1 and conversation_id = $2 "
             "and role in ('customer', 'assistant', 'human_agent') "
             "order by created_at desc, id desc "
@@ -255,7 +262,16 @@ async def recent_messages(
             conversation_id,
             limit,
         )
-    return [{"role": row["role"], "content": row["content"]} for row in reversed(rows)]
+    messages: list[dict[str, Any]] = []
+    for row in reversed(rows):
+        message: dict[str, Any] = {"role": row["role"], "content": row["content"]}
+        if row["metadata"]:
+            raw_metadata = row["metadata"]
+            metadata = json.loads(raw_metadata) if isinstance(raw_metadata, str) else raw_metadata
+            if isinstance(metadata, dict) and metadata.get("response"):
+                message["response"] = metadata["response"]
+        messages.append(message)
+    return messages
 
 
 async def list_messages(

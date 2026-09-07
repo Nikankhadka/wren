@@ -202,8 +202,8 @@ async def test_package_carries_active_offerings_in_storefront_order(
     assert [offering.name for offering in package.offerings] == ["Coffee", "Pita bowls"]
     assert package.offerings_text() == (
         "Current confirmed offerings:\n"
-        "- Coffee: Freshly brewed ($3.50)\n"
-        "- Pita bowls: Choose your filling"
+        f"- [catalog_id={package.offerings[0].id}] Coffee: Freshly brewed ($3.50)\n"
+        f"- [catalog_id={package.offerings[1].id}] Pita bowls: Choose your filling"
     )
     assert package.owner_material().endswith(package.offerings_text())
 
@@ -230,7 +230,10 @@ async def test_hybrid_package_also_carries_active_offerings(
 
     assert package.fast_path is False
     assert package.offerings[0].name == "Coffee"
-    assert "Coffee: Freshly brewed ($3.50)" in package.offerings_text()
+    assert (
+        f"[catalog_id={package.offerings[0].id}] Coffee: Freshly brewed ($3.50)"
+        in package.offerings_text()
+    )
 
 
 async def test_offering_change_invalidates_the_cached_package(

@@ -28,6 +28,7 @@ Production database: hosted Supabase, migrated and seeded with `bytefix`
 | Product polish and hygiene | B-1, B-3, D-2, E-3, F-1, F-2, F-3, G-1 |
 | Developer experience and deployment | K-1, B-4; containerized development, two Vercel services, same-origin routing, hosted embedding and reranking |
 | Security and API reliability | R-1, R-2, R-4 US-1, R-5 US-1; Problem Details, safe SSE errors, request correlation, SSRF protection, Google tool-history fix |
+| Customer-agent contract | W-9 base contract merged to `development`; Amendment 4 implemented with deterministic basket summaries, catalog cards, transcript parity, and in-chat handoff |
 
 Detailed records live in [`spec/completed/`](spec/completed/).
 
@@ -49,30 +50,30 @@ Detailed records live in [`spec/completed/`](spec/completed/).
 - [x] W-8: review a large import without losing information - shared structured document review, five-item preview and editor pages, explicit duplicate decisions, owner-only source evidence, and catalog-only offering publication.
 - [ ] W-9: the definitive onboarding and customer-assistant contract - name
   confirmation, corrections from any beat, offering operations, a code-owned
-  customer-agent contract applied to every prose route, and structured customer
-  voice. Built on `feat/w-9-agent-contract`; 12 of 13 Definition-of-done boxes
-  ticked. Open only on the gate box, and only on one gate in it: `make ci` (940
-  backend tests, 110 frontend, 3 of 3 import contracts, a clean production
-  build), `make test-e2e` (105 passing across both Playwright projects), and
-  `make eval-skip-llm` are all green against the final branch state. `make eval`
-  is unmeasured, twice, because the free-tier provider quota is exhausted rather
-  than because anything failed - see the ticket's Record for what that run does
-  and does not prove.
+  customer-agent contract applied to every prose route, structured customer
+  voice, deterministic basket pricing, structured catalog responses, and
+  non-terminal handoff. The base contract and Amendment 4 are merged to
+  `development`; the ticket remains active only for configured-provider
+  evaluation and production evidence.
 - [ ] W-10: drop `tenant_config.system_prompt` and `.tone` and their last
   writers, after W-9 is verified in production
   ([`spec/active/14-schema-drop.md`](spec/active/14-schema-drop.md)).
+- [ ] W-11: retain and review multi-file document drafts safely, publish
+  successful documents independently, expose retryable failures, and disclose
+  tenant-isolated storage and configured AI processing
+  ([`spec/active/15-document-review.md`](spec/active/15-document-review.md)).
 
-**Phase 13 specification amended twice.** 2026-09-05
+**Phase 13 specification amended four times.** 2026-09-05
 (`docs/phase13-walkthrough-refinement`): a second walkthrough round and its
 planning refined W-3 through W-6, added W-8 and W-9, and corrected the phase
 introduction to nine tickets. 2026-09-06: W-9 was rewritten into the phase's
-single authoritative closing ticket (Amendment 3 in `13-walkthrough.md`), and
-this file's own status line is corrected here - **W-1 through W-8 are all
-shipped; W-9 is the only ticket in Phase 13 still open.** The prior line above
-this one claimed W-3 through W-6 were still open after they had already
-shipped; that was this file drifting behind the spec, not a real regression -
-see `13-walkthrough.md`'s corrected intro and W-6's now-ticked Definition of
-done for the record.
+single authoritative closing ticket (Amendment 3 in `13-walkthrough.md`),
+2026-09-07: Amendment 4 added deterministic basket pricing, catalog responses,
+and the non-terminal handoff contract, and 2026-09-08: the base contract and
+Amendment 4 were merged to `development` sequentially. **W-1 through W-8 are
+shipped; W-9 remains open only for provider-backed evaluation and production
+evidence.** W-11 is documented separately in Phase 15 and can now proceed
+independently from the merge dependency, though it remains unimplemented.
 
 ## Known gaps and deliberate deferrals
 
@@ -290,19 +291,16 @@ makes timing non-deterministic, and a mocked `/api/chat` would mock away the
 server-side prompt assembly that is the whole change. Before and after were run
 twice each against `bytefix`.
 
-**W-9 is built; one Definition-of-done box is unmeasured** (2026-09-07,
-`feat/w-9-agent-contract`, seven commits). Twelve of the ticket's thirteen boxes
-are ticked with evidence. The thirteenth is the gate box, and it stays open
-because `make eval` could not run: the free-tier daily budget was spent by the
-conventions.md section 5 reproduction drives, Groq returned `429 tokens per day
-(TPD): Limit 200000, Used 197445`, and the Google primary leg was rate-limited
-into its retry ladder at the same time. A partial run recorded
-`tool_correctness: 0.611`, which is not a measurement of anything - it was taken
-while provider calls were failing and it carries no baseline. `make test-e2e`
-has also not been run against the final branch state. `make check`,
-`make format-check`, `make build`, and `make eval-skip-llm` are green. The
-ticket therefore stays in `spec/active/`; moving it would claim a gate nobody
-has seen pass.
+**W-9 was delivered sequentially to `development`** (2026-09-08). The original
+contract branch was squash-merged first as `7ae710e`; the Amendment 4 branch was
+then validated and squash-merged as the second delivery. The deterministic
+verification is green: 943 backend tests, 110 frontend tests, frontend and
+backend lint/type/format checks, the full 105-test browser suite, and the
+targeted mobile voice-sheet rerun after fixing the shared topbar's flex-shrink
+touch-target bug. The ticket remains in `spec/active/` because the configured
+provider-backed `make eval` and production evidence still require external
+provider capacity and a live deployment; the deterministic `make eval-skip-llm`
+gate is the local regression gate.
 
 What the reproduction changed about the ticket is worth keeping. Five of the six
 failures the ticket names reproduced through the real onboarding UI, and the
@@ -370,8 +368,9 @@ stubs the unnamed case the seed cannot produce.
 |---|---|---|
 | [`spec/active/08-deferred.md`](spec/active/08-deferred.md) | Deferred | B-2, D-1, D-3 |
 | [`spec/active/12-refinement.md`](spec/active/12-refinement.md) | Open | R-3, R-4, R-5 |
-| [`spec/active/13-walkthrough.md`](spec/active/13-walkthrough.md) | Open | W-1 through W-8 delivered; W-9 built, open on its gate box alone (amended 2026-09-06, Amendment 3) |
+| [`spec/active/13-walkthrough.md`](spec/active/13-walkthrough.md) | Open | W-1 through W-8 delivered; W-9's base contract and Amendment 4 are merged, with provider-backed evaluation and production evidence open |
 | [`spec/active/14-schema-drop.md`](spec/active/14-schema-drop.md) | Open | W-10, blocked on W-9 production verification |
+| [`spec/active/15-document-review.md`](spec/active/15-document-review.md) | Open | W-11, implementation may proceed now that W-9 is merged to `development` |
 | [`spec/completed/`](spec/completed/) | Complete | All delivered feature, deployment, and supporting phases |
 | [`docs/archive/phase1-complete/`](../archive/phase1-complete/) | Historical | Completed R-1 and R-2 records |
 

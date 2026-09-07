@@ -4,6 +4,7 @@ import { use, useEffect, useRef, useState } from "react";
 import { ChatBubble } from "@/components/ui/ChatBubble";
 import { CommandPill } from "@/components/ui/CommandPill";
 import { ScreenTopbar } from "@/components/ui/ScreenTopbar";
+import { StructuredResponse } from "@/components/ui/StructuredResponse";
 import { apiFetch, ApiError } from "@/lib/api";
 import type { ConversationDetail } from "@/lib/api-schemas";
 import { clockTime, customerLabel } from "@/lib/format";
@@ -103,18 +104,23 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
 
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-5 pb-4">
         {detail?.messages.map((message) => (
-          <ChatBubble key={message.id} role={message.role as never} perspective="operator">
-            {message.role === "system" ? (
-              // The prototype's `thr-pill`: a centred stamp with the time it
-              // happened, so the history says who was speaking and from when.
-              <span className="inline-block rounded-full bg-bubble-in px-3.5 py-1">
-                {message.content}
-                <span className="text-text-tertiary"> · {clockTime(message.created_at)}</span>
-              </span>
-            ) : (
-              message.content
-            )}
-          </ChatBubble>
+          <div key={message.id} className="flex flex-col gap-1">
+            <ChatBubble role={message.role as never} perspective="operator">
+              {message.role === "system" ? (
+                // The prototype's `thr-pill`: a centred stamp with the time it
+                // happened, so the history says who was speaking and from when.
+                <span className="inline-block rounded-full bg-bubble-in px-3.5 py-1">
+                  {message.content}
+                  <span className="text-text-tertiary"> · {clockTime(message.created_at)}</span>
+                </span>
+              ) : (
+                message.content
+              )}
+            </ChatBubble>
+            <div className="max-w-[85%] self-end">
+              <StructuredResponse response={message.metadata.response} />
+            </div>
+          </div>
         ))}
         <div ref={bottomRef} />
       </div>

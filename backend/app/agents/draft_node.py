@@ -28,15 +28,17 @@ from app.shared import db
 # from. Public because evals and API tests assert on the exact customer-facing
 # text; this node is where that text is produced.
 REFUSAL_MESSAGE = (
-    "I don't have information about that. Please contact the business directly for help."
+    "I don't have information about that. I can forward your question to the business "
+    "here if you'd like."
 )
 _RECOMMENDATION_REFUSAL = (
     "I don't have anything that matches what you're looking for. "
-    "Please contact the business directly for help."
+    "I can forward your question to the business here if you'd like."
 )
 _QUOTING_NO_CANDIDATES = (
     "I can't put together a quote for that - the business hasn't listed "
-    "anything I could price it from. Please contact them directly."
+    "anything I could price it from. I can forward your question to the business "
+    "here if you'd like."
 )
 _ORDER_NOT_FOUND_TEMPLATE = "I can't find {ref_code} - please double-check the code."
 _ORDER_ASK_FOR_CODE = "Could you share the order, repair, or ticket code so I can look it up?"

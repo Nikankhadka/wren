@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 class AgentState(TypedDict):
     conversation_id: str
     tenant_id: str
-    messages: list[dict[str, str]]
+    messages: list[dict[str, Any]]
     route: str | None
     route_confidence: float | None
     retrieved_chunks: list[dict[str, Any]]
@@ -89,6 +89,9 @@ class AgentState(TypedDict):
     # viewer; the inspection node carries it out on its stream event because
     # the custom-stream controller cannot read final graph state.
     author_node: NotRequired[str]
+    # Amendment 4: a server-produced card payload. Structured responses bypass
+    # prose drafting but still pass through the final inspection node.
+    response: NotRequired[dict[str, Any]]
 
 
 @dataclass(frozen=True)

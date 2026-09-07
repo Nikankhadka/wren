@@ -75,15 +75,17 @@ _PROFILE_LABELS: tuple[tuple[str, str], ...] = (
 # lives in ``app/agents/contract.py``, which this module may not import (the
 # import contracts in backend/pyproject.toml forbid app.services -> app.agents),
 # so the size is pinned here and held to it by a test in test_agent_contract.py.
-_CONTRACT_OVERHEAD_CHARS = 3800
+_CONTRACT_OVERHEAD_CHARS = 4000
 
 
 @dataclass(frozen=True)
 class ActiveOffering:
     """An active catalog row exposed as authoritative customer context."""
 
+    id: str
     name: str
     description: str
+    category: str | None
     price_cents: int | None
 
 
@@ -143,15 +145,17 @@ async def build_package(conn: AppConnection, tenant_id: UUID) -> ContextPackage:
     business_name = str(profile.get("business_name") or "").strip()
     voice = voice_from_config(config)
     offering_rows = await conn.fetch(
-        "select name, description, price_cents from offerings "
+        "select id, name, description, category, price_cents from offerings "
         "where tenant_id = $1 and active "
         "order by position, created_at, id",
         tenant_id,
     )
     offerings = [
         ActiveOffering(
+            id=str(row["id"]),
             name=row["name"],
             description=row["description"],
+            category=row["category"],
             price_cents=row["price_cents"],
         )
         for row in offering_rows
@@ -212,7 +216,9 @@ def format_offerings(offerings: list[ActiveOffering]) -> str:
 
     lines = ["Current confirmed offerings:"]
     for offering in offerings:
-        line = offering.name
+        line = f"[catalog_id={offering.id}] {offering.name}"
+        if offering.category:
+            line += f" (category: {offering.category})"
         if offering.description:
             line += f": {offering.description}"
         if offering.price_cents is not None:

@@ -1,12 +1,16 @@
-> This file was amended twice: 2026-09-05 folded a second walkthrough round
+> This file was amended four times: 2026-09-05 folded a second walkthrough round
 > and its planning into the phase (record starts at
 > [Amendment 2](#amendment-2-onboarding-completion-and-refinement-2026-09-05));
 > 2026-09-06 rewrote W-9 into the single authoritative onboarding and
 > customer-assistant contract ticket and corrected stale delivery-status
 > language left over from the first amendment (record starts at
-> [Amendment 3](#amendment-3-the-agent-contract-2026-09-06)). W-1 through W-8
-> are shipped and their records, checked criteria, and commit evidence are
-> preserved below unchanged; W-9 is the phase's sole open ticket.
+> [Amendment 3](#amendment-3-the-agent-contract-2026-09-06)). 2026-09-07
+> extended W-9 with the deterministic basket, catalog, and handoff contract
+> (record starts at [Amendment 4](#amendment-4-deterministic-customer-responses-2026-09-07)).
+> W-1 through W-8 are shipped and their records, checked criteria, and commit
+> evidence are preserved below unchanged. W-9's base contract and Amendment 4
+> are merged to `development`; provider-backed evaluation and production
+> evidence remain open, so this ticket stays active.
 
 # Phase 13: walkthrough fixes (W)
 
@@ -155,6 +159,95 @@ acceptance criteria:
 | Five-item preview, pagination, editing, duplicate decisions | [W-8](#w-8-review-a-large-import-without-losing-information) |
 | Readable, editable knowledge sections | [W-8](#w-8-review-a-large-import-without-losing-information) |
 | Repeated names, conservative wording cleanup, conversational corrections, the customer-assistant contract and voice | [W-9](#w-9-definitive-onboarding-and-customer-assistant-contract) |
+
+---
+
+## Amendment 4: deterministic customer responses (2026-09-07)
+
+The customer-agent walkthrough found a second contract boundary after W-9's
+initial implementation: the agent can select catalog items, but the pricing
+and response protocol still does not make a complete basket, full catalog, or
+post-handoff conversation deterministic. This amendment keeps W-9 as the
+owner of the customer-agent contract and adds the response payloads, follow-up
+state, and handoff wording needed to close that boundary. It does not create a
+formal quote or a persistent checkout cart.
+
+### Decisions
+
+- The protected context package includes each active offering's id, name,
+  description, category, and confirmed price. IDs are tool-only and are never
+  shown to customers.
+- Basket requests select catalog ids and quantities. The existing tenant-scoped
+  pricing engine reloads current prices and computes all amounts in integer
+  cents. A successful fixed-price calculation emits one `price_summary` event
+  without a second drafting pass and creates no quote row.
+- A normal factual price question remains a grounded catalog answer. A basket,
+  quantity, or total request gets a price-summary card with engine-produced
+  line items, subtotal, configured tax when applicable, total, and the text
+  `Based on the business's current confirmed prices. This is not a formal
+  quote.`
+- Only uniquely supported item matches are auto-resolved. Ambiguous,
+  unsupported, missing-price, mixed-priceability, discount, availability, and
+  custom-work requests ask one concise clarification or hand off. No partial
+  basket is shown.
+- The latest summary is stored in `messages.metadata.response` and supplied on
+  follow-up turns as ids and quantities. Follow-ups recalculate the complete
+  basket against current tenant prices; they do not create a checkout cart.
+- A `show_catalog` tool emits one structured `catalog` event from the loaded
+  context package. The active ordered catalog includes category headings,
+  descriptions, aligned prices, and `Price not listed` for unpriced rows.
+  Customer and owner transcript views use the same persisted response payload.
+- Handoff confirmation is normal assistant text followed by the existing
+  non-terminal `handoff` event: `I've forwarded your query to the business.
+  They can reply to you here.` The composer remains open and the customer can
+  continue polling for a reply. In-app forwarding is offered before a direct
+  contact channel; a confirmed email or phone is returned only when that
+  channel is explicitly requested.
+
+### Interfaces and verification
+
+The customer SSE protocol gains `price_summary` and `catalog` events. Their
+payloads contain server-produced cents and ordered active offerings only; the
+frontend formats them and performs no arithmetic. The pricing boundary validates
+catalog id, quantity, tenant ownership, active state, and price before emitting
+either event. The request records `price_summary_ms` from request start through
+the completed summary event.
+
+The regression fixture is the Sababa basket: Super Plate at 3,700 cents plus
+Pita Pocket at 2,000 cents emits a 5,700-cent summary, creates no quote row,
+and never uses contact-directly fallback copy. Tests also cover exact and
+shorthand matches, ambiguity, missing prices, mixed priceability, quantity
+changes, add/remove follow-ups, inactive items, tenant isolation, tax, owner
+price changes between turns, full-menu cards, transcript parity, keyboard and
+mobile layout, handoff deduplication, explicit contact-channel requests, and
+continued chat after handoff. The required quality gates remain
+`make check`, `make ci`, `make test-e2e`, `make eval-skip-llm`, and a configured
+provider-backed `make eval`.
+
+### Scope boundary
+
+This amendment does not change deterministic refusal strings, add model-authored
+money, add a quote row for basket calculations, or add a persistent checkout
+workflow. Explicit formal quotes backed by pricing rules remain on the existing
+quote path.
+
+### Naming boundary
+
+The deterministic backend uses the domain-neutral term `quote` for a computed
+selection of items, services, or other priceable work. Customer-facing events,
+cards, and copy use `price_summary`. A persisted quote row and quote status are
+reserved for an explicit formal quote request.
+
+### Delivery evidence (2026-09-08)
+
+The base W-9 contract was squash-merged to `development` first, followed by
+this amendment as a separate squash merge. The local deterministic gates passed
+before the second merge: 943 backend tests, 110 frontend tests, backend and
+frontend lint/type/format checks, `make eval-skip-llm`, and the full 105-test
+Playwright suite. The shared topbar's mobile touch-target regression found by
+that suite was fixed and its targeted browser test passed on the final branch.
+The configured-provider evaluation and production smoke evidence remain
+deployment-dependent and are intentionally not claimed here.
 
 ---
 
@@ -2311,6 +2404,23 @@ anyway; no user-visible bug was fixed by removing it.
       structural: the marker the cases hunt for is in the prompt. The eval's own
       pass rate is provider-backed and unmeasured - see the last box.
 - [x] W-8's keyboard/mobile Definition-of-done box is closed.
+- [ ] Amendment 4: active offering ids, descriptions, categories, and prices
+      are present in the protected context, while ids remain invisible in
+      customer copy.
+- [ ] Amendment 4: fixed-price basket requests use one validated pricing-engine
+      selection, emit one `price_summary` payload, persist it in
+      `messages.metadata.response`, and create no quote row.
+- [ ] Amendment 4: ambiguous, unsupported, unpriced, mixed-priceability, and
+      commitment requests never produce a partial total or a substituted item.
+- [ ] Amendment 4: `show_catalog` emits the ordered active catalog once,
+      including unpriced rows, and customer and owner transcript views render
+      the same persisted response payload.
+- [ ] Amendment 4: follow-up add, remove, and quantity changes recalculate the
+      complete basket against current tenant prices, and `price_summary_ms` is
+      recorded.
+- [ ] Amendment 4: handoff uses the exact in-app confirmation, remains
+      non-terminal, deduplicates escalation creation, and offers direct contact
+      details only for the explicitly requested channel.
 - [ ] `make check`, `make ci`, `make test-e2e`, and `make eval-skip-llm` are
       green; `make eval` is green where a provider is configured. **Partially
       measured, so this box stays open.** Green on the final branch state:
@@ -2328,4 +2438,3 @@ anyway; no user-visible bug was fixed by removing it.
       `make test-e2e` against the final branch state. Nothing in this box has
       failed; two of its five commands are unmeasured or unrun, and this box is
       the only reason the ticket is still in `spec/active/`.
-
