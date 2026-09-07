@@ -4,8 +4,14 @@
  * Two rules, one sweep:
  *   1. The product is Agencx. "Wren" is the repo, the roles and the env keys -
  *      it must never reach a screen.
- *   2. User-facing copy never says "AI", "agent", "automated" or "assistant".
+ *   2. User-facing copy never says "AI", "agent", "automated" or "virtual".
  *      These sell the mechanism; the copy should sell what the business gets.
+ *      W-9's copy-rule amendment (13-walkthrough.md, Amendment 3) took
+ *      "assistant" off that list and put "virtual" on it: both mandated
+ *      openings name the assistant as what the surface is, and a noun the
+ *      surface cannot use is a surface that cannot say what it is. Answering a
+ *      direct "are you human?" honestly was never covered by this sweep and
+ *      still is not - that lives in the customer contract's own tests.
  *
  * Scope is deliberate. Every surface here renders text the code owns. Two are
  * excluded and neither is an oversight: /chats renders historical customer
@@ -31,7 +37,7 @@ const BANNED: { label: string; pattern: RegExp }[] = [
   { label: "AI", pattern: /\bAI\b/ },
   { label: "agent", pattern: /\bagents?\b/i },
   { label: "automated", pattern: /\bautomat(ed|ic|ically|ion)\b/i },
-  { label: "assistant", pattern: /\bassistants?\b/i },
+  { label: "virtual", pattern: /\bvirtual\b/i },
   { label: "Wren", pattern: /\bwren\b/i },
 ];
 

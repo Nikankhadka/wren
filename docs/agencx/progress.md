@@ -47,7 +47,20 @@ Detailed records live in [`spec/completed/`](spec/completed/).
 - [x] W-7: make the interview read like a person - challenge junk input, drop the
   skip chip, keep replies short, address-only go-live, priced offering cards.
 - [x] W-8: review a large import without losing information - shared structured document review, five-item preview and editor pages, explicit duplicate decisions, owner-only source evidence, and catalog-only offering publication.
-- [ ] W-9: the definitive onboarding and customer-assistant contract - name confirmation, corrections from any beat, offering operations, a code-owned customer-agent contract applied to every prose route, and structured customer voice.
+- [ ] W-9: the definitive onboarding and customer-assistant contract - name
+  confirmation, corrections from any beat, offering operations, a code-owned
+  customer-agent contract applied to every prose route, and structured customer
+  voice. Built on `feat/w-9-agent-contract`; 12 of 13 Definition-of-done boxes
+  ticked. Open only on the gate box, and only on one gate in it: `make ci` (940
+  backend tests, 110 frontend, 3 of 3 import contracts, a clean production
+  build), `make test-e2e` (105 passing across both Playwright projects), and
+  `make eval-skip-llm` are all green against the final branch state. `make eval`
+  is unmeasured, twice, because the free-tier provider quota is exhausted rather
+  than because anything failed - see the ticket's Record for what that run does
+  and does not prove.
+- [ ] W-10: drop `tenant_config.system_prompt` and `.tone` and their last
+  writers, after W-9 is verified in production
+  ([`spec/active/14-schema-drop.md`](spec/active/14-schema-drop.md)).
 
 **Phase 13 specification amended twice.** 2026-09-05
 (`docs/phase13-walkthrough-refinement`): a second walkthrough round and its
@@ -277,6 +290,49 @@ makes timing non-deterministic, and a mocked `/api/chat` would mock away the
 server-side prompt assembly that is the whole change. Before and after were run
 twice each against `bytefix`.
 
+**W-9 is built; one Definition-of-done box is unmeasured** (2026-09-07,
+`feat/w-9-agent-contract`, seven commits). Twelve of the ticket's thirteen boxes
+are ticked with evidence. The thirteenth is the gate box, and it stays open
+because `make eval` could not run: the free-tier daily budget was spent by the
+conventions.md section 5 reproduction drives, Groq returned `429 tokens per day
+(TPD): Limit 200000, Used 197445`, and the Google primary leg was rate-limited
+into its retry ladder at the same time. A partial run recorded
+`tool_correctness: 0.611`, which is not a measurement of anything - it was taken
+while provider calls were failing and it carries no baseline. `make test-e2e`
+has also not been run against the final branch state. `make check`,
+`make format-check`, `make build`, and `make eval-skip-llm` are green. The
+ticket therefore stays in `spec/active/`; moving it would claim a gate nobody
+has seen pass.
+
+What the reproduction changed about the ticket is worth keeping. Five of the six
+failures the ticket names reproduced through the real onboarding UI, and the
+drive surfaced four the ticket had not: a beat's own `example` reaching the
+owner as a fact (the owner greeted as "Nikan", the founder's name in the name
+beat), the model answering the question it was one turn away from asking, em
+dashes in assistant output against a repo-wide rule, and a value typed during
+another beat landing nowhere. The sixth named failure, the owner's name standing
+in for the business name, turned out to be latent rather than user-visible: the
+summary carrying that fallback renders only once every required beat is
+satisfied, and `business_name` is required. It is removed anyway, and the ticket
+record says plainly that no user-visible bug was fixed by removing it.
+
+Two consequences worth carrying forward. The customer contract and its voice
+block measure 3,682 characters at their longest, where the retired
+`tenant_config.system_prompt` measured 202, so the fast-path budget now accounts
+for a much larger prompt and a tenant sitting within about 3,500 characters of
+that budget takes the hybrid path where it used to take the fast path - honest
+accounting, but a real behavior change on live tenants. And the pin that carries
+that cost into the budget, `_CONTRACT_OVERHEAD_CHARS`, is a number rather than a
+measurement, because the import contract forbids `app.services` from importing
+`app.agents`; a test that imports both fails the moment the contract outgrows
+it.
+
+`tenant_config.system_prompt` and `.tone` are read by no application code after
+this ticket, but the columns and their seed writes are still in place. Dropping
+them is W-10 (`spec/active/14-schema-drop.md`), deliberately its own ticket
+because one squash-merge cannot both deploy forward-compatible code and run the
+destructive migration after it is verified.
+
 **Chats-list row identity is unticketed UI polish** (founder request,
 2026-09-06, `fix/chats-row-identity`). Every row on the owner's Chats list read
 "Customer", because the web chat surface never captures a name - `chat/service.py`
@@ -314,7 +370,8 @@ stubs the unnamed case the seed cannot produce.
 |---|---|---|
 | [`spec/active/08-deferred.md`](spec/active/08-deferred.md) | Deferred | B-2, D-1, D-3 |
 | [`spec/active/12-refinement.md`](spec/active/12-refinement.md) | Open | R-3, R-4, R-5 |
-| [`spec/active/13-walkthrough.md`](spec/active/13-walkthrough.md) | Open | W-1 through W-8 delivered; W-9 open (amended 2026-09-06, Amendment 3) |
+| [`spec/active/13-walkthrough.md`](spec/active/13-walkthrough.md) | Open | W-1 through W-8 delivered; W-9 built, open on its gate box alone (amended 2026-09-06, Amendment 3) |
+| [`spec/active/14-schema-drop.md`](spec/active/14-schema-drop.md) | Open | W-10, blocked on W-9 production verification |
 | [`spec/completed/`](spec/completed/) | Complete | All delivered feature, deployment, and supporting phases |
 | [`docs/archive/phase1-complete/`](../archive/phase1-complete/) | Historical | Completed R-1 and R-2 records |
 

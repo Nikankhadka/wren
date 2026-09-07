@@ -2,9 +2,15 @@
 
 A turn used to cost three serial LLM calls plus a retrieval round trip before
 the customer saw a word. The package removes both from the common case: the
-material an answer needs - tenant system prompt, the owner's profile, and the
-corpus itself when it fits the budget (O-4) - is assembled once when the chat
-opens, cached, and handed to a single tool-calling model call per turn.
+material an answer needs - the owner's profile, the business's name and chosen
+voice, and the corpus itself when it fits the budget (O-4) - is assembled once
+when the chat opens, cached, and handed to a single tool-calling model call per
+turn.
+
+W-9: what the assistant is *told about itself* is no longer part of that
+material. The contract is code (``app/agents/contract.py``); the package carries
+only the two tenant values that render into it, so the free-text
+``tenant_config.system_prompt``/``tone`` pair is read by nothing here any more.
 
 Deterministic: no model calls here, and nothing in this module imports ``llm``.
 Assembly is four queries (config, version, offerings, corpus), so a cache miss on the
@@ -39,6 +45,7 @@ from app.retrieval.types import RetrievedChunk
 from app.services.knowledge_version import knowledge_version
 from app.services.retrieval import corpus_chars, fits_fast_path, whole_corpus
 from app.shared import db
+from app.shared.voice import CustomerVoice, voice_from_config
 
 if TYPE_CHECKING:
     from app.shared.db import AppConnection
@@ -63,7 +70,12 @@ _PROFILE_LABELS: tuple[tuple[str, str], ...] = (
     ("contact", "Contact"),
 )
 
-_DEFAULT_SYSTEM_PROMPT = "You are the AI support and sales assistant for this business."
+# What the code-owned prompt text costs the corpus budget: the contract plus its
+# voice block, at their longest (a 300-character custom voice). The contract text
+# lives in ``app/agents/contract.py``, which this module may not import (the
+# import contracts in backend/pyproject.toml forbid app.services -> app.agents),
+# so the size is pinned here and held to it by a test in test_agent_contract.py.
+_CONTRACT_OVERHEAD_CHARS = 3800
 
 
 @dataclass(frozen=True)
@@ -81,8 +93,11 @@ class ContextPackage:
 
     tenant_id: UUID
     version: datetime
-    system_prompt: str
-    tone: str
+    # W-9: the two tenant values the code-owned contract renders. The business's
+    # public name (never the owner's own - see US-2), and the voice, which
+    # changes expression and nothing else.
+    business_name: str = ""
+    voice: CustomerVoice = CustomerVoice()
     profile: dict[str, Any] = field(default_factory=dict)
     offerings: list[ActiveOffering] = field(default_factory=list)
     # Populated only on the fast path; the hybrid path retrieves per turn
@@ -118,13 +133,15 @@ async def build_package(conn: AppConnection, tenant_id: UUID) -> ContextPackage:
     """Assemble a package for the tenant's current knowledge version."""
     started = time.perf_counter()
     config_row = await conn.fetchrow(
-        "select system_prompt, tone, config from tenant_config where tenant_id = $1", tenant_id
+        "select config from tenant_config where tenant_id = $1", tenant_id
     )
     version = await knowledge_version(conn, tenant_id)
 
-    system_prompt = (config_row["system_prompt"] if config_row else "") or _DEFAULT_SYSTEM_PROMPT
-    tone = (config_row["tone"] if config_row else "") or "friendly"
-    profile = _profile_of(config_row["config"] if config_row else None)
+    config = _config_of(config_row["config"] if config_row else None)
+    raw_profile = config.get("profile")
+    profile: dict[str, Any] = dict(raw_profile) if isinstance(raw_profile, dict) else {}
+    business_name = str(profile.get("business_name") or "").strip()
+    voice = voice_from_config(config)
     offering_rows = await conn.fetch(
         "select name, description, price_cents from offerings "
         "where tenant_id = $1 and active "
@@ -143,15 +160,17 @@ async def build_package(conn: AppConnection, tenant_id: UUID) -> ContextPackage:
     # The prompt material the corpus shares its budget with is known only now,
     # so the fast-path decision is made with the real overhead rather than a
     # guess (O-4's overhead_chars).
-    overhead = len(system_prompt) + len(_profile_text(profile)) + len(format_offerings(offerings))
+    overhead = (
+        _CONTRACT_OVERHEAD_CHARS + len(_profile_text(profile)) + len(format_offerings(offerings))
+    )
     total_chars = await corpus_chars(conn, tenant_id)
     fast_path = fits_fast_path(corpus_chars=total_chars, overhead_chars=overhead)
 
     package = ContextPackage(
         tenant_id=tenant_id,
         version=version,
-        system_prompt=system_prompt,
-        tone=tone,
+        business_name=business_name,
+        voice=voice,
         profile=profile,
         offerings=offerings,
         chunks=await whole_corpus(conn, tenant_id) if fast_path else [],
@@ -181,10 +200,9 @@ def _profile_text(profile: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _profile_of(raw: object) -> dict[str, Any]:
+def _config_of(raw: object) -> dict[str, Any]:
     config = json.loads(raw) if isinstance(raw, str) else (raw or {})
-    profile = config.get("profile") if isinstance(config, dict) else None
-    return dict(profile) if isinstance(profile, dict) else {}
+    return config if isinstance(config, dict) else {}
 
 
 def format_offerings(offerings: list[ActiveOffering]) -> str:

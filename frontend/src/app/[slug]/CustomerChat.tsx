@@ -17,6 +17,7 @@ import { CitationChip, type Citation } from "@/components/ui/CitationChip";
 import { QuoteCard, type QuotePayload } from "@/components/ui/QuoteCard";
 import { EscalationBanner } from "@/components/ui/EscalationBanner";
 import { PROGRESS_LABELS, parseChatStreamEvent, type ProgressStage } from "@/lib/chat-events";
+import { customerOpening } from "@/lib/greeting";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -72,8 +73,11 @@ export function CustomerChat({
    * - is exactly what throws away the conversation it was opened from. */
   composerRef?: RefObject<((text: string) => void) | null>;
 }) {
+  // W-9 US-8: the assistant says what it is first, in words the tenant does not
+  // own. A configured welcome follows it, minus anything that would say hello a
+  // second time.
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", text: greeting ?? `Hi! How can I help you with ${displayName} today?` },
+    { role: "assistant", text: customerOpening(displayName, greeting) },
   ]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);

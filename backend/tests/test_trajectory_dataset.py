@@ -75,6 +75,39 @@ def test_dataset_case_ids_are_unique() -> None:
     assert len(ids) == len(set(ids))
 
 
+def test_persona_cases_cover_single_and_multi_turn_with_both_halves() -> None:
+    """W-9: the transcript simulations carry a deterministic half every run
+    can score and a judged half only a provider can score. A persona case
+    with no deterministic terminal expectation measures nothing without an
+    LLM, which is the failure mode this test exists to prevent."""
+    persona = [c for c in load_cases() if c.category == "persona"]
+    assert len(persona) >= 5
+    assert any(len(c.messages) == 1 for c in persona), "no single-turn simulation"
+    assert any(len(c.messages) > 1 for c in persona), "no multi-turn simulation"
+    for case in persona:
+        assert case.expected_terminal, f"{case.case_id}: no deterministic terminal state"
+        assert "escalation_exists" in case.expected_terminal, (
+            f"{case.case_id}: escalation_exists is how consent is proved without a judge"
+        )
+        assert case.persona, f"{case.case_id}: no judged criteria"
+
+
+def test_the_disclosure_case_is_exempt_from_the_copy_rule() -> None:
+    """Amendment 3's copy rule keeps "AI" out of routine copy and requires an
+    honest answer to a direct question. Flagging the word in the one case that
+    asks the question outright would grade the contract against itself."""
+    cases = {c.case_id: c for c in load_cases()}
+    assert cases["persona-disclosure-01"].forbidden.get("copy_rule_words") is None
+    other_persona = [
+        c
+        for c in cases.values()
+        if c.category == "persona" and c.case_id != "persona-disclosure-01"
+    ]
+    assert other_persona
+    for case in other_persona:
+        assert case.forbidden.get("copy_rule_words") is True, case.case_id
+
+
 def test_order_status_cases_match_the_real_seeded_status_formula() -> None:
     """A wrong-by-one seeded status here would silently mis-score every
     future T-026 run against this case - recompute it from the exact

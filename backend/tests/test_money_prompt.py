@@ -25,8 +25,7 @@ def _package(*, fast_path: bool) -> ContextPackage:
     return ContextPackage(
         tenant_id=uuid.uuid4(),
         version=datetime.now(UTC),
-        system_prompt="You are the assistant for Test Co.",
-        tone="friendly",
+        business_name="Test Co",
         profile={"business_name": "Test Co", "services": "Screen repair, $89 flat"},
         chunks=[],
         fast_path=fast_path,
@@ -64,11 +63,33 @@ def test_knowledge_redraft_prompt_carries_the_rule() -> None:
 
     prompt = _build_knowledge_prompt(
         [{"content": "Screen repair is $89."}],
-        "You are the assistant for Test Co.",
-        "friendly",
         violations=["'$95' does not reconcile"],
     )
     assert MONEY_GUIDANCE in prompt
+
+
+def test_every_prose_route_carries_a_money_rule() -> None:
+    """W-9 put all six routes behind one contract; the money half of the
+    guardrail has to survive that, on the three routes that never saw tenant
+    configuration before it as much as on the ones that did."""
+    from app.agents.draft_node import (
+        _SYSTEM_PROMPT_CONVERSATION,
+        _build_quoting_prompt,
+        _build_recommendation_prompt,
+    )
+
+    assert MONEY_GUIDANCE in _SYSTEM_PROMPT_CONVERSATION
+    assert MONEY_GUIDANCE in _build_recommendation_prompt(
+        [{"name": "Screen repair", "description": "Same day", "price_cents": 8900}], None
+    )
+    # Quoting carries a stricter rule than MONEY_GUIDANCE, not a weaker one: the
+    # priced card beside the message is the only source of figures, so the model
+    # may state none at all. Adding the general rule here would licence exactly
+    # the figures this route forbids.
+    quoting = _build_quoting_prompt(
+        {"line_items": [{"label": "Screen repair", "quantity": 1}]}, None
+    )
+    assert "Do NOT state any prices, totals, or other monetary amounts" in quoting
 
 
 def test_onboarding_extraction_must_copy_amounts_verbatim() -> None:

@@ -29,7 +29,7 @@ TENANT_NAME = "Bytefix Repairs"
 # console, not the interview, so the seed writes the same end-state a real
 # onboarding confirm produces (via _helpers.insert_tenant_core's profile arg).
 BYTEFIX_PROFILE = {
-    "name": "Alex",
+    "owner_display_name": "Alex",
     "business_name": TENANT_NAME,
     "business_type": "phone repair shop",
     "headcount": "4",
@@ -40,6 +40,10 @@ BYTEFIX_PROFILE = {
     "contact": "owner@bytefix.dev",
     "abn": "none",
     "gst": "no",
+    # W-9: the voice beat is part of the interview now, so a pre-onboarded
+    # tenant carries the same end-state a real confirm leaves behind.
+    "customer_voice_preset": "warm_casual",
+    "customer_voice_custom_style": "",
 }
 
 # --- offerings: phones, accessories, tiered repair services (~15) -----------

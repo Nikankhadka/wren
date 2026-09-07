@@ -37,6 +37,7 @@ from langgraph.config import get_stream_writer
 from langgraph.runtime import get_runtime
 from pydantic import BaseModel, Field
 
+from app.agents.contract import contract_prelude
 from app.agents.draft_node import citation_source
 from app.agents.drafting import MONEY_GUIDANCE
 from app.agents.spotlight import Spotlight, new_spotlight
@@ -48,6 +49,7 @@ from app.services.context_package import ContextPackage, get_package
 from app.services.retrieval import get_business_context
 from app.shared import db
 from app.shared.limits import with_timeout
+from app.shared.text import plain_dashes
 
 logger = logging.getLogger("app.agents.agent_node")
 
@@ -319,8 +321,13 @@ _WIRE_ROLES = {"customer": "user", "assistant": "assistant", "human_agent": "ass
 
 
 def _system_prompt(package: ContextPackage, spotlight: Spotlight) -> str:
-    """The turn's system prompt, built fresh so the spotlight token is fresh."""
-    parts = [package.system_prompt, f"Tone: {package.tone}."]
+    """The turn's system prompt, built fresh so the spotlight token is fresh.
+
+    W-9: it opens with the code-owned contract and the tenant's voice, and
+    everything after that is business data - which is exactly what the
+    contract's own BUSINESS KNOWLEDGE section tells the model to expect.
+    """
+    parts = [contract_prelude(package.business_name, package.voice)]
     profile = package.profile_text()
     if profile:
         parts.append(f"Business facts the owner gave you:\n{profile}")
@@ -449,6 +456,10 @@ async def run(state: AgentState) -> dict[str, Any]:
         # P-3: assembled at chat open and cached by (tenant, knowledge_version),
         # so this is normally a version check, not an assembly.
         package = await get_package(conn, ctx.tenant_id)
+        # W-5/W-9: state-borne for the same reason as offerings_text below - the
+        # draft node re-enters on a redraft with no package of its own, and
+        # re-reading the tenant there is the per-turn query this ticket removes.
+        contract = contract_prelude(package.business_name, package.voice)
         tools = _tools_for(package)
         messages: list[ChatMessage] = [
             ChatMessage(role="system", content=_system_prompt(package, spotlight)),
@@ -479,7 +490,11 @@ async def run(state: AgentState) -> dict[str, Any]:
             )
 
             if not turn.tool_calls:
-                answer_text = (turn.text or "").strip()
+                # conventions.md 1 bans the em dash, and a prompt rule alone does
+                # not hold it (Appendix D item 3). Normalized here, where the
+                # one-call answer is complete, and in drafting.stream_draft for
+                # every other prose route.
+                answer_text = plain_dashes((turn.text or "").strip())
                 break
 
             if turn.history_message is None:
@@ -732,6 +747,7 @@ async def run(state: AgentState) -> dict[str, Any]:
             "lookup": lookup_result,
             "owner_material": package.owner_material(),
             "offerings_text": package.offerings_text(),
+            "contract": contract,
             "author_node": "agent",
         }
 
@@ -753,4 +769,5 @@ async def run(state: AgentState) -> dict[str, Any]:
         "lookup": lookup_result,
         "owner_material": package.owner_material(),
         "offerings_text": package.offerings_text(),
+        "contract": contract,
     }

@@ -155,14 +155,22 @@ row, migration 0014), `platform_admin_all`, `service_signup_insert`.
 ```sql
 create table tenant_config (
   tenant_id             uuid primary key references tenants(id) on delete cascade,
-  system_prompt         text not null default '',
-  tone                  text not null default 'friendly',
+  system_prompt         text not null default '',  -- RETIRED, see below
+  tone                  text not null default 'friendly',  -- RETIRED, see below
   enabled_tools         jsonb not null default '[...]',   -- the per-tenant tool set (D-1)
   brand                 jsonb not null default '{}',   -- {"accent":"#RRGGBB","logo_url":...,"display_name":...}
   config                jsonb not null default '{}',   -- onboarding business/hours/services/tax fields (written by the confirm flow)
   updated_at            timestamptz not null default now()
 );
 ```
+
+**RETIRED (W-9):** `system_prompt` and `tone` are written by the confirm path
+and the seeds but read by no application code. What the customer assistant is
+told about itself is now `app/agents/contract.py`, one code-owned contract on
+every prose route, and how it sounds is the structured `config->customer_voice`
+(`{"preset": ..., "custom_style": ...}`) that migration `0027` back-filled from
+`tone`. Both columns are dropped by W-10
+(`docs/agencx/spec/active/14-schema-drop.md`), not by `0027`.
 
 **CHANGING (D-1, D-2):** `enabled_tools` defaults to the full advanced set today
 (`["search_knowledge","recommend_items","lookup_order_or_ticket","get_quote_inputs","create_escalation"]`).
@@ -502,6 +510,8 @@ applied in order by a plain runner (no heavy framework):
 0023_rename_catalog_items_to_offerings.sql  names the M-1 writer's table after the Offering domain noun
 0024_offering_position.sql  offerings.position - the order the owner puts their storefront list in (M-4)
 0025_schema_cleanup.sql   drops dead schema, adds app_role()/staff RLS, offerings.category and tenant_media (F-3/M-2)
+0026_documents_offerings.sql  documents.offerings - candidates extracted once at ingest, not re-derived per read (W-6)
+0027_customer_voice.sql    back-fills config->customer_voice from the tone column (W-9); drops no column
 ```
 
 Shipped Agencx migration: `0025_schema_cleanup.sql` (`M-2`,

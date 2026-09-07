@@ -27,6 +27,7 @@ from app.features.tenants.slug import suggested_slug, validate_slug
 from app.llm.dependency import get_embedder_dependency, get_llm_provider
 from app.llm.provider import ChatMessage, SchemaT
 from app.main import app
+from app.onboarding import beats
 from app.onboarding.agent import OnboardingRecord
 from app.shared import db
 from app.shared.config import get_settings
@@ -39,28 +40,34 @@ TEST_JWT_SECRET = "test-only-supabase-jwt-secret-do-not-use-in-prod"  # noqa: S1
 
 
 def test_empty_onboarding_state_introduces_the_agencx_setup_assistant() -> None:
-    state = response_from_record({"version": 3})
-    assert state["prompt"].startswith("Hi! I'm your Agencx setup assistant.")
+    """W-9: the opening is fixed copy plus the first beat's own ask, verbatim."""
+    state = response_from_record({"version": 4})
+    assert state["prompt"] == (
+        "Hi, I'm the Agencx setup assistant. I'll help set up your business. "
+        "Before we start, what should I call you?"
+    )
 
 
-# One profile field per turn, in beat order. Each update carries only what the
-# owner stated that turn; save_profile merges it into the accumulated draft.
-_FAKE_UPDATES: list[dict[str, object]] = [
-    {"profile": {"name": "Sam"}},
-    {"profile": {"business_name": "Bytefix Repairs"}},
-    {"profile": {"business_type": "a neighborhood phone repair shop"}},
-    {"profile": {"headcount": "just me and one technician"}},
-    {"profile": {"hours": "Mon-Fri 9-6"}},
-    {"profile": {"services": "screen repairs, battery replacements"}},
-    {"profile": {"contact": "555-0100"}},
-    {"profile": {"abn": "51 824 753 556"}},
-    {"profile": {"gst": "yes"}},
-]
+# What the extractor returns for each beat, keyed by the beat it answers. The
+# fake reads the beat out of the extraction context rather than counting turns,
+# so a walk that gains a turn - a name confirmation, a beat inserted into the
+# order - does not silently hand one beat's answer to another.
+_FAKE_ANSWERS: dict[str, str] = {
+    "owner_display_name": "Sam",
+    "business_name": "Bytefix Repairs",
+    "business_type": "a neighborhood phone repair shop",
+    "headcount": "just me and one technician",
+    "hours": "Mon-Fri 9-6",
+    "services": "screen repairs, battery replacements",
+    "contact": "555-0100",
+    "abn": "51 824 753 556",
+    "gst": "yes",
+}
 
 _CHAT_REPLIES = [
-    "Nice to meet you, Sam!",
+    "Nice to meet you, Sam.",
     "Bytefix Repairs it is.",
-    "A phone repair shop - got it.",
+    "A phone repair shop, noted.",
     "Team size noted.",
     "Hours noted.",
     "Services recorded.",
@@ -69,14 +76,19 @@ _CHAT_REPLIES = [
     "GST noted.",
 ]
 
-# The full walk: seven text turns, one per lean beat.
+# The full walk: one typed answer per beat, plus the confirmation W-9 requires
+# before either name is persisted, plus the voice beat answered in the owner's
+# own words (the composer's fourth chip swaps to exactly this text widget).
 _FULL_WALK: list[tuple[Any, ...]] = [
     ("text", "I'm Sam"),
+    ("text", "yes"),
     ("text", "we are Bytefix Repairs"),
+    ("text", "yes"),
     ("text", "we fix phones"),
     ("text", "just me and one tech"),
     ("text", "open weekdays 9 to 6"),
     ("text", "screen repairs and batteries"),
+    ("text", "warm and plain, no jargon"),
     ("text", "call 555-0100"),
     ("text", "yes, 51 824 753 556"),
     ("text", "yes we are"),
@@ -84,20 +96,24 @@ _FULL_WALK: list[tuple[Any, ...]] = [
 
 
 class OnboardingFakeProvider(BaseFakeProvider):
-    """Synthesizes extraction updates from canned data, one profile field per
-    extract() call until every field is captured."""
+    """Answers whichever beat the extraction context says was asked this turn.
+
+    The voice beat is deliberately absent from ``_FAKE_ANSWERS``: no model may
+    write it, so the fake returns nothing for it and the server's own selection
+    path is what captures the owner's typed voice.
+    """
 
     def __init__(self) -> None:
-        self._update_idx = 0
         self._chat_idx = 0
 
     async def extract(
         self, *, system_prompt: str, user_input: str, schema: type[SchemaT]
     ) -> SchemaT:
-        if self._update_idx < len(_FAKE_UPDATES):
-            data = _FAKE_UPDATES[self._update_idx]
-            self._update_idx += 1
-            return schema.model_validate(data)
+        for key, value in _FAKE_ANSWERS.items():
+            if f"The question asked this turn was: {beats.BEATS[key].ask}" in user_input:
+                return schema.model_validate(
+                    {"profile": {key: value}, "answered_asked": True, "off_topic": False}
+                )
         return schema.model_validate({})
 
     async def chat(self, messages: list[ChatMessage]) -> str:
@@ -111,6 +127,26 @@ class OnboardingFakeProvider(BaseFakeProvider):
         mid = len(reply) // 2
         yield reply[:mid]
         yield reply[mid:]
+
+
+class _NameFake(BaseFakeProvider):
+    """Extracts one owner name and nothing else, however often it is asked."""
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+
+    async def extract(
+        self, *, system_prompt: str, user_input: str, schema: type[SchemaT]
+    ) -> SchemaT:
+        return schema.model_validate(
+            {"profile": {"owner_display_name": self._name}, "answered_asked": True}
+        )
+
+    async def chat(self, messages: list[ChatMessage]) -> str:
+        return "Noted."
+
+    async def chat_stream(self, messages: list[ChatMessage]) -> AsyncIterator[str]:
+        yield "Noted."
 
 
 class OffTopicFakeProvider(BaseFakeProvider):
@@ -214,6 +250,28 @@ async def _walk(
         await _send(client, headers, text=step[1])
 
 
+async def _walk_until(
+    client: httpx.AsyncClient, headers: dict[str, str], stage: str
+) -> dict[str, Any]:
+    """Drive the canned walk from the start until the interview asks ``stage``."""
+    for step in _FULL_WALK:
+        body = await _send(client, headers, text=step[1])
+        if body["stage"] == stage:
+            return body
+    raise AssertionError(f"the canned walk never reached {stage}")
+
+
+async def _walk_states(
+    client: httpx.AsyncClient, headers: dict[str, str]
+) -> dict[str, dict[str, Any]]:
+    """Drive the whole canned walk, keeping the state each stage first showed."""
+    states: dict[str, dict[str, Any]] = {}
+    for step in _FULL_WALK:
+        body = await _send(client, headers, text=step[1])
+        states.setdefault(body["stage"], body)
+    return states
+
+
 async def _walk_to_confirm(client: httpx.AsyncClient, token: str) -> None:
     # The beats land on the optional website/documents ask ("knowledge"); one
     # "skip" answers it and advances to confirm.
@@ -232,7 +290,7 @@ async def test_fresh_tenant_starts_at_name(client: httpx.AsyncClient) -> None:
     )
     assert response.status_code == 200
     body = response.json()
-    assert body["stage"] == "name"
+    assert body["stage"] == "owner_display_name"
     assert body["completed"] is False
     assert body["draft"] == {}
     assert body["history"] == []
@@ -246,11 +304,12 @@ async def test_paused_required_field_blocks_publish_and_resumes_in_place(
     token, tenant_id = await _signup_tenant_admin(client)
     headers = {"Authorization": f"Bearer {token}"}
     draft = {
-        "name": "Sam",
+        "owner_display_name": "Sam",
         "business_name": "Bytefix Repairs",
         "headcount": "just me",
         "hours": "Mon-Fri 9-6",
         "services": "screen repairs",
+        "customer_voice_preset": "warm_casual",
         "contact": "555-0100",
         "abn": "none",
     }
@@ -313,43 +372,45 @@ async def test_chipped_beats_offer_their_shortcuts(client: httpx.AsyncClient) ->
     def labels(body: dict[str, Any]) -> list[str]:
         return [c["label"] for c in body["input"]["chips"]]
 
-    # Two beats in: the team-size question offers the prototype's two chips.
-    await _send(client, headers, text=_FULL_WALK[0][1])
-    await _send(client, headers, text=_FULL_WALK[1][1])
-    body = await _send(client, headers, text=_FULL_WALK[2][1])
-    assert body["stage"] == "headcount"
-    assert labels(body) == ["Just me", "Got a team"]
-    # A chipped beat invites typing past the chips, never blocks it.
-    assert body["input"]["placeholder"] == "or type…"
+    states = await _walk_states(client, headers)
 
-    await _send(client, headers, text=_FULL_WALK[3][1])
-    body = await _send(client, headers, text=_FULL_WALK[4][1])
-    assert body["stage"] == "services"
+    assert labels(states["headcount"]) == ["Just me", "Got a team"]
+    # A chipped beat invites typing past the chips, never blocks it.
+    assert states["headcount"]["input"]["placeholder"] == "or type…"
+
     # W-7: the skip chip is gone; the beat resolves on its own after two asks,
     # and the catalog is editable later at Business > What you offer.
-    assert labels(body) == []
+    assert labels(states["services"]) == []
     # W-3: a non-chipped beat's placeholder is blank - the assistant's question
     # already in the thread is the context carrier, not a repeated placeholder.
-    assert body["input"]["placeholder"] == ""
+    assert states["services"]["input"]["placeholder"] == ""
 
-    body = await _send(client, headers, text=_FULL_WALK[5][1])
-    assert body["stage"] == "contact"
+    # W-9: the voice beat is a chip beat like the others, and its fourth chip
+    # swaps the composer to a text widget instead of answering by itself.
+    voice = states["customer_voice_preset"]
+    assert labels(voice) == [
+        "Warm and casual",
+        "Clear and professional",
+        "Direct and concise",
+        "Describe it myself",
+    ]
+    assert voice["input"]["chips"][3]["widget"] == "text"
+
     # The phone chip swaps the composer rather than submitting its label, and
     # the email chip's label is the client's to fill from its own session.
-    assert labels(body) == ["Phone number"]
-    assert body["input"]["chips"][0]["widget"] == "phone"
-    assert body["input"]["suggest_owner_email"] is True
+    assert labels(states["contact"]) == ["Phone number"]
+    assert states["contact"]["input"]["chips"][0]["widget"] == "phone"
+    assert states["contact"]["input"]["suggest_owner_email"] is True
 
-    body = await _send(client, headers, text=_FULL_WALK[6][1])
-    assert body["stage"] == "abn"
-    assert labels(body) == ["Yes", "No"]
-    assert body["input"]["chips"][0]["widget"] == "masked"
-    assert body["input"]["mask"] == "XX XXX XXX XXX"
-    assert body["input"]["prefix"] == "ABN"
+    assert labels(states["abn"]) == ["Yes", "No"]
+    assert states["abn"]["input"]["chips"][0]["widget"] == "masked"
+    assert states["abn"]["input"]["mask"] == "XX XXX XXX XXX"
+    assert states["abn"]["input"]["prefix"] == "ABN"
 
-    body = await _send(client, headers, text=_FULL_WALK[7][1])
-    assert body["stage"] == "gst"
-    assert labels(body) == ["Yes", "Not yet"]
+    assert labels(states["gst"]) == ["Yes", "Not yet"]
+    # W-9 US-1: while a name waits on its yes, the beat's own composer carries
+    # the confirmation chip - one tap, and typing past it is a new proposal.
+    assert labels(states["owner_display_name"]) == ["Yes"]
 
 
 async def test_message_captures_name_and_advances_stage(client: httpx.AsyncClient) -> None:
@@ -361,11 +422,50 @@ async def test_message_captures_name_and_advances_stage(client: httpx.AsyncClien
     )
     assert response.status_code == 200
     body = response.json()
-    assert body["stage"] == "business_name"
-    assert body["draft"]["name"] == "Sam"
+    # W-9 US-1: the name is proposed, not persisted. The beat stays put and the
+    # owner sees the spelling before anything is written.
+    assert body["stage"] == "owner_display_name"
+    assert "owner_display_name" not in body["draft"]
+    assert body["history"][-1]["content"] == 'I have "Sam". Is that right?'
 
+    # Reloading mid-confirmation resumes the same proposal, not a fresh ask.
     resumed = await client.get("/api/onboarding/state", headers=headers)
-    assert resumed.json()["stage"] == "business_name"
+    assert resumed.json()["stage"] == "owner_display_name"
+    assert resumed.json()["input"]["chips"] == [
+        {"label": "Yes", "value": "yes", "dashed": False, "widget": None}
+    ]
+
+    confirmed = await _send(client, headers, text="yes")
+    assert confirmed["stage"] == "business_name"
+    assert confirmed["draft"]["owner_display_name"] == "Sam"
+
+
+async def test_a_confirmed_name_is_stored_exactly_as_proposed(
+    client: httpx.AsyncClient,
+) -> None:
+    """W-9 US-1: the founder's `sababa` fixture, through the real endpoints.
+
+    Confirming assigns the proposal; it never appends it to the raw input, which
+    is what produced ``Sababasababa`` on both name beats in the reproduction.
+    """
+    token, _tenant_id = await _signup_tenant_admin(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    app.dependency_overrides[get_llm_provider] = lambda: _NameFake("sababa")
+    try:
+        body = await _send(client, headers, text="sababa")
+        assert body["history"][-1]["content"] == 'I have "sababa". Is that right?'
+        body = await _send(
+            client, headers, selection={"beat": "owner_display_name", "values": ["yes"]}
+        )
+    finally:
+        app.dependency_overrides[get_llm_provider] = lambda: OnboardingFakeProvider()
+
+    assert body["draft"]["owner_display_name"] == "sababa"
+    assert body["history"][-2:] == [
+        {"role": "user", "content": "Yes"},
+        {"role": "assistant", "content": "Saved as sababa. What does the business go by?"},
+    ]
 
 
 async def test_draft_accumulates_across_turns(client: httpx.AsyncClient) -> None:
@@ -373,10 +473,9 @@ async def test_draft_accumulates_across_turns(client: httpx.AsyncClient) -> None
     token, _tenant_id = await _signup_tenant_admin(client)
     headers = {"Authorization": f"Bearer {token}"}
 
-    await _send(client, headers, text="I'm Sam")
-    body = await _send(client, headers, text="we are Bytefix Repairs")
+    body = await _walk_until(client, headers, "business_type")
 
-    assert body["draft"] == {"name": "Sam", "business_name": "Bytefix Repairs"}
+    assert body["draft"] == {"owner_display_name": "Sam", "business_name": "Bytefix Repairs"}
 
 
 def test_suggested_slug_is_a_shareable_handle() -> None:
@@ -410,16 +509,24 @@ async def test_resume_returns_history_and_draft_in_place(client: httpx.AsyncClie
     """US-4: a returning owner picks up where they left off, nothing re-asked."""
     token, _tenant_id = await _signup_tenant_admin(client)
     headers = {"Authorization": f"Bearer {token}"}
-    await _walk(client, token, _FULL_WALK[:3])
+    await _walk_until(client, headers, "headcount")
 
     state = await client.get("/api/onboarding/state", headers=headers)
     body = state.json()
 
     assert body["stage"] == "headcount"
-    assert body["draft"]["name"] == "Sam"
+    assert body["draft"]["owner_display_name"] == "Sam"
     assert body["draft"]["business_name"] == "Bytefix Repairs"
     user_messages = [m["content"] for m in body["history"] if m["role"] == "user"]
-    assert user_messages == ["I'm Sam", "we are Bytefix Repairs", "we fix phones"]
+    # W-9: each name answer is followed by the owner's own yes, and the thread
+    # keeps both - the confirmation is part of the transcript, not a side call.
+    assert user_messages == [
+        "I'm Sam",
+        "yes",
+        "we are Bytefix Repairs",
+        "yes",
+        "we fix phones",
+    ]
 
 
 async def test_off_topic_message_is_not_persisted(client: httpx.AsyncClient) -> None:
@@ -438,7 +545,7 @@ async def test_off_topic_message_is_not_persisted(client: httpx.AsyncClient) -> 
     state = await client.get("/api/onboarding/state", headers=headers)
     body = state.json()
     assert body["draft"] == {}
-    assert body["stage"] == "name"
+    assert body["stage"] == "owner_display_name"
 
 
 async def test_selection_advances_the_server_beat_without_calling_the_model(
@@ -447,8 +554,7 @@ async def test_selection_advances_the_server_beat_without_calling_the_model(
     token, _tenant_id = await _signup_tenant_admin(client)
     headers = {"Authorization": f"Bearer {token}"}
 
-    for text in ("I'm Sam", "we are Bytefix Repairs", "we fix phones"):
-        await _send(client, headers, text=text)
+    await _walk_until(client, headers, "headcount")
 
     app.dependency_overrides[get_llm_provider] = BaseFakeProvider
     try:
@@ -481,10 +587,9 @@ async def test_selection_rejects_stale_and_invalid_values(client: httpx.AsyncCli
         headers=headers,
     )
     assert stale.status_code == 409
-    assert "current beat is name" in stale.json()["detail"]
+    assert "current beat is owner_display_name" in stale.json()["detail"]
 
-    for text in ("I'm Sam", "we are Bytefix Repairs", "we fix phones"):
-        await _send(client, headers, text=text)
+    await _walk_until(client, headers, "headcount")
 
     invalid = await client.post(
         "/api/onboarding/message",
@@ -499,8 +604,7 @@ async def test_abn_selections_validate_the_number_and_skip_gst_for_no(
 ) -> None:
     token, _tenant_id = await _signup_tenant_admin(client)
     headers = {"Authorization": f"Bearer {token}"}
-    for text in (step[1] for step in _FULL_WALK[:7]):
-        await _send(client, headers, text=text)
+    await _walk_until(client, headers, "abn")
 
     invalid = await client.post(
         "/api/onboarding/message",
@@ -604,15 +708,29 @@ async def test_full_flow_confirm_writes_profile(
         "select config->'profile' from tenant_config where tenant_id = $1", tenant_id
     )
     assert json.loads(profile) == {
-        "name": "Sam",
+        "owner_display_name": "Sam",
         "business_name": "Bytefix Repairs",
         "business_type": "a neighborhood phone repair shop",
         "headcount": "just me and one technician",
         "hours": "Mon-Fri 9-6",
         "services": "screen repairs, battery replacements",
+        # W-9: typed on the voice beat, validated by the server, never by a
+        # model - the owner's own words, bounded, under the custom preset.
+        "customer_voice_preset": "custom",
+        "customer_voice_custom_style": "warm and plain, no jargon",
         "contact": "555-0100",
         "abn": "51824753556",
         "gst": "yes",
+    }
+
+    # W-9 US-7: confirm also writes the structured voice the customer assistant
+    # reads. Expression only, and in exactly the shape that side expects.
+    voice = await superuser_conn.fetchval(
+        "select config->'customer_voice' from tenant_config where tenant_id = $1", tenant_id
+    )
+    assert json.loads(voice) == {
+        "preset": "custom",
+        "custom_style": "warm and plain, no jargon",
     }
 
 
@@ -771,6 +889,51 @@ async def test_message_at_confirm_stage_is_conflict(client: httpx.AsyncClient) -
     assert response.status_code == 409
 
 
+async def test_one_assistant_response_is_persisted_per_turn_on_both_paths(
+    client: httpx.AsyncClient,
+) -> None:
+    """W-9 US-5: a turn leaves one user message and one assistant reply behind.
+
+    The duplication bug W-9 fixed was in the reply context, and W-3 split the
+    transport in two - the ordinary request writes the whole turn at the end,
+    the SSE turn writes the draft first and the reply after the stream. Nothing
+    asserted that the two agree on how many assistant messages a turn is worth,
+    so a second write on either path would have gone unnoticed. Driven past both
+    name confirmations on purpose: those turns answer deterministically, and the
+    turn under test is one where the model actually writes the reply.
+    """
+    token, _tenant_id = await _signup_tenant_admin(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    for text in ("I'm Sam", "yes", "we are Bytefix Repairs", "yes"):
+        body = await _send(client, headers, text=text)
+
+    # The ordinary request path.
+    before = len(body["history"])
+    body = await _send(client, headers, text="we fix phones")
+    added = body["history"][before:]
+    assert [entry["role"] for entry in added] == ["user", "assistant"]
+    assert added[0]["content"] == "we fix phones"
+    assert added[1]["content"]
+
+    # The SSE path, on the next beat of the same interview.
+    before = len(body["history"])
+    async with client.stream(
+        "POST",
+        "/api/onboarding/message/stream",
+        json={"text": "just me and one tech"},
+        headers=headers,
+    ) as resp:
+        assert resp.status_code == 200
+        async for _line in resp.aiter_lines():
+            pass
+
+    state = await client.get("/api/onboarding/state", headers=headers)
+    added = state.json()["history"][before:]
+    assert [entry["role"] for entry in added] == ["user", "assistant"]
+    assert added[0]["content"] == "just me and one tech"
+    assert added[1]["content"]
+
+
 async def test_sse_endpoint_returns_reply(client: httpx.AsyncClient) -> None:
     token, _tenant_id = await _signup_tenant_admin(client)
     headers = {"Authorization": f"Bearer {token}"}
@@ -803,10 +966,13 @@ async def test_sse_endpoint_returns_reply(client: httpx.AsyncClient) -> None:
     state_event = next(e for e in events if e["type"] == "state")
     state_draft = state_event["draft"]
     assert isinstance(state_draft, dict)
-    assert state_draft["name"] == "Sam"
+    # W-9 US-1: the name is proposed on this turn, not persisted, so the stream
+    # ends on the same beat with the confirmation chip in the composer.
+    assert "owner_display_name" not in state_draft
     assert state_event["completed"] is False
     # The SSE state event carries the current beat key, matching /state's shape.
-    assert state_event["stage"] == "business_name"
+    assert state_event["stage"] == "owner_display_name"
+    assert reply_event["text"] == 'I have "Sam". Is that right?'
 
 
 # --- URL turn (O-3 site-as-shortcut) ------------------------------------------

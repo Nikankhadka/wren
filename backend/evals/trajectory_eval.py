@@ -19,6 +19,17 @@ Per case:
   Honest zero until T-030 wires cost accounting; the query is real.
 - **reasoning quality** - an LLM judge grades whether the route's stated
   reason justifies the route that was picked, when one was recorded.
+- **persona** (W-9) - the transcript-simulation cases carry a ``persona``
+  block of behaviour criteria from the code-owned customer contract
+  (``app/agents/contract.py``): honest disclosure, sales restraint,
+  frustration handling, a stated gap instead of a guess, and a handoff only
+  when it was asked for or accepted. The deterministic half of those cases is
+  scored by pure functions like every other case - the terminal state (an
+  assumed handoff writes an escalation row, so ``escalation_exists`` proves
+  the rule) and ``forbidden.copy_rule_words``. The judged half is an LLM
+  grade, so it lives behind the same provider check the rest of this module
+  does: ``run_gate`` puts ``trajectory_eval`` in its regression tier, which
+  ``--skip-llm`` skips rather than fails.
 
 Trajectories are observed via ``graph.astream(stream_mode="updates")`` -
 one event per node execution, no app instrumentation needed - plus two
@@ -36,6 +47,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -98,6 +110,7 @@ class CaseScore:
     efficiency: float
     cost_usd: float
     reasoning_grade: float | None = None
+    persona_grade: float | None = None
     trajectory: CaseTrajectory | None = field(default=None, repr=False)
 
 
@@ -199,6 +212,26 @@ def check_unsourced_figures(final_state: dict[str, Any]) -> list[str]:
     ]
 
 
+# W-9 Amendment 3's copy rule, the same list frontend/e2e/copy-rules.spec.ts
+# enforces on rendered screens. "AI" is word-bounded and case-sensitive because
+# it is a substring of email, detail, available and again. A case that asks the
+# assistant outright whether it is human sets no copy_rule_words flag - the
+# contract requires an honest answer there, and "AI" is the honest word.
+_COPY_RULE_WORDS = (
+    re.compile(r"\bAI\b"),
+    re.compile(r"\bagents?\b", re.IGNORECASE),
+    re.compile(r"\bautomat(ed|ic|ically|ion)\b", re.IGNORECASE),
+    re.compile(r"\bvirtual\b", re.IGNORECASE),
+)
+
+
+def check_copy_rule_words(final_state: dict[str, Any]) -> list[str]:
+    """Every copy-rule word the final draft used to name the mechanism."""
+    draft = final_state.get("draft_response", "")
+    hits = [match.group(0) for pattern in _COPY_RULE_WORDS if (match := pattern.search(draft))]
+    return [f"copy-rule word in draft: {hit!r}" for hit in hits]
+
+
 def expected_min_steps(expected_routes: list[str]) -> int:
     return min(_MIN_STEPS_BY_ROUTE[route] for route in expected_routes)
 
@@ -232,6 +265,8 @@ def score_case(case: TrajectoryCase, trajectory: CaseTrajectory) -> CaseScore:
 
     if case.forbidden.get("unsourced_figures"):
         failures += check_unsourced_figures(final_state)
+    if case.forbidden.get("copy_rule_words"):
+        failures += check_copy_rule_words(final_state)
 
     minimum = expected_min_steps(case.expected_route)
     actual_steps = len(trajectory.steps)
@@ -283,6 +318,52 @@ async def judge_route_reason(
         schema=ReasoningVerdict,
     )
     return 1.0 if verdict.justified else 0.0
+
+
+class PersonaVerdict(BaseModel):
+    meets_all: bool = False
+    reason: str = ""
+
+
+def _transcript(messages: list[dict[str, str]], draft: str) -> str:
+    lines = [f"{message['role']}: {message['content']}" for message in messages]
+    lines.append(f"assistant: {draft}")
+    return "\n".join(lines)
+
+
+async def judge_persona(
+    messages: list[dict[str, str]],
+    draft: str,
+    criteria: list[str],
+    *,
+    provider: LLMProvider,
+) -> float | None:
+    """1.0 if an LLM judge finds the assistant's reply meets every persona
+    criterion the case states, else 0.0. None when the case states none.
+
+    The criteria are the customer contract's behaviour rules
+    (``app/agents/contract.py``) written as one sentence each, so a failure
+    names the rule that broke rather than a score with no referent. This is
+    the provider-backed half of a transcript simulation; the deterministic
+    half is scored in :func:`score_case` and needs no judge.
+    """
+    if not criteria:
+        return None
+    numbered = "\n".join(f"{i}. {c}" for i, c in enumerate(criteria, start=1))
+    verdict = await provider.extract(
+        system_prompt=(
+            "You are grading the last assistant turn in a customer-support "
+            "transcript against the rules its operator set for it. Judge only "
+            "against the numbered rules - not your own taste, not whether you "
+            "would have written it differently. Answer meets_all true only if "
+            "every rule holds, and name the first rule that fails otherwise.\n\n"
+            f"Rules:\n{numbered}\n\n"
+            f"Transcript:\n{_transcript(messages, draft)}"
+        ),
+        user_input="Does the last assistant turn meet every rule?",
+        schema=PersonaVerdict,
+    )
+    return 1.0 if verdict.meets_all else 0.0
 
 
 # --- graph driving ---------------------------------------------------------------
@@ -435,9 +516,18 @@ async def run_eval(
                 provider=provider,
             )
         )
+        score.persona_grade = await _with_rate_limit_retry(
+            lambda case=case, trajectory=trajectory: judge_persona(  # type: ignore[misc]
+                case.messages,
+                trajectory.final_state.get("draft_response", ""),
+                case.persona,
+                provider=provider,
+            )
+        )
         scores.append(score)
 
     graded = [s.reasoning_grade for s in scores if s.reasoning_grade is not None]
+    persona_graded = [s.persona_grade for s in scores if s.persona_grade is not None]
     metrics: dict[str, float] = {
         "cases": float(len(scores)),
         "tool_correctness": (
@@ -450,6 +540,8 @@ async def run_eval(
         metrics["avg_cost_usd"] = metrics["total_cost_usd"] / len(scores)
     if graded:
         metrics["reasoning_quality"] = sum(graded) / len(graded)
+    if persona_graded:
+        metrics["persona_quality"] = sum(persona_graded) / len(persona_graded)
     return metrics, scores
 
 
@@ -474,7 +566,8 @@ def print_trajectory(score: CaseScore) -> None:
     print(
         f"  steps={score.steps_actual} (min {score.steps_expected_min}, "
         f"efficiency {score.efficiency:.2f}) cost=${score.cost_usd:.4f} "
-        f"reasoning={score.reasoning_grade if score.reasoning_grade is not None else 'n/a'}"
+        f"reasoning={score.reasoning_grade if score.reasoning_grade is not None else 'n/a'} "
+        f"persona={score.persona_grade if score.persona_grade is not None else 'n/a'}"
     )
     if score.trajectory is None:
         return

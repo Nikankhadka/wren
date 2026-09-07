@@ -38,6 +38,7 @@ import httpx
 
 from app.shared import db
 from app.shared.config import get_settings
+from app.shared.voice import DEFAULT_VOICE_PRESET
 
 INPUTS_DIR = Path(__file__).parent / "tenant2_inputs"
 INTERVIEW_SCRIPT = INPUTS_DIR / "interview-script.md"
@@ -57,7 +58,7 @@ KNOWLEDGE_DOCS: tuple[tuple[str, str], ...] = (
 # One stage per lean profile field, in beat order (see BEAT_ORDER in
 # app/onboarding/beats.py). These are the keys folded into the draft.
 PROFILE_STAGES: tuple[str, ...] = (
-    "name",
+    "owner_display_name",
     "business_name",
     "business_type",
     "headcount",
@@ -98,6 +99,10 @@ def _build_draft_from_answers(answers: dict[str, str]) -> dict[str, Any]:
     """
     draft = {stage: answers[stage].strip() for stage in PROFILE_STAGES}
     draft["business_name"] = draft["business_name"] or TENANT_NAME
+    # W-9: the voice beat is answered by tapping a chip, not by free text, so
+    # the script has no stage for it - the pre-populated draft takes the same
+    # value an unanswered voice beat resolves to. Nothing dental about it (I8).
+    draft["customer_voice_preset"] = DEFAULT_VOICE_PRESET
     return draft
 
 
@@ -179,7 +184,7 @@ async def run_proof(api_base: str, auth_base: str) -> dict[str, Any]:
                     UUID(signup["tenant_id"]),
                     json.dumps(
                         {
-                            "version": 3,
+                            "version": 4,
                             "draft": draft,
                             "history": [],
                             "off_topic_count": 0,

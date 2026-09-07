@@ -28,6 +28,7 @@ class TrajectoryCase:
     expected_lookup: dict[str, Any] | None = None
     expected_terminal: dict[str, bool] = field(default_factory=dict)
     forbidden: dict[str, Any] = field(default_factory=dict)
+    persona: list[str] = field(default_factory=list)
     notes: str = ""
 
 
@@ -51,6 +52,7 @@ def load_cases(path: Path = DATASET_PATH) -> list[TrajectoryCase]:
                 expected_lookup=raw.get("expected_lookup"),
                 expected_terminal=raw.get("expected_terminal", {}),
                 forbidden=raw.get("forbidden", {}),
+                persona=raw.get("persona", []),
                 notes=raw.get("notes", ""),
             )
         )

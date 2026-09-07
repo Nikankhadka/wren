@@ -21,3 +21,7 @@ export type PricingRuleResponse = Schemas["PricingRuleResponse"];
 export type PlatformMetrics = Schemas["PlatformMetrics"];
 export type TenantSummary = Schemas["TenantSummary"];
 export type BookingPage = Schemas["BookingPageResponse"];
+// The editable profile slice and the PATCH body for it - shared by the
+// business details screen and both of its edit sheets.
+export type BusinessProfile = Schemas["BusinessProfile"];
+export type ProfileUpdate = Schemas["ProfileUpdate"];

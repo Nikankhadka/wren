@@ -21,6 +21,7 @@ from evals.trajectory_dataset import TrajectoryCase
 from evals.trajectory_eval import (
     CaseTrajectory,
     TrajectoryStep,
+    check_copy_rule_words,
     check_lookup,
     check_selections,
     check_unsourced_figures,
@@ -275,6 +276,69 @@ def test_score_case_collects_every_failure_kind() -> None:
     assert "no lookup happened" in joined
     assert "terminal quote_exists=True" in joined
     assert "unsourced monetary figure" in joined
+
+
+# --- W-9 persona: the deterministic half of a transcript simulation ------------------
+
+
+def test_copy_rule_words_are_flagged_in_the_draft() -> None:
+    """The four words Amendment 3 keeps out of routine copy, each caught on
+    its own so a partial regression cannot hide behind the other three."""
+    for draft, expected in (
+        ("I am an AI, so I can look that up.", "AI"),
+        ("Our booking agent will confirm the slot.", "agent"),
+        ("That reminder is automated.", "automated"),
+        ("Your virtual helper has the details.", "virtual"),
+    ):
+        failures = check_copy_rule_words({"draft_response": draft})
+        assert failures == [f"copy-rule word in draft: {expected!r}"], draft
+
+
+def test_ordinary_english_containing_the_letters_is_not_flagged() -> None:
+    """ "AI" is a substring of email, detail, available and again - the reason
+    that one pattern is word-bounded and case-sensitive."""
+    clean = "Email the details again and Bytefix will confirm what is available."
+    assert check_copy_rule_words({"draft_response": clean}) == []
+
+
+def test_score_case_fails_a_persona_case_that_names_the_mechanism() -> None:
+    case = _case(
+        category="persona",
+        expected_route=["knowledge"],
+        expected_terminal={"quote_exists": False, "escalation_exists": False},
+        forbidden={"copy_rule_words": True},
+        persona=["The assistant offers at most one relevant next step."],
+    )
+    trajectory = _trajectory(
+        nodes=["supervisor", "price_gate", "inspection"],
+        final_state={
+            "route": "knowledge",
+            "draft_response": "Our automated system will handle that.",
+        },
+    )
+    score = score_case(case, trajectory)
+    assert not score.correct
+    assert "copy-rule word in draft: 'automated'" in score.failures
+    # The judged half never runs in score_case - it needs a provider.
+    assert score.persona_grade is None
+
+
+def test_a_persona_case_that_assumes_a_handoff_fails_on_terminal_state() -> None:
+    """The deterministic half of US-8's consent rule: an escalation row the
+    customer never asked for is a failure no judge is needed to see."""
+    case = _case(
+        category="persona",
+        expected_route=["knowledge"],
+        expected_terminal={"quote_exists": False, "escalation_exists": False},
+    )
+    trajectory = _trajectory(
+        nodes=["supervisor", "price_gate", "inspection"],
+        final_state={"route": "knowledge", "draft_response": "Someone will call you."},
+        escalation_exists=True,
+    )
+    score = score_case(case, trajectory)
+    assert not score.correct
+    assert "terminal escalation_exists=True, expected False" in score.failures
 
 
 # --- DB-driven: run_case observes a real graph run -----------------------------------

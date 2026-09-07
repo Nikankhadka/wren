@@ -16,13 +16,13 @@ describe("parseOnboardingEvent", () => {
 
   it("parses a state event with the beat key", () => {
     const event = parseOnboardingEvent(
-      '{"type":"state","stage":"business_name","draft":{"name":"Sam"},"completed":false,"input":{"kind":"text","placeholder":"What is your business called?","chips":[],"mask":null,"cta_label":null},"can_confirm":false}',
+      '{"type":"state","stage":"business_name","draft":{"owner_display_name":"Sam"},"completed":false,"input":{"kind":"text","placeholder":"What is your business called?","chips":[],"mask":null,"cta_label":null},"can_confirm":false}',
     );
     expect(event?.type).toBe("state");
     if (event?.type === "state") {
       expect(event.stage).toBe("business_name");
       expect(event.input?.kind).toBe("text");
-      expect(event.draft.name).toBe("Sam");
+      expect(event.draft.owner_display_name).toBe("Sam");
     }
   });
 

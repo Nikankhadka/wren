@@ -75,7 +75,7 @@ LUMIDENT_NAME = "Lumident Dental"
 # _helpers.insert_tenant_core's profile arg) - the demo world lands in the
 # console, not the interview.
 LUMIDENT_PROFILE = {
-    "name": "Dr. Sarah Mitchell",
+    "owner_display_name": "Dr. Sarah Mitchell",
     "business_name": LUMIDENT_NAME,
     "business_type": "family dental practice",
     "headcount": "6",
@@ -84,6 +84,10 @@ LUMIDENT_PROFILE = {
     "contact": "owner@lumident.dev",
     "abn": "none",
     "gst": "no",
+    # W-9: the voice beat is part of the interview now, so a pre-onboarded
+    # tenant carries the same end-state a real confirm leaves behind.
+    "customer_voice_preset": "warm_casual",
+    "customer_voice_custom_style": "",
 }
 
 LUMIDENT_CATALOG: list[tuple[str, str, int | None, str | None]] = [

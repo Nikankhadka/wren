@@ -55,6 +55,13 @@ class AgentState(TypedDict):
     # would mean re-fetching the package there too, which is exactly the extra
     # catalog query this ticket rules out.
     offerings_text: NotRequired[str]
+    # W-9: the code-owned customer contract plus the tenant's voice, exactly as
+    # the agent node rendered them for this turn. State-borne for the same
+    # reason as owner_material and offerings_text above: every prose route runs
+    # the same contract, and the draft node reaches its routes on a redraft with
+    # no context package in hand. Carrying it is what lets the two per-turn
+    # tenant_config reads (draft_node, inspection) go away rather than move.
+    contract: NotRequired[str]
     # T-021 reasoning-inspection gate: violations text fed back to the
     # producing specialist on redraft, whether the one allowed redraft was
     # already spent, the gate's routing decision, and a marker a specialist

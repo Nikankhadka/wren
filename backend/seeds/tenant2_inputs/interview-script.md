@@ -18,7 +18,7 @@ document, not in this script. O-1 onboarding captures what the business is,
 not what it charges: a figure may only be stated when it appears in the
 owner's own uploaded material (I1 / C-1).
 
-## stage: name
+## stage: owner_display_name
 
 ```
 Priya Raman

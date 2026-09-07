@@ -1758,7 +1758,17 @@ sheet/collapse vocabulary.
 - [x] Knowledge sections stay readable and editable, preserving factual
       distinctions; a collapsed source-detail view keeps unrepresented details
       accessible.
-- [ ] Keyboard and mobile behavior verified alongside desktop.
+- [x] Keyboard and mobile behavior verified alongside desktop. Closed by W-9,
+      which built the sheet vocabulary this review UI shares: the keyboard pass
+      is `frontend/e2e/settings-voice.spec.ts:120` (tab order reaches the row,
+      Enter opens the sheet, focus is trapped both ways, Space and Enter work
+      the chips, Escape closes and restores focus), and the touch pass is
+      `frontend/e2e/mobile-voice-sheet.spec.ts:16` under the `mobile-chrome`
+      project at iPhone 13 width (no horizontal overflow, the panel rests
+      inside the viewport, every control is a 44px tap target, and the whole
+      save round trip works with taps alone). That pass is also what found the
+      36px `ScreenTopbar` back button, fixed in commit `9109d17` on every
+      console screen that carries a topbar.
 - [x] `make check` green.
 
 ---
@@ -2110,38 +2120,212 @@ squash-merge cannot do both, so the destructive half moves to its own ticket.
 - No generic text deduplicator is added as part of the message-duplication
   fix.
 
+### Record
+
+Built on `feat/w-9-agent-contract` in seven commits: `3e9f349` (reproduction
+evidence), `8a216ed` (phase 1a: rename, deduplication, prompt structure),
+`aa663ca` (phase 1b: name confirmation, corrections, offering operations, the
+voice beat, reply validation), `0759859` (phase 2: the code-owned contract,
+structured voice, migration 0027), `37669c1` (phase 3: the voice editor API and
+sheet, the composed opening), `1e66910` (phase 4a: tests and E2E), and
+`9109d17` (the touch-target fix phase 4a's mobile pass found).
+
+#### Behavior changes and decisions recorded rather than reopened
+
+**The fast-path ceiling moved.** The contract plus its voice block measures
+3,682 characters at its longest (a 300-character custom voice), against the
+202-character prompt `system_prompt_for` used to produce, and
+`_CONTRACT_OVERHEAD_CHARS`
+([context_package.py:78](../../../../backend/app/services/context_package.py#L78))
+carries that cost into the fast-path budget alongside the profile and the
+offerings text. A tenant whose corpus sat within about 3,500 characters of that
+budget therefore takes the hybrid path where it used to take the fast path.
+That is the budget measuring the prompt honestly rather than a regression, but
+it is a real behavior change on live tenants and belongs here rather than only
+in a commit message.
+
+**`_CONTRACT_OVERHEAD_CHARS` is a pin, not a measurement.** It reads 3,800
+against a longest render of 3,682. The import contract
+in [`backend/pyproject.toml`](../../../../backend/pyproject.toml) forbids
+`app.services` from importing `app.agents`, so `context_package.py` cannot ask
+the contract how long it is. The pin is held honest by
+`test_the_pinned_prompt_overhead_covers_the_longest_render`
+([test_agent_contract.py:206](../../../../backend/tests/test_agent_contract.py#L206)),
+which imports both and fails the moment the contract outgrows the number.
+Parking agent policy in `app.shared` to route around the contract would honor
+its letter and break its intent, so it was not done.
+
+**`MONEY_GUIDANCE` stays off the quoting route, deliberately.** Quoting already
+forbids the model stating any figure at all, and `MONEY_GUIDANCE`
+([drafting.py:28](../../../../backend/app/agents/drafting.py#L28)) permits
+repeating a figure that is published in the material. Adding the general rule to
+the stricter route would have licensed exactly the figures that route forbids.
+The contract's own money clause covers quoting alongside the stricter rule, and
+`test_every_prose_route_carries_a_money_rule`
+([test_money_prompt.py:71](../../../../backend/tests/test_money_prompt.py#L71))
+pins the whole arrangement, quoting's stricter wording included.
+
+**A scraped business name still persists without a Yes chip.** US-1 is written
+about a name the owner types; a `business_name` recovered from a website scrape
+rides the O-3 read-back instead of the confirmation chip. Accepted as scope,
+not fixed here.
+
+#### The live eval gate is unmeasured, and what that leaves open
+
+`make eval` was attempted twice, after phase 2 and again against the final
+branch state. Both runs failed the same way and for the same reason, which is
+quota rather than code: Groq answered `429 ... tokens per day (TPD): Limit
+200000, Used 197445` for `openai/gpt-oss-120b` while the Google primary leg sat
+in its own rate-limit retry ladder, so `generation_eval`, `injection_eval`, and
+on the second run `trajectory_eval` errored instead of scoring. The day's
+free-tier budget went on the phase 0 reproduction drives and the first attempt.
+
+What that leaves proven and unproven:
+
+- Proven, on both runs: `money_guardrail_eval`, `leakage_eval`, and
+  `retrieval_eval` PASS. Those are the three deterministic absolute gates, and
+  they include the money guardrail.
+- Not proven: the three provider-backed regression gates. The
+  `tool_correctness: 0.611` the first run recorded is not a measurement of
+  anything - it was scored while provider calls were failing, and it carries no
+  baseline, because `run_gate` reads the two most recent `eval_runs` rows and
+  the re-seed left one.
+- Re-run `make eval` once the daily window resets. Until it measures, the
+  gate box stays unticked and this ticket stays in `spec/active/`.
+
+**One eval failure was diagnosed and is not a regression.** The second run shows
+`SelectionError: malformed catalog item id: 'tempered-glass-screen-protector'`
+from [`pricing/engine.py:110`](../../../../backend/app/pricing/engine.py#L110):
+the model passed a slugified offering name where the quoting tool wanted a
+catalog item id. That is pre-existing, not something this ticket caused.
+`format_offerings`
+([context_package.py:208-221](../../../../backend/app/services/context_package.py#L208-L221))
+puts an offering's name, description, and price into the prompt and never its
+id, and this branch does not change that function, so the model has never had an
+id to pass. The failure is also the money invariant working rather than leaking:
+the pricing engine refused the malformed selection instead of pricing it, and
+`money_guardrail_eval` passed on the same run. Worth its own ticket; not this
+one's to fix.
+
+#### Defects the reproduction found that this ticket had not named
+
+The phase 0 drive ([`evidence/w-9-reproduction.md`](../evidence/w-9-reproduction.md),
+screenshots `frontend/e2e/screenshots/w9-*.png`) reproduced five of the six
+failures the ticket names and surfaced four more that it did not:
+
+1. **A beat's `example` reached the owner as a fact.** The reask path
+   interpolated `e.g. {rejected.example}` into a directive the model then
+   embellished, so a junk first answer produced "No worries at all, Nikan!" -
+   the owner addressed by the founder's own name, the example in the name beat.
+   Fixed by making a rejected beat fully deterministic: the beat's own `reject`
+   plus the server-owned question, with no model call.
+2. **The model answered its own pending question.** Observed: "It's just me. Is
+   it just you, or do you work with a team?" - a headcount asserted one turn
+   before the owner gave it. `_reply_ok`
+   ([agent.py:781](../../../../backend/app/onboarding/agent.py#L781)) now
+   rejects a reply that borrows the pending beat's own chips or example.
+3. **The assistant emitted em dashes**, against conventions.md section 1. Fixed
+   in the prompts and, because a prompt rule did not hold on three drives out of
+   three, normalized deterministically in both output paths through
+   `plain_dashes` ([text.py](../../../../backend/app/shared/text.py)).
+4. **A typed value landed nowhere.** `middle eastern cafe`, typed while the
+   headcount beat was pending, was neither captured nor acknowledged. Covered by
+   US-3's corrections and W-2's off-beat capture together.
+
+One structural half of item 1 is still open and is recorded rather than claimed
+closed: the second-ask nudge still interpolates `e.g. {nxt.example}` into a
+model-composed directive
+([agent.py:1151-1154](../../../../backend/app/onboarding/agent.py#L1151-L1154)).
+What stops the example reaching the owner is the deterministic reply check in
+item 2, not the absence of the example from the prompt.
+
+Also latent rather than user-visible, and stated as such: the
+`business_name or name` fallback the ticket names at `agent.py:269` could not be
+reached from the interview, because `_activation_summary` renders only once
+every required beat is satisfied and `business_name` is required. It is removed
+anyway; no user-visible bug was fixed by removing it.
+
 ### Definition of done
 
-- [ ] Onboarding record migrates v3 to v4; `owner_display_name` replaces
-      `name` everywhere, with history and progress preserved.
-- [ ] A typed name shows a visible proposal and requires explicit Yes before
+- [x] Onboarding record migrates v3 to v4; `owner_display_name` replaces
+      `name` everywhere, with history and progress preserved. The upgrade
+      renames the beat key in every place a beat key is stored - the draft, the
+      skip and deferral lists, the ask cursor, the pause, and the pending-name
+      target
+      ([agent.py:330-347](../../../../backend/app/onboarding/agent.py#L330-L347)) -
+      not only the draft.
+- [x] A typed name shows a visible proposal and requires explicit Yes before
       persisting; a typed reply is a new correction; unusual confirmed names
-      are accepted unless they violate storage/safety limits.
-- [ ] Owner name and business name are never confused; the `agent.py:269`
-      fallback is removed; ambiguous correction targets are clarified.
-- [ ] Corrections apply from any beat, validate every changed field, keep the
+      are accepted unless they violate storage/safety limits. `confirm_pending_name`
+      assigns the proposal and never concatenates onto the raw value, so
+      `sababa` stays `sababa`
+      ([agent.py:519](../../../../backend/app/onboarding/agent.py#L519)). A name
+      recovered from a website scrape is out of scope, per the Record above.
+- [x] Owner name and business name are never confused; the `agent.py:269`
+      fallback is removed; ambiguous correction targets are clarified. The
+      fallback was latent, not user-visible - see the Record.
+- [x] Corrections apply from any beat, validate every changed field, keep the
       prior value on an invalid correction, never cost an attempt at the
       pending question, and persist across reload into the confirmed profile.
-- [ ] Offering add/rename/remove/replace are distinct operations reusing
+- [x] Offering add/rename/remove/replace are distinct operations reusing
       `merge_offerings`; a rename preserves siblings, description, price, and
-      provenance.
-- [ ] `reply_msgs` carries the owner's current message exactly once; one
+      provenance. The rename copies through `model_copy(update={"name": ...})`,
+      so every W-6 provenance field survives it.
+- [x] `reply_msgs` carries the owner's current message exactly once; one
       assistant response is persisted on both SSE and non-streamed paths; one
-      acknowledgement with consistent spelling.
-- [ ] Clear wording cleanup runs through the existing extraction call; names,
+      acknowledgement with consistent spelling. Both halves are asserted
+      directly, the second in
+      [`test_onboarding_api.py`](../../../../backend/tests/test_onboarding_api.py).
+- [x] Clear wording cleanup runs through the existing extraction call; names,
       brands, identifiers, contacts, and money are preserved unless explicitly
-      corrected; ambiguous input is never guessed.
-- [ ] All six customer prose routes run the same code-owned contract; a
+      corrected; ambiguous input is never guessed. No second model call was
+      added.
+- [x] All six customer prose routes run the same code-owned contract; a
       structured `customer_voice` config changes expression only and cannot
-      override grounding, pricing, identity, escalation, or tools.
-- [ ] The deterministic customer opening composes first; a configured welcome
-      is optional following content, never a duplicate greeting.
-- [ ] `tenant_config.system_prompt`/`.tone` are backfilled into
+      override grounding, pricing, identity, escalation, or tools. The six-route
+      sweep in
+      [`test_agent_contract.py`](../../../../backend/tests/test_agent_contract.py)
+      drives the real graph per route and asserts the contract text, the leak
+      marker, and the voice block in the prompt the provider actually received,
+      with the hostile voice fixture positioned after `# HARD CONSTRAINTS`.
+- [x] The deterministic customer opening composes first; a configured welcome
+      is optional following content, never a duplicate greeting. Composition and
+      the drop rule are unit-tested in
+      [`greeting.test.ts`](../../../../frontend/src/lib/greeting.test.ts) and
+      driven for both demo tenants in
+      [`storefront.spec.ts`](../../../../frontend/e2e/storefront.spec.ts).
+- [x] `tenant_config.system_prompt`/`.tone` are backfilled into
       `customer_voice` and read by no application code path; the columns
-      themselves are not dropped (follow-up ticket).
-- [ ] The prompt-leak canary and its eight `injection_set.jsonl` cases keep
-      their teeth against the code-owned contract.
-- [ ] W-8's keyboard/mobile Definition-of-done box is closed.
+      themselves are not dropped (follow-up ticket). Backfill is
+      [`0027_customer_voice.sql`](../../../../backend/migrations/0027_customer_voice.sql);
+      the drop is [W-10](14-schema-drop.md).
+- [x] The prompt-leak canary and its eight `injection_set.jsonl` cases keep
+      their teeth against the code-owned contract. `check_prompt_leak`
+      ([inspection.py:98](../../../../backend/app/agents/inspection.py#L98))
+      matches against the contract the turn actually ran, `LEAK_MARKER` lives in
+      [`contract.py`](../../../../backend/app/agents/contract.py) and renders
+      into every contract, and
+      [`seed_injection_probe.py`](../../../../backend/seeds/seed_injection_probe.py)
+      imports it from there so the two cannot drift. Eight cases in
+      `injection_set.jsonl` score that string. What is verified here is
+      structural: the marker the cases hunt for is in the prompt. The eval's own
+      pass rate is provider-backed and unmeasured - see the last box.
+- [x] W-8's keyboard/mobile Definition-of-done box is closed.
 - [ ] `make check`, `make ci`, `make test-e2e`, and `make eval-skip-llm` are
-      green; `make eval` is green where a provider is configured.
+      green; `make eval` is green where a provider is configured. **Partially
+      measured, so this box stays open.** Green on the final branch state:
+      `make check` (940 backend tests, 110 frontend tests, import-linter 3 of 3
+      contracts kept, mypy clean on 206 files), `make format-check`,
+      `make build` (`make ci` is those three), and `make eval-skip-llm`, which
+      reports `trajectory_eval` as skipped rather than failed - the split the
+      new persona cases were written to sit behind. Not measured: `make eval`
+      could not run, because the free-tier daily budget was spent by the
+      reproduction drives, Groq returned `429 tokens per day (TPD): Limit
+      200000, Used 197445`, and the Google primary leg was rate-limited into
+      its retry ladder at the same time. The `tool_correctness: 0.611` a
+      partial run recorded is not a valid measurement - it was taken while
+      provider calls were failing and it carries no baseline. Not run:
+      `make test-e2e` against the final branch state. Nothing in this box has
+      failed; two of its five commands are unmeasured or unrun, and this box is
+      the only reason the ticket is still in `spec/active/`.
 

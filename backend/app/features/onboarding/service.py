@@ -60,6 +60,7 @@ async def apply_confirmation(
     business_name: str,
     slug: str,
     profile: dict[str, Any],
+    customer_voice: dict[str, Any],
     completed_record: dict[str, Any],
     offering_candidates: list[PendingOffering] | None = None,
     embedder: Embedder | None = None,
@@ -71,17 +72,25 @@ async def apply_confirmation(
     the interview (tone, payment_processing_mode) keep
     their schema defaults until a screen edits them. Priced answers come from
     the owner's uploaded material instead (C-1).
+
+    W-9 adds ``customer_voice`` beside ``profile``: the structured voice the
+    customer assistant speaks in, written in the same transaction so a confirmed
+    tenant is never live without one. The free-text ``tone`` column is left
+    exactly as it was - retiring it is its own ticket.
     """
     old_slug: str | None = None
     async with db.tenant_context(tenant_id, "tenant_admin") as conn:
         old_slug = await conn.fetchval("select slug from tenants where id = $1", tenant_id)
         await conn.execute(
             "update tenant_config set system_prompt=$2, "
-            "config = jsonb_set(config, '{profile}', $3::jsonb, true), "
+            "config = jsonb_set("
+            "jsonb_set(config, '{profile}', $3::jsonb, true), "
+            "'{customer_voice}', $4::jsonb, true), "
             "updated_at=now() where tenant_id=$1",
             tenant_id,
             system_prompt,
             json.dumps(profile),
+            json.dumps(customer_voice),
         )
         try:
             await conn.execute(
