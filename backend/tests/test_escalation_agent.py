@@ -83,6 +83,21 @@ def _escalation_provider(*, reason: str) -> ToolAwareFakeProvider:
     )
 
 
+def test_handoff_message_is_the_exact_specified_string() -> None:
+    """W-9 box 6 (slice 1.4): the ticket specifies this literal string, apostrophe
+    included. Every other test in this file compares a draft response against the
+    imported ``HANDOFF_MESSAGE`` constant, so it would still pass if the constant's
+    text changed to anything at all - this is the one place "exact" is pinned
+    against a literal copy, so a future edit to the constant fails a test instead
+    of silently redefining what "exact" means.
+
+    The apostrophe below is U+2019 (right single quote), not ASCII U+0027,
+    matching the byte actually shipped in app/agents/escalation.py.
+    """
+    expected = "I’ve forwarded your query to the business. They can reply to you here."
+    assert HANDOFF_MESSAGE == expected
+
+
 async def test_escalation_records_the_handoff_and_leaves_the_chat_open(
     superuser_conn: asyncpg.Connection[Any],
 ) -> None:

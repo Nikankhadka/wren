@@ -260,6 +260,72 @@ async def test_full_catalog_emits_ordered_structured_payload_without_drafting(
     assert len(provider.tool_call_messages) == 1
 
 
+async def test_catalog_payload_keeps_the_id_out_of_the_fields_the_card_renders(
+    superuser_conn: asyncpg.Connection[Any],
+) -> None:
+    """W-9 box 1: show_catalog's structured payload is exactly what
+    CatalogCard.tsx (frontend/src/components/ui/CatalogCard.tsx) renders. The
+    offering id has to be on the payload - the card uses it as the row's
+    React `key`, and a follow-up turn needs it to resolve "the second one" -
+    but it must never leak into a field the card actually prints as text:
+    name, category, or description. It stays confined to its own `id` key."""
+    tenant_id, conversation_id, item_id = await _seed_quoting_tenant(superuser_conn)
+    await superuser_conn.execute(
+        "insert into offerings (tenant_id, name, description, price_cents, category, position) "
+        "values ($1, 'Pita pocket', 'Fresh pita', null, 'Food', 1)",
+        tenant_id,
+    )
+    provider = _catalog_provider()
+
+    final_state = await build_graph().ainvoke(
+        _initial_state("show me everything", conversation_id),
+        context=_context(tenant_id, provider),
+    )
+
+    offerings = final_state["response"]["catalog"]["offerings"]
+    assert len(offerings) == 2, "sanity: both offerings came through"
+    for offering in offerings:
+        assert offering["id"], "sanity: the id is present on the payload"
+        for field_name in ("name", "category", "description"):
+            value = offering[field_name] or ""
+            assert offering["id"] not in value, (
+                f"catalog_id leaked into the rendered field {field_name!r}"
+            )
+
+
+async def test_price_summary_payload_keeps_the_item_id_out_of_the_rendered_label(
+    superuser_conn: asyncpg.Connection[Any],
+) -> None:
+    """Same guarantee as the catalog test above, for calculate_quote's
+    payload - what PriceSummaryCard.tsx renders directly. `item_id` is a
+    React `key` and the field a follow-up turn re-selects by
+    (test_follow_up_sees_the_latest_summary_item_ids below); the printed line
+    is `label`, the tenant-authored item name, which must never contain it."""
+    tenant_id, conversation_id, item_id = await _seed_quoting_tenant(superuser_conn)
+    second_item_id: uuid.UUID = await superuser_conn.fetchval(
+        "insert into offerings (tenant_id, name, description, price_cents, position) "
+        "values ($1, 'Pita pocket', 'Fresh pita', 2000, 1) returning id",
+        tenant_id,
+    )
+    provider = _summary_provider(
+        selections=[
+            {"catalog_item_id": str(item_id), "quantity": 1},
+            {"catalog_item_id": str(second_item_id), "quantity": 2},
+        ]
+    )
+
+    final_state = await build_graph().ainvoke(
+        _initial_state("one protector and two pita pockets", conversation_id),
+        context=_context(tenant_id, provider),
+    )
+
+    line_items = final_state["response"]["summary"]["line_items"]
+    assert len(line_items) == 2, "sanity: both selections came through"
+    for item in line_items:
+        assert item["item_id"], "sanity: the id is present on the payload"
+        assert item["item_id"] not in item["label"]
+
+
 async def test_follow_up_sees_the_latest_summary_item_ids(
     superuser_conn: asyncpg.Connection[Any],
 ) -> None:
@@ -285,6 +351,187 @@ async def test_follow_up_sees_the_latest_summary_item_ids(
     assert str(item_id) in provider.tool_call_messages[0][0]["content"]
 
 
+async def test_follow_up_add_recalculates_the_complete_basket(
+    superuser_conn: asyncpg.Connection[Any],
+) -> None:
+    """W-9 box 5: adding a second item on a follow-up turn must produce the
+    full two-item total, not the old total plus a delta and not the new
+    item's price alone. calculate_quote is called fresh every turn with
+    whatever selections it is given (agent_node.py's calculate_quote handler,
+    around line 635) - nothing carries a running total between turns - so the
+    only way this passes is if the complete basket reaches the engine both
+    times."""
+    tenant_id, conversation_id, item_id = await _seed_quoting_tenant(superuser_conn)
+    second_item_id: uuid.UUID = await superuser_conn.fetchval(
+        "insert into offerings (tenant_id, name, description, price_cents) "
+        "values ($1, 'Pita pocket', 'Fresh pita', 2000) returning id",
+        tenant_id,
+    )
+
+    turn1 = await build_graph().ainvoke(
+        _initial_state("one glass protector", conversation_id),
+        context=_context(
+            tenant_id,
+            _summary_provider(selections=[{"catalog_item_id": str(item_id), "quantity": 1}]),
+        ),
+    )
+    assert turn1["response"]["summary"]["total_cents"] == 1500
+
+    state2 = _initial_state("add a pita pocket too", conversation_id)
+    state2["messages"] = [
+        {
+            "role": "assistant",
+            "content": "Here is the current price summary.",
+            "response": turn1["response"],
+        },
+        {"role": "customer", "content": "add a pita pocket too"},
+    ]
+    turn2 = await build_graph().ainvoke(
+        state2,
+        context=_context(
+            tenant_id,
+            _summary_provider(
+                selections=[
+                    {"catalog_item_id": str(item_id), "quantity": 1},
+                    {"catalog_item_id": str(second_item_id), "quantity": 1},
+                ]
+            ),
+        ),
+    )
+    summary = turn2["response"]["summary"]
+    assert summary["total_cents"] == 1500 + 2000
+    assert len(summary["line_items"]) == 2
+
+
+async def test_follow_up_remove_recalculates_the_complete_basket(
+    superuser_conn: asyncpg.Connection[Any],
+) -> None:
+    """Removing an item on a follow-up must drop it from the total entirely -
+    the basket calculate_quote receives on turn 2 is the complete remaining
+    set, and the total must match it exactly, not the old total minus the
+    removed item's price computed some other way."""
+    tenant_id, conversation_id, item_id = await _seed_quoting_tenant(superuser_conn)
+    second_item_id: uuid.UUID = await superuser_conn.fetchval(
+        "insert into offerings (tenant_id, name, description, price_cents) "
+        "values ($1, 'Pita pocket', 'Fresh pita', 2000) returning id",
+        tenant_id,
+    )
+
+    turn1 = await build_graph().ainvoke(
+        _initial_state("a protector and a pita pocket", conversation_id),
+        context=_context(
+            tenant_id,
+            _summary_provider(
+                selections=[
+                    {"catalog_item_id": str(item_id), "quantity": 1},
+                    {"catalog_item_id": str(second_item_id), "quantity": 1},
+                ]
+            ),
+        ),
+    )
+    assert turn1["response"]["summary"]["total_cents"] == 3500
+
+    state2 = _initial_state("actually drop the pita pocket", conversation_id)
+    state2["messages"] = [
+        {
+            "role": "assistant",
+            "content": "Here is the current price summary.",
+            "response": turn1["response"],
+        },
+        {"role": "customer", "content": "actually drop the pita pocket"},
+    ]
+    turn2 = await build_graph().ainvoke(
+        state2,
+        context=_context(
+            tenant_id,
+            _summary_provider(selections=[{"catalog_item_id": str(item_id), "quantity": 1}]),
+        ),
+    )
+    summary = turn2["response"]["summary"]
+    assert summary["total_cents"] == 1500
+    assert len(summary["line_items"]) == 1
+
+
+async def test_follow_up_quantity_change_recalculates_the_complete_basket(
+    superuser_conn: asyncpg.Connection[Any],
+) -> None:
+    """A quantity change on a follow-up must recompute the whole line - the
+    new quantity times the current unit price - not scale a stored total."""
+    tenant_id, conversation_id, item_id = await _seed_quoting_tenant(superuser_conn)
+
+    turn1 = await build_graph().ainvoke(
+        _initial_state("one glass protector", conversation_id),
+        context=_context(
+            tenant_id,
+            _summary_provider(selections=[{"catalog_item_id": str(item_id), "quantity": 1}]),
+        ),
+    )
+    assert turn1["response"]["summary"]["total_cents"] == 1500
+
+    state2 = _initial_state("make that three", conversation_id)
+    state2["messages"] = [
+        {
+            "role": "assistant",
+            "content": "Here is the current price summary.",
+            "response": turn1["response"],
+        },
+        {"role": "customer", "content": "make that three"},
+    ]
+    turn2 = await build_graph().ainvoke(
+        state2,
+        context=_context(
+            tenant_id,
+            _summary_provider(selections=[{"catalog_item_id": str(item_id), "quantity": 3}]),
+        ),
+    )
+    summary = turn2["response"]["summary"]
+    assert summary["total_cents"] == 1500 * 3
+    assert summary["line_items"][0]["quantity"] == 3
+
+
+async def test_follow_up_uses_the_price_at_the_moment_of_the_second_turn(
+    superuser_conn: asyncpg.Connection[Any],
+) -> None:
+    """The amendment's explicit claim: if the owner changes a price between
+    turns, a same-basket follow-up must use the new price, not the one quoted
+    a moment ago. compute_quote reads offerings fresh on every call
+    (backend/app/pricing/engine.py never caches a price) so nothing in the
+    agent layer should reintroduce staleness - this is the case the amendment
+    names and W-9's own test suite never actually ran before now."""
+    tenant_id, conversation_id, item_id = await _seed_quoting_tenant(superuser_conn)
+
+    turn1 = await build_graph().ainvoke(
+        _initial_state("one glass protector", conversation_id),
+        context=_context(
+            tenant_id,
+            _summary_provider(selections=[{"catalog_item_id": str(item_id), "quantity": 1}]),
+        ),
+    )
+    assert turn1["response"]["summary"]["total_cents"] == 1500
+
+    await superuser_conn.execute("update offerings set price_cents = 1800 where id = $1", item_id)
+
+    state2 = _initial_state("is that still the price?", conversation_id)
+    state2["messages"] = [
+        {
+            "role": "assistant",
+            "content": "Here is the current price summary.",
+            "response": turn1["response"],
+        },
+        {"role": "customer", "content": "is that still the price?"},
+    ]
+    turn2 = await build_graph().ainvoke(
+        state2,
+        context=_context(
+            tenant_id,
+            _summary_provider(selections=[{"catalog_item_id": str(item_id), "quantity": 1}]),
+        ),
+    )
+    summary = turn2["response"]["summary"]
+    assert summary["total_cents"] == 1800
+    assert summary["line_items"][0]["unit_amount_cents"] == 1800
+
+
 async def test_bad_selection_does_not_produce_quote(
     superuser_conn: asyncpg.Connection[Any],
 ) -> None:
@@ -296,6 +543,143 @@ async def test_bad_selection_does_not_produce_quote(
         context=_context(tenant_id, provider),
     )
     assert final_state["engine_quote"] is None
+
+
+# W-9 box 3's deterministic clarification (agent_node.py's exception path,
+# around line 768) - fixed regardless of which selection was bad.
+_CALCULATE_QUOTE_CLARIFICATION = (
+    "I couldn't match every item to a confirmed offering. Which items would you like me to include?"
+)
+
+
+async def _assert_no_partial_total_or_quote(
+    conn: asyncpg.Connection[Any],
+    tenant_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    final_state: dict[str, Any],
+) -> None:
+    """Shared assertions for every calculate_quote bad-selection case: the
+    fixed clarification is what reaches the customer, no structured payload
+    or engine quote lands in state, and no quotes row was created - the
+    'never a partial total, never a substituted item' claim, checked from
+    every angle a leak could show up."""
+    assert final_state["draft_response"] == _CALCULATE_QUOTE_CLARIFICATION
+    assert "response" not in final_state
+    assert final_state["engine_quote"] is None
+    assert (
+        await conn.fetchval(
+            "select count(*) from quotes where tenant_id = $1 and conversation_id = $2",
+            tenant_id,
+            conversation_id,
+        )
+        == 0
+    )
+
+
+async def test_calculate_quote_with_an_unsupported_item_produces_no_partial_total(
+    superuser_conn: asyncpg.Connection[Any],
+) -> None:
+    """W-9 box 3: a catalog_item_id naming nothing this tenant offers must
+    never reach the customer as a total, partial or otherwise -
+    compute_quote raises before calculate_quote returns anything
+    (backend/app/pricing/engine.py's compute_quote, around lines 144-168)."""
+    tenant_id, conversation_id, _ = await _seed_quoting_tenant(superuser_conn)
+    provider = _summary_provider(selections=[{"catalog_item_id": str(uuid.uuid4()), "quantity": 1}])
+    final_state = await build_graph().ainvoke(
+        _initial_state("how much for that thing?", conversation_id),
+        context=_context(tenant_id, provider),
+    )
+    await _assert_no_partial_total_or_quote(superuser_conn, tenant_id, conversation_id, final_state)
+
+
+async def test_calculate_quote_with_an_unpriced_item_produces_no_partial_total(
+    superuser_conn: asyncpg.Connection[Any],
+) -> None:
+    """An offering with no price_cents is not fixed-price - compute_quote
+    refuses it (engine.py's _price_item), and calculate_quote must fall back
+    to the clarification rather than any total."""
+    tenant_id, conversation_id, _ = await _seed_quoting_tenant(superuser_conn)
+    unpriced_id: uuid.UUID = await superuser_conn.fetchval(
+        "insert into offerings (tenant_id, name, description, price_cents) "
+        "values ($1, 'Custom engraving', 'Priced by rule, not directly', null) returning id",
+        tenant_id,
+    )
+    provider = _summary_provider(selections=[{"catalog_item_id": str(unpriced_id), "quantity": 1}])
+    final_state = await build_graph().ainvoke(
+        _initial_state("how much for the engraving?", conversation_id),
+        context=_context(tenant_id, provider),
+    )
+    await _assert_no_partial_total_or_quote(superuser_conn, tenant_id, conversation_id, final_state)
+
+
+async def test_calculate_quote_with_a_mixed_priceability_basket_does_not_return_the_priced_half(
+    superuser_conn: asyncpg.Connection[Any],
+) -> None:
+    """The important case: one selection is fully priceable and would sum to
+    a real total on its own, but compute_quote is all-or-nothing - it raises
+    on the first bad selection and never returns partial line_items
+    (engine.py's compute_quote loop). The priced item's 1500 cents must not
+    leak out as a 'partial' total just because the rest of the basket
+    failed."""
+    tenant_id, conversation_id, priced_item_id = await _seed_quoting_tenant(superuser_conn)
+    unpriced_id: uuid.UUID = await superuser_conn.fetchval(
+        "insert into offerings (tenant_id, name, description, price_cents) "
+        "values ($1, 'Custom engraving', 'Priced by rule, not directly', null) returning id",
+        tenant_id,
+    )
+    provider = _summary_provider(
+        selections=[
+            {"catalog_item_id": str(priced_item_id), "quantity": 1},
+            {"catalog_item_id": str(unpriced_id), "quantity": 1},
+        ]
+    )
+    final_state = await build_graph().ainvoke(
+        _initial_state("a glass protector and the engraving", conversation_id),
+        context=_context(tenant_id, provider),
+    )
+    await _assert_no_partial_total_or_quote(superuser_conn, tenant_id, conversation_id, final_state)
+    assert "1500" not in final_state["draft_response"], "the priced half must not leak as text"
+
+
+async def test_calculate_quote_with_an_inactive_offering_produces_no_partial_total(
+    superuser_conn: asyncpg.Connection[Any],
+) -> None:
+    """An inactive offering is not currently sold - compute_quote's WHERE
+    clause (engine.py's _price_item) excludes it exactly like an unknown id,
+    and the engine never substitutes an active alternative."""
+    tenant_id, conversation_id, _ = await _seed_quoting_tenant(superuser_conn)
+    inactive_id: uuid.UUID = await superuser_conn.fetchval(
+        "insert into offerings (tenant_id, name, description, price_cents, active) "
+        "values ($1, 'Discontinued case', 'No longer sold', 1000, false) returning id",
+        tenant_id,
+    )
+    provider = _summary_provider(selections=[{"catalog_item_id": str(inactive_id), "quantity": 1}])
+    final_state = await build_graph().ainvoke(
+        _initial_state("how much for the discontinued case?", conversation_id),
+        context=_context(tenant_id, provider),
+    )
+    await _assert_no_partial_total_or_quote(superuser_conn, tenant_id, conversation_id, final_state)
+
+
+async def test_calculate_quote_with_a_different_tenants_offering_produces_no_partial_total(
+    superuser_conn: asyncpg.Connection[Any],
+) -> None:
+    """Tenant isolation: an offering id that is real and priced, but belongs
+    to a different tenant, must be refused exactly like an unknown id -
+    compute_quote's queries are always scoped by tenant_id (engine.py's
+    _price_item), so a leaked or guessed id from another tenant's catalog can
+    never price against this one's basket."""
+    tenant_id, conversation_id, _ = await _seed_quoting_tenant(superuser_conn)
+    other_tenant_id, _, other_item_id = await _seed_quoting_tenant(superuser_conn)
+    assert other_tenant_id != tenant_id
+    provider = _summary_provider(
+        selections=[{"catalog_item_id": str(other_item_id), "quantity": 1}]
+    )
+    final_state = await build_graph().ainvoke(
+        _initial_state("how much for that other business's item?", conversation_id),
+        context=_context(tenant_id, provider),
+    )
+    await _assert_no_partial_total_or_quote(superuser_conn, tenant_id, conversation_id, final_state)
 
 
 def test_selection_schema_has_no_money_fields() -> None:

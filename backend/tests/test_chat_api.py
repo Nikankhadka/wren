@@ -23,7 +23,7 @@ import pytest_asyncio
 
 from app.agents.draft_node import REFUSAL_MESSAGE
 from app.llm.dependency import get_embedder_dependency, get_llm_provider
-from app.llm.provider import SchemaT
+from app.llm.provider import SchemaT, ToolCall, ToolTurn
 from app.main import app
 from app.observability.cost import report_usage
 from app.retrieval.dependency import get_reranker_dependency
@@ -440,6 +440,247 @@ async def test_chat_persists_tool_calls_and_cost_logs_for_order_status_turn(
     assert all(row["model"] == "fake-model" for row in cost_rows)
     assert sum(row["input_tokens"] for row in cost_rows) >= 10
     assert all(row["cost_usd"] == 0 for row in cost_rows)  # unknown model prices at $0
+
+
+class FakeQuoteProvider(ToolAwareFakeProvider):
+    """Routes straight to calculate_quote, same as test_quoting_agent.py's
+    ``_summary_provider`` - no drafting happens for a price summary, so the
+    stream_text below must never actually reach the customer."""
+
+    def __init__(self, item_id: uuid.UUID) -> None:
+        super().__init__(
+            tool_call_sequence=[
+                ToolTurn(
+                    tool_calls=[
+                        ToolCall(
+                            id="call_summary",
+                            name="calculate_quote",
+                            args={"selections": [{"catalog_item_id": str(item_id), "quantity": 1}]},
+                        )
+                    ]
+                )
+            ],
+            extract_route="quoting",
+            stream_text="This text must never be generated for a summary.",
+        )
+
+
+async def _seed_tenant_with_offering(
+    conn: asyncpg.Connection[Any], *, slug: str, price_cents: int
+) -> tuple[uuid.UUID, uuid.UUID]:
+    tenant_id: uuid.UUID = await conn.fetchval(
+        "insert into tenants (slug, name, status) values ($1, $2, 'active') returning id",
+        slug,
+        "Quote Chat Test Co",
+    )
+    await conn.execute("insert into tenant_config (tenant_id) values ($1)", tenant_id)
+    item_id = uuid.uuid4()
+    await conn.execute(
+        "insert into offerings (id, tenant_id, name, description, price_cents) "
+        "values ($1, $2, 'Tempered glass protector', 'A protective layer', $3)",
+        item_id,
+        tenant_id,
+        price_cents,
+    )
+    return tenant_id, item_id
+
+
+async def test_chat_persists_the_price_summary_payload_on_the_message_row(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    """W-9 box 2 (thin slice): test_quoting_agent.py already proves the
+    graph-level contract for a basket quote (one payload, correct total, no
+    quote row, one model call). What that test cannot see is the HTTP
+    boundary - whether the emitted price_summary actually lands where a page
+    reload reads it back from, ``messages.metadata.response``
+    (backend/app/features/chat/service.py persist_assistant_turn,
+    around lines 212-216). This drives a real /api/chat turn and checks the
+    persisted row instead of graph state.
+    """
+    slug = f"chat-quote-{uuid.uuid4().hex[:8]}"
+    tenant_id, item_id = await _seed_tenant_with_offering(
+        superuser_conn, slug=slug, price_cents=1500
+    )
+    app.dependency_overrides[get_llm_provider] = lambda: FakeQuoteProvider(item_id)
+
+    response = await client.post(
+        "/api/chat", json={"slug": slug, "message": "how much for a glass protector?"}
+    )
+    assert response.status_code == 200
+    events = _parse_sse(response.text)
+    conversation_id = events[0]["conversation_id"]
+
+    price_events = [e for e in events if e["type"] == "price_summary"]
+    assert len(price_events) == 1, "exactly one price_summary event reaches the customer stream"
+    assert price_events[0]["summary"]["total_cents"] == 1500
+    # agent_node.py emits one fixed, non-model acknowledgement token alongside
+    # a structured response (`draft_deterministic=True`) - a real second model
+    # call would instead have produced FakeQuoteProvider's stream_text.
+    token_texts = [e["text"] for e in events if e["type"] == "token"]
+    assert token_texts == ["Here is the current price summary."]
+
+    row = await superuser_conn.fetchrow(
+        "select metadata from messages where tenant_id = $1 and conversation_id = $2 "
+        "and role = 'assistant'",
+        tenant_id,
+        uuid.UUID(conversation_id),
+    )
+    assert row is not None
+    metadata = json.loads(row["metadata"])
+    assert metadata["response"] == price_events[0]
+    assert metadata["response"]["summary"]["total_cents"] == 1500
+
+    assert (
+        await superuser_conn.fetchval(
+            "select count(*) from quotes where tenant_id = $1 and conversation_id = $2",
+            tenant_id,
+            uuid.UUID(conversation_id),
+        )
+        == 0
+    ), "a price summary is not a formal quote - no quotes row"
+
+
+async def test_chat_records_price_summary_ms_on_the_message_row(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    """W-9 box 5: price_summary_ms had zero references anywhere under
+    backend/tests/ before this test. The controller computes it
+    (app/features/chat/controller.py, around lines 248-252, timed from turn
+    start to the price_summary event) and persist_assistant_turn is supposed
+    to write it onto the message row (app/features/chat/service.py, around
+    lines 212-216) - nothing previously drove a real turn and read it back.
+    """
+    slug = f"chat-quote-ms-{uuid.uuid4().hex[:8]}"
+    tenant_id, item_id = await _seed_tenant_with_offering(
+        superuser_conn, slug=slug, price_cents=1500
+    )
+    app.dependency_overrides[get_llm_provider] = lambda: FakeQuoteProvider(item_id)
+
+    response = await client.post(
+        "/api/chat", json={"slug": slug, "message": "how much for a glass protector?"}
+    )
+    assert response.status_code == 200
+    events = _parse_sse(response.text)
+    conversation_id = events[0]["conversation_id"]
+
+    row = await superuser_conn.fetchrow(
+        "select metadata from messages where tenant_id = $1 and conversation_id = $2 "
+        "and role = 'assistant'",
+        tenant_id,
+        uuid.UUID(conversation_id),
+    )
+    assert row is not None
+    metadata = json.loads(row["metadata"])
+    assert "price_summary_ms" in metadata, "price_summary_ms was never persisted on the message row"
+    price_summary_ms = metadata["price_summary_ms"]
+    assert isinstance(price_summary_ms, int | float)
+    # Plausible, not exact: a wall-clock measurement of the turn up to the
+    # price_summary event, against a fake provider with no real network
+    # latency. Zero or negative would mean the clock never actually started;
+    # tens of seconds would mean it measured the wrong thing entirely.
+    assert 0 < price_summary_ms < 30_000
+
+
+class FakeCatalogProvider(ToolAwareFakeProvider):
+    """Routes straight to show_catalog, same shape as FakeQuoteProvider above -
+    no drafting happens for a catalog listing either, so stream_text below
+    must never actually reach the customer."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            tool_call_sequence=[
+                ToolTurn(
+                    tool_calls=[
+                        ToolCall(id="call_catalog", name="show_catalog", args={}),
+                    ]
+                )
+            ],
+            extract_route="knowledge",
+            stream_text="This text must never be generated for a catalog listing.",
+        )
+
+
+async def _seed_tenant_with_catalog(
+    conn: asyncpg.Connection[Any], *, slug: str
+) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
+    """Two active offerings, inserted out of storefront order and one of them
+    unpriced - so the "ordered active catalog... including unpriced rows" half
+    of W-9 box 4's claim is exercised at the HTTP boundary, not only against
+    the query in isolation. Returns (tenant_id, unpriced_offering_id,
+    priced_offering_id) in the order they should appear on the wire.
+    """
+    tenant_id: uuid.UUID = await conn.fetchval(
+        "insert into tenants (slug, name, status) values ($1, $2, 'active') returning id",
+        slug,
+        "Catalog Chat Test Co",
+    )
+    await conn.execute("insert into tenant_config (tenant_id) values ($1)", tenant_id)
+    unpriced_id = uuid.uuid4()
+    priced_id = uuid.uuid4()
+    # Inserted priced-then-unpriced, positioned unpriced-then-priced: only
+    # `position` decides the wire order, never insertion order.
+    await conn.execute(
+        "insert into offerings (id, tenant_id, name, description, price_cents, position) "
+        "values ($1, $2, 'Battery replacement', 'Genuine part, 1yr warranty', 6000, 1)",
+        priced_id,
+        tenant_id,
+    )
+    await conn.execute(
+        "insert into offerings (id, tenant_id, name, description, price_cents, position) "
+        "values ($1, $2, 'Custom engraving', 'Ask in store for a quote', null, 0)",
+        unpriced_id,
+        tenant_id,
+    )
+    return tenant_id, unpriced_id, priced_id
+
+
+async def test_chat_persists_the_catalog_payload_identical_to_the_stream(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    """W-9 box 4 (slice 1.3): the persisted `messages.metadata.response` for a
+    `catalog` turn must equal the payload emitted on the SSE stream - the same
+    parity `test_chat_persists_the_price_summary_payload_on_the_message_row`
+    above proves for `price_summary`. An unpriced offering rides along so the
+    "ordered active catalog... including unpriced rows" half of the box 4
+    claim is covered at the HTTP boundary too, not just at the query level.
+    """
+    slug = f"chat-catalog-{uuid.uuid4().hex[:8]}"
+    tenant_id, unpriced_id, priced_id = await _seed_tenant_with_catalog(superuser_conn, slug=slug)
+    app.dependency_overrides[get_llm_provider] = FakeCatalogProvider
+
+    response = await client.post("/api/chat", json={"slug": slug, "message": "what's on the menu?"})
+    assert response.status_code == 200
+    events = _parse_sse(response.text)
+    conversation_id = events[0]["conversation_id"]
+
+    catalog_events = [e for e in events if e["type"] == "catalog"]
+    assert len(catalog_events) == 1, "exactly one catalog event reaches the customer stream"
+    offerings = catalog_events[0]["catalog"]["offerings"]
+    assert [o["id"] for o in offerings] == [
+        str(unpriced_id),
+        str(priced_id),
+    ], "the catalog is in storefront position order, not insertion order"
+    assert offerings[0]["price_cents"] is None, "the unpriced row is included, not dropped"
+    assert offerings[1]["price_cents"] == 6000
+    # agent_node.py emits one fixed, non-model acknowledgement token alongside
+    # a structured response (`draft_deterministic=True`) - a real second model
+    # call would instead have produced FakeCatalogProvider's stream_text.
+    token_texts = [e["text"] for e in events if e["type"] == "token"]
+    assert token_texts == ["Here is the current catalog."]
+
+    row = await superuser_conn.fetchrow(
+        "select metadata from messages where tenant_id = $1 and conversation_id = $2 "
+        "and role = 'assistant'",
+        tenant_id,
+        uuid.UUID(conversation_id),
+    )
+    assert row is not None
+    metadata = json.loads(row["metadata"])
+    assert metadata["response"] == catalog_events[0], (
+        "the persisted response payload must equal the payload actually streamed - "
+        "this is what lets the owner and customer transcript views render the same "
+        "persisted response payload, whichever surface reads it back later"
+    )
 
 
 async def _seed_transcript(conn: asyncpg.Connection[Any], tenant_id: uuid.UUID) -> uuid.UUID:
