@@ -62,6 +62,13 @@ Detailed records live in [`spec/completed/`](spec/completed/).
 - [ ] W-10: drop `tenant_config.system_prompt` and `.tone` and their last
   writers, after W-9 is verified in production
   ([`spec/active/14-schema-drop.md`](spec/active/14-schema-drop.md)).
+- [ ] W-13: keep the six-digit email OTP contract aligned across local and
+  hosted Auth configuration; inspect hosted `mailer_otp_length` before any
+  change and verify a fresh real login
+  ([`spec/active/16-auth-otp-reliability.md`](spec/active/16-auth-otp-reliability.md)).
+- [ ] W-12: make the email OTP resend cooldown visible and recovery from a
+  failed code reliable, with mobile and desktop browser coverage
+  ([`spec/active/16-auth-otp-reliability.md`](spec/active/16-auth-otp-reliability.md)).
 - [ ] W-11: retain and review multi-file document drafts safely, publish
   successful documents independently, expose retryable failures, and disclose
   tenant-isolated storage and configured AI processing. Split into three
@@ -79,7 +86,7 @@ Detailed records live in [`spec/completed/`](spec/completed/).
     `workspace`/`open` split). Reviewed and merged to `development` via PR #32.
   - [ ] W-11c: bounded-concurrency batch upload, `Replace`, offering
     ordering/labels, pagination copy, and the privacy disclosures, not
-    started - both dependencies are merged.
+    started - both dependencies are merged. Start after W-13 and W-12.
 
 **Phase 13 specification amended four times.** 2026-09-05
 (`docs/phase13-walkthrough-refinement`): a second walkthrough round and its
