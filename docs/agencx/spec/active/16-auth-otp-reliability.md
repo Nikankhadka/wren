@@ -70,14 +70,22 @@ ticket and lands before W-12.
 
 ### Definition of done
 
-- [ ] Local GoTrue explicitly generates six-digit OTPs and local Mailpit login
-      coverage passes.
+- [x] Local GoTrue explicitly generates six-digit OTPs and local Mailpit login
+      coverage passes. `GOTRUE_MAILER_OTP_LENGTH: "6"` is pinned beside the
+      existing expiry in `docker-compose.yml`; confirmed live in the running
+      container and all nine `frontend/e2e/auth-login.spec.ts` cases pass.
 - [ ] Hosted Auth `mailer_otp_length` was inspected before a PATCH; the
       observed value and whether a PATCH was needed are recorded as evidence.
+      **Open - no Management API token available in this environment.**
 - [ ] A fresh hosted email contains six digits and that code completes login
-      through the deployed UI.
-- [ ] No dynamic client length or unrelated Auth behavior was introduced.
-- [ ] Relevant config/docs checks and the existing auth E2E coverage are green.
+      through the deployed UI. **Open, blocked on the item above.**
+- [x] No dynamic client length or unrelated Auth behavior was introduced.
+      `CodeInput.tsx` and `login/page.tsx` are untouched.
+- [x] Relevant config/docs checks and the existing auth E2E coverage are
+      green: `make check` (lint, typecheck, 1007 backend + 120 frontend
+      tests) and `frontend/e2e/auth-login.spec.ts`,
+      `auth-credentials-validation.spec.ts`, `auth-platform.spec.ts` (19
+      cases) all pass.
 
 ### Operational check
 
@@ -86,6 +94,12 @@ from source control. GET the Auth service config, compare
 `.mailer_otp_length` with `6`, PATCH only on mismatch, then request a new code
 and verify it end to end. If credentials are unavailable, the code/config
 portion may be reviewed, but the hosted acceptance item remains open.
+
+**Status: local config/docs portion shipped. Hosted GET/PATCH/verify step
+still needs an operator with a [Supabase personal access
+token](https://supabase.com/dashboard/account/tokens) - the Supabase MCP
+connector in this workspace is unauthenticated and has no Auth-config tool
+regardless.**
 
 ## W-12: OTP resend and retry recovery
 
