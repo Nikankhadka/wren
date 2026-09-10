@@ -145,18 +145,27 @@ Branch `fix/w-12-otp-resend-recovery`, based on development after W-13.
 
 ### Definition of done
 
-- [ ] The cooldown visibly counts down and becomes an enabled `Resend code`
+- [x] The cooldown visibly counts down and becomes an enabled `Resend code`
       action at sixty seconds.
-- [ ] Failed verification and successful resend clear the old code and focus
-      Digit 1; the flow remains usable at mobile and desktop widths.
-- [ ] Duplicate resend clicks produce one request and a fresh cooldown.
-- [ ] Auth/network failures are inline, recoverable, and do not discard the
+- [x] Failed verification and successful resend clear the old code and focus
+      Digit 1; the flow remains usable at mobile and desktop widths. A resend
+      clicked before anything was typed also refocuses Digit 1
+      (`CodeInput`'s new `resetSignal` prop, bumped alongside `resendAt`)
+      since the cells being already-empty means `value` never changes.
+- [x] Duplicate resend clicks produce one request and a fresh cooldown.
+- [x] Auth/network failures are inline, recoverable, and do not discard the
       email address.
-- [ ] Deterministic mobile and desktop Playwright coverage passes alongside
-      existing real GoTrue/Mailpit auth coverage.
-- [ ] Accessibility and visual-state review confirms disabled, loading,
+- [x] Deterministic mobile and desktop Playwright coverage passes alongside
+      existing real GoTrue/Mailpit auth coverage: 12 new cases
+      (`frontend/e2e/auth-otp-resend.spec.ts`,
+      `frontend/e2e/mobile-auth-otp-resend.spec.ts`) plus the existing 19
+      real-auth cases, all green.
+- [x] Accessibility and visual-state review confirms disabled, loading,
       error, success, focus, and touch-target states use existing tokens and
-      components.
+      components. Also fixed the pre-existing "Wrong email?" control, found
+      undersized (17px) once this ticket's mobile spec first checked `/login`
+      at phone width - now `min-h-11` like the resend button and
+      `Button.tsx`'s own `md` size.
 
 ## Whole-phase verification
 
