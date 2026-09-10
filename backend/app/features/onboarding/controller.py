@@ -507,6 +507,94 @@ async def save_onboarding_knowledge(
     return record, offerings
 
 
+async def save_onboarding_knowledge_batch(
+    *,
+    tenant_id: UUID,
+    documents: list[tuple[UUID, list[dict[str, str]]]],
+    offerings: list[PendingOffering],
+    accept_price_changes: bool,
+    embedder: Embedder,
+) -> tuple[list[UUID], list[tuple[UUID, str]], list[PendingOffering]]:
+    """Publish every reviewed document in one call; a document's own failure
+    (not found, still processing, or a price conflict) never aborts the rest.
+
+    W-11a: the offering-name-uniqueness check stays request-level (a malformed
+    request is a 422), but everything past it is per-document data in the
+    response - see ``OnboardingKnowledgeBatchResponse``.
+    """
+    keys: set[str] = set()
+    for offering in offerings:
+        key = normalize_name(offering.name)
+        if not key or key in keys:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="offering names must be unique",
+            )
+        keys.add(key)
+
+    batch_document_ids = {document_id for document_id, _ in documents}
+    failed: list[tuple[UUID, str]] = []
+    price_conflict_ids: set[UUID] = set()
+
+    if not accept_price_changes:
+        for offering in offerings:
+            if len(offering.price_options) <= 1:
+                continue
+            message = str(
+                knowledge_service.OfferingPriceConflict(
+                    [
+                        {
+                            "name": offering.name,
+                            "current_price_cents": offering.price_options[0],
+                            "proposed_price_cents": offering.price_options[-1],
+                        }
+                    ]
+                )
+            )
+            for document_id in offering.supporting_document_ids:
+                if document_id in batch_document_ids and document_id not in price_conflict_ids:
+                    price_conflict_ids.add(document_id)
+                    failed.append((document_id, message))
+
+    published: list[UUID] = []
+    for document_id, sections in documents:
+        if document_id in price_conflict_ids:
+            continue
+        try:
+            record = await knowledge_service.publish_record(
+                tenant_id=tenant_id,
+                document_id=document_id,
+                sections=sections,
+                offerings=None,
+                embedder=embedder,
+            )
+        except knowledge_service.OfferingPriceConflict as exc:
+            failed.append((document_id, str(exc)))
+            continue
+        if record is None:
+            failed.append((document_id, "document not found"))
+            continue
+        if record.get("status") == "failed":
+            failed.append(
+                (document_id, str(record.get("error") or "document could not be published"))
+            )
+            continue
+        published.append(document_id)
+
+    failed_ids = {document_id for document_id, _ in failed}
+    offering_candidates = [
+        offering
+        for offering in offerings
+        if not offering.supporting_document_ids
+        or not set(offering.supporting_document_ids) <= failed_ids
+    ]
+
+    onboarding = OnboardingRecord.from_jsonb(await service.load_record(tenant_id=tenant_id))
+    onboarding.offering_candidates = offering_candidates
+    await service.save_record(tenant_id=tenant_id, record=onboarding.to_jsonb())
+    return published, failed, offering_candidates
+
+
 async def confirm(
     *,
     tenant_id: UUID,
