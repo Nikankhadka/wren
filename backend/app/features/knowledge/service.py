@@ -64,6 +64,10 @@ class OfferingPriceConflict(ValueError):
         super().__init__(f"Offering price changes need confirmation: {details}")
 
 
+class DocumentNotReviewable(ValueError):
+    """A batch publish target is not an owner-reviewable draft."""
+
+
 def _safe_failure_message(stage: Literal["structure", "extract", "embed"]) -> str:
     return _SAFE_FAILURE_MESSAGES[stage]
 
@@ -576,7 +580,8 @@ async def retry_draft(
         row = await conn.fetchrow(
             "select filename, structured, offerings, failure_stage from documents "
             "where id = $1 and tenant_id = $2 and status = 'failed' "
-            "and failure_stage in ('structure', 'extract', 'embed')",
+            "and failure_stage in ('structure', 'extract', 'embed') "
+            "and failure_retryable is true",
             document_id,
             tenant_id,
         )
@@ -876,17 +881,25 @@ async def publish_record(
     document_id: UUID,
     sections: list[dict[str, str]],
     offerings: list[dict[str, Any]] | None = None,
+    reviewable_only: bool = False,
     embedder: Embedder,
 ) -> dict[str, Any] | None:
-    """Publish reviewed knowledge without touching the offerings table."""
+    """Publish reviewed knowledge without touching the offerings table.
+
+    ``reviewable_only`` is used by the batch endpoint to reject rows that are
+    not still in the owner's ``draft`` review state.
+    """
     async with db.tenant_context(tenant_id, "tenant_admin") as conn:
-        source = await conn.fetchval(
-            "select filename from documents where id = $1 and tenant_id = $2",
+        row = await conn.fetchrow(
+            "select filename, status from documents where id = $1 and tenant_id = $2 for update",
             document_id,
             tenant_id,
         )
-        if source is None:
+        if row is None:
             return None
+        if reviewable_only and row["status"] != "draft":
+            raise DocumentNotReviewable("document is not a reviewable draft")
+        source = row["filename"]
         await _publish_record(
             conn,
             tenant_id=tenant_id,
@@ -991,12 +1004,15 @@ async def save_draft_sections(
     edit isn't silently lost."""
     sections = normalize_sections(sections)
     async with db.tenant_context(tenant_id, "tenant_admin") as conn:
-        await conn.execute(
-            "update documents set structured = $2 where id = $1 and tenant_id = $3",
+        updated = await conn.fetchval(
+            "update documents set structured = $2 "
+            "where id = $1 and tenant_id = $3 and status = 'draft' returning id",
             document_id,
             json.dumps(sections),
             tenant_id,
         )
+        if updated is None:
+            raise DocumentNotReviewable("document is not a reviewable draft")
 
 
 async def _source_text_for_processing(*, tenant_id: UUID, filename: str, document_id: UUID) -> str:

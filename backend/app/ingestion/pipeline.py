@@ -111,7 +111,8 @@ async def process_document(
         raise ValueError(f"document {document_id} not found for tenant {tenant_id}")
 
     await conn.execute(
-        "update documents set status = 'processing' where id = $1 and tenant_id = $2",
+        "update documents set status = 'processing', failure_stage = null, "
+        "failure_retryable = null, failed_at = null where id = $1 and tenant_id = $2",
         document_id,
         tenant_id,
     )
@@ -196,7 +197,8 @@ async def ingest_offerings(conn: AppConnection, *, tenant_id: UUID, embedder: Em
         )
     else:
         await conn.execute(
-            "update documents set status = 'processing' where id = $1 and tenant_id = $2",
+            "update documents set status = 'processing', failure_stage = null, "
+            "failure_retryable = null, failed_at = null where id = $1 and tenant_id = $2",
             document_id,
             tenant_id,
         )

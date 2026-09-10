@@ -71,7 +71,10 @@ Detailed records live in [`spec/completed/`](spec/completed/).
     and `reconcile_replacement` for document replacement, migration 0028's
     failure metadata with the reversed stored-failure rule, `retry-draft`,
     and the batch publish endpoint. Reviewed and merged to `development` via
-    PR #31; corrective review findings remain open before W-11c.
+    PR #31; corrective follow-up adds retryability and review-state guards,
+    batch cardinality validation, storage-failure isolation, and migration
+    0030's legacy-safe metadata constraint on `fix/w-11a-backend-corrections`,
+    pending review and merge.
   - [x] W-11b: the retained review workspace (`ReviewSheet`'s `record` ->
     `workspace`/`open` split). Reviewed and merged to `development` via PR #32.
   - [ ] W-11c: bounded-concurrency batch upload, `Replace`, offering

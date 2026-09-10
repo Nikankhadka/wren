@@ -234,6 +234,32 @@ async def test_reprocess_returns_200_even_when_the_result_is_failed(
     assert body["error"]
 
 
+async def test_reprocess_clears_failure_metadata_before_processing(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    token = await _signup_tenant_admin(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    upload = await client.post(
+        "/api/knowledge/upload",
+        headers=headers,
+        files={"file": ("faq.md", b"We are open weekdays 9-5.", "text/markdown")},
+        data={"doc_type": "faq"},
+    )
+    document_id = upload.json()["id"]
+    await superuser_conn.execute(
+        "update documents set status = 'failed', error = 'retry me', "
+        "failure_stage = 'embed', failure_retryable = true, failed_at = now() "
+        "where id = $1",
+        document_id,
+    )
+
+    response = await client.post(f"/api/knowledge/{document_id}/reprocess", headers=headers)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["status"] == "ready"
+    assert body["error"] is None
+
+
 async def test_upload_rejects_unsupported_extension(client: httpx.AsyncClient) -> None:
     token = await _signup_tenant_admin(client)
     response = await client.post(
@@ -533,6 +559,32 @@ async def test_retry_draft_on_an_already_good_draft_is_404(client: httpx.AsyncCl
         )
         assert upload.json()["status"] == "draft"
         document_id = upload.json()["id"]
+
+        response = await client.post(f"/api/knowledge/{document_id}/retry-draft", headers=headers)
+        assert response.status_code == 404
+    finally:
+        app.dependency_overrides.pop(get_llm_provider, None)
+
+
+async def test_retry_draft_on_a_non_retryable_failure_is_404(
+    client: httpx.AsyncClient, superuser_conn: asyncpg.Connection[Any]
+) -> None:
+    app.dependency_overrides[get_llm_provider] = lambda: _MenuProvider()
+    try:
+        token = await _signup_tenant_admin(client)
+        headers = {"Authorization": f"Bearer {token}"}
+        upload = await client.post(
+            "/api/knowledge/drafts/upload",
+            headers=headers,
+            files={"file": ("menu.md", b"Hot Chips are $10.\n", "text/markdown")},
+        )
+        document_id = upload.json()["id"]
+        await superuser_conn.execute(
+            "update documents set status = 'failed', error = 'permanent', "
+            "failure_stage = 'structure', failure_retryable = false, failed_at = now() "
+            "where id = $1",
+            document_id,
+        )
 
         response = await client.post(f"/api/knowledge/{document_id}/retry-draft", headers=headers)
         assert response.status_code == 404

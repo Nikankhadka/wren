@@ -14,6 +14,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 from uuid import UUID, uuid4
 
+import httpx
 from fastapi import HTTPException, status
 
 from app.features.business.offering_candidates import normalize_name
@@ -560,14 +561,19 @@ async def save_onboarding_knowledge_batch(
 
     price_conflict_ids = set(price_conflict_messages)
     for document_id, messages in price_conflict_messages.items():
-        failed.append((document_id, "; ".join(messages)))
         # The document is skipped below, never reaching publish_record, so its
         # submitted edits would otherwise be silently lost.
-        await knowledge_service.save_draft_sections(
-            tenant_id=tenant_id,
-            document_id=document_id,
-            sections=document_sections[document_id],
-        )
+        try:
+            await knowledge_service.save_draft_sections(
+                tenant_id=tenant_id,
+                document_id=document_id,
+                sections=document_sections[document_id],
+            )
+        except knowledge_service.DocumentNotReviewable as exc:
+            failed.append((document_id, str(exc)))
+            hard_failure_ids.add(document_id)
+        else:
+            failed.append((document_id, "; ".join(messages)))
 
     published: list[UUID] = []
     for document_id, sections in documents:
@@ -579,10 +585,24 @@ async def save_onboarding_knowledge_batch(
                 document_id=document_id,
                 sections=sections,
                 offerings=None,
+                reviewable_only=True,
                 embedder=embedder,
             )
         except knowledge_service.OfferingPriceConflict as exc:
             failed.append((document_id, str(exc)))
+            continue
+        except knowledge_service.DocumentNotReviewable as exc:
+            failed.append((document_id, str(exc)))
+            hard_failure_ids.add(document_id)
+            continue
+        except (OSError, httpx.HTTPError):
+            await knowledge_service.save_draft_sections(
+                tenant_id=tenant_id,
+                document_id=document_id,
+                sections=sections,
+            )
+            failed.append((document_id, "We could not save this document. Please retry."))
+            hard_failure_ids.add(document_id)
             continue
         if record is None:
             failed.append((document_id, "document not found"))

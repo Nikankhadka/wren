@@ -104,9 +104,18 @@ class OnboardingKnowledgeBatchDocument(BaseModel):
 
 
 class OnboardingKnowledgeBatchRequest(BaseModel):
-    documents: list[OnboardingKnowledgeBatchDocument]
+    documents: list[OnboardingKnowledgeBatchDocument] = Field(min_length=1, max_length=5)
     offerings: list[PendingOffering] = Field(default_factory=list)
     accept_price_changes: bool = False
+
+    @field_validator("documents")
+    @classmethod
+    def _document_ids_are_unique(
+        cls, documents: list[OnboardingKnowledgeBatchDocument]
+    ) -> list[OnboardingKnowledgeBatchDocument]:
+        if len({document.document_id for document in documents}) != len(documents):
+            raise ValueError("document_id values must be unique")
+        return documents
 
 
 class OnboardingKnowledgeBatchFailure(BaseModel):
