@@ -301,6 +301,8 @@ async def test_save_round_trips_complete_reviewed_offering_and_preserves_source(
         "price_note": "",
         "needs_review": False,
         "price_options": [],
+        "supporting_document_ids": [],
+        "support_state": "supported",
     }
     saved = await client.put(
         f"/api/knowledge/records/{draft['id']}",

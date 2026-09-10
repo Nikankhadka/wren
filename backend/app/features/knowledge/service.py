@@ -260,9 +260,9 @@ async def list_records(*, tenant_id: UUID) -> list[dict[str, Any]]:
     return [_record(row) for row in rows]
 
 
-async def _extraction(text: str, *, provider: LLMProvider) -> dict[str, Any]:
+async def _extraction(text: str, *, provider: LLMProvider, document_id: UUID) -> dict[str, Any]:
     """Run W-6's offering extraction and shape it for the ``offerings`` column."""
-    candidates, status = await extract_offerings(text, provider=provider)
+    candidates, status = await extract_offerings(text, provider=provider, document_id=document_id)
     return {"status": status, "candidates": [item.model_dump() for item in candidates]}
 
 
@@ -319,7 +319,7 @@ async def draft_from_upload(
         filename=filename,
         doc_type="other",
         sections=sections,
-        extraction=await _extraction(raw_text, provider=provider),
+        extraction=await _extraction(raw_text, provider=provider, document_id=document_id),
     )
 
 
@@ -368,7 +368,7 @@ async def draft_from_url_text(
     await get_storage().put(document_key(tenant_id, target, ".txt"), text.encode("utf-8"))
     await _save_original_text(tenant_id=tenant_id, document_id=target, text=text)
 
-    extraction = await _extraction(text, provider=provider)
+    extraction = await _extraction(text, provider=provider, document_id=target)
     if existing is None:
         return await _insert_draft(
             tenant_id=tenant_id,
@@ -600,7 +600,7 @@ async def get_record(
         # offerings once, when someone actually looks, rather than backfilling
         # every historical document with a pair of model calls.
         sections = record["sections"] or await structure_document(text, provider=provider)
-        extraction = await _extraction(text, provider=provider)
+        extraction = await _extraction(text, provider=provider, document_id=document_id)
         await conn.execute(
             "update documents set structured = $2, offerings = $3 where id = $1",
             document_id,

@@ -13,9 +13,11 @@ from __future__ import annotations
 from hashlib import sha256
 from typing import Literal
 from unicodedata import normalize
+from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator, model_validator
 
+from app.features.business.offering_candidates import normalize_name
 from app.shared.voice import CUSTOM_VOICE, CUSTOM_VOICE_MAX, DEFAULT_VOICE_PRESET
 
 
@@ -164,6 +166,14 @@ class PendingOffering(BaseModel):
     price_cents: int | None = Field(default=None, ge=0)
     sources: list[Literal["owner", "document"]] = Field(default_factory=list, validate_default=True)
     source_references: list[SourceReference] = Field(default_factory=list)
+    # W-11: the documents this candidate depends on. Empty for an owner-typed
+    # candidate - that emptiness is meaningful, it says the candidate depends on
+    # no document and must survive any document being replaced.
+    supporting_document_ids: list[UUID] = Field(default_factory=list)
+    # W-11: set only by reconcile_replacement, when a document that supported
+    # this candidate was replaced but the owner had already edited it. No
+    # owner-facing wording lives here - the review UI renders that.
+    support_state: Literal["supported", "orphaned"] = "supported"
     # W-6: a price the offering row cannot represent - a range, a "from" price,
     # a rate - kept as the source's own wording so the owner sees what the
     # document actually said instead of a number picked out of it.
@@ -192,6 +202,12 @@ class PendingOffering(BaseModel):
     @classmethod
     def _require_source(cls, value: list[str]) -> list[str]:
         return list(dict.fromkeys(value)) or ["owner"]
+
+    @field_serializer("supporting_document_ids")
+    def _serialize_supporting_document_ids(self, value: list[UUID]) -> list[str]:
+        # Every existing call site dumps this model with plain json.dumps, which
+        # cannot encode a UUID, so the wire form is always the string.
+        return [str(item) for item in value]
 
     @model_validator(mode="after")
     def _default_candidate_id(self) -> PendingOffering:
@@ -265,6 +281,9 @@ def merge_offerings(existing: PendingOffering, incoming: PendingOffering) -> Pen
       either candidate stays raised.
 
     The owner can override any of it on the review sheet before publish.
+    W-11's ``reconcile_replacement`` is this function's set-level caller for a
+    document replacement: it decides which offerings survive or drop, then
+    still calls here for every pair it decides should combine.
     """
     pair = (existing, incoming)
     document = next((item for item in pair if "document" in item.sources), None)
@@ -274,6 +293,9 @@ def merge_offerings(existing: PendingOffering, incoming: PendingOffering) -> Pen
     )
     description = next((item.description for item in preferred if item.description), "")
     sources = list(dict.fromkeys([*existing.sources, *incoming.sources]))
+    supporting_document_ids = list(
+        dict.fromkeys([*existing.supporting_document_ids, *incoming.supporting_document_ids])
+    )
     name = document.name if document else existing.name
     offered = [item.price_cents for item in pair if item.price_cents is not None]
     conflicting = sorted({*offered, *existing.price_options, *incoming.price_options})
@@ -283,6 +305,7 @@ def merge_offerings(existing: PendingOffering, incoming: PendingOffering) -> Pen
         description=description,
         price_cents=price_cents,
         sources=sources,
+        supporting_document_ids=supporting_document_ids,
         source_references=list(
             {
                 (reference.block, reference.excerpt, tuple(reference.supported_fields)): reference
@@ -294,3 +317,48 @@ def merge_offerings(existing: PendingOffering, incoming: PendingOffering) -> Pen
         possible_matches=sorted({*existing.possible_matches, *incoming.possible_matches}),
         price_options=conflicting if len(conflicting) > 1 else [],
     )
+
+
+def reconcile_replacement(
+    existing: list[PendingOffering],
+    incoming: list[PendingOffering],
+    *,
+    replaced_document_id: UUID,
+    edited_candidate_ids: set[str],
+) -> list[PendingOffering]:
+    """W-11: which offerings survive when the owner replaces one source document.
+
+    This is a set-level lifecycle decision, not a second precedence policy -
+    every overlap it finds is still resolved by ``merge_offerings`` alone.
+
+    - An existing candidate that matches one of ``incoming`` (same name, by the
+      same normalisation the rest of the system uses) is combined with it via
+      ``merge_offerings``.
+    - An existing candidate with no match in ``incoming``, that depends only on
+      the replaced document and was never edited by the owner, is dropped -
+      nothing else vouches for it any more.
+    - The same, but owner-edited, is kept and marked ``orphaned`` rather than
+      dropped, so the owner's own words never disappear silently.
+    - Anything else (an owner-typed candidate, or one still backed by another
+      document) survives untouched, and every unmatched ``incoming`` candidate
+      is kept as a new offering.
+    """
+    incoming_by_key = {normalize_name(item.name): item for item in incoming}
+    matched: set[str] = set()
+    survivors: list[PendingOffering] = []
+
+    for item in existing:
+        match = incoming_by_key.get(normalize_name(item.name))
+        if match is not None:
+            matched.add(normalize_name(item.name))
+            survivors.append(merge_offerings(item, match))
+            continue
+        only_replaced = set(item.supporting_document_ids) == {replaced_document_id}
+        if only_replaced and item.candidate_id not in edited_candidate_ids:
+            continue
+        if only_replaced:
+            item = item.model_copy(update={"support_state": "orphaned"})
+        survivors.append(item)
+
+    survivors.extend(item for key, item in incoming_by_key.items() if key not in matched)
+    return survivors
