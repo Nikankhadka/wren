@@ -70,13 +70,13 @@ Detailed records live in [`spec/completed/`](spec/completed/).
   - [x] W-11a: backend contract - `supporting_document_ids`/`support_state`
     and `reconcile_replacement` for document replacement, migration 0028's
     failure metadata with the reversed stored-failure rule, `retry-draft`,
-    and the batch publish endpoint. Built and reviewed on
-    `feat/w-11a-document-batch`; pending merge to `development`.
-  - [ ] W-11b: the retained review workspace (`ReviewSheet`'s `record` ->
-    `workspace`/`open` split), not started.
+    and the batch publish endpoint. Reviewed and merged to `development` via
+    PR #31; corrective review findings remain open before W-11c.
+  - [x] W-11b: the retained review workspace (`ReviewSheet`'s `record` ->
+    `workspace`/`open` split). Reviewed and merged to `development` via PR #32.
   - [ ] W-11c: bounded-concurrency batch upload, `Replace`, offering
     ordering/labels, pagination copy, and the privacy disclosures, not
-    started - depends on W-11a and W-11b.
+    started - both dependencies are merged.
 
 **Phase 13 specification amended four times.** 2026-09-05
 (`docs/phase13-walkthrough-refinement`): a second walkthrough round and its
@@ -88,7 +88,8 @@ and the non-terminal handoff contract, and 2026-09-08: the base contract and
 Amendment 4 were merged to `development` sequentially. **W-1 through W-9 are
 shipped, and the phase is closed** ([`spec/completed/13-walkthrough.md`](spec/completed/13-walkthrough.md)).
 W-11 is documented separately in Phase 15 and can now proceed independently from
-the merge dependency, though it remains unimplemented.
+the merge dependency. It is partially implemented: W-11a and W-11b are merged,
+and W-11c remains outstanding.
 
 ## Known gaps and deliberate deferrals
 

@@ -34,7 +34,8 @@ items below live under whichever ticket actually delivers them.
 ## W-11a: backend contract
 
 Branch `feat/w-11a-document-batch`. No UI; fully testable through API tests.
-**Shipped**, pending merge to `development`.
+**Merged to `development` via PR #31.** Corrective review findings remain to
+be resolved before W-11c begins.
 
 ### User stories
 
@@ -105,7 +106,7 @@ Branch `feat/w-11a-document-batch`. No UI; fully testable through API tests.
 ## W-11b: the retained workspace
 
 Branch `fix/w-11b-retained-review`. Independent of W-11a; highest value per
-line. **Not started.**
+line. **Merged to `development` via PR #32.**
 
 ### User story
 
@@ -126,11 +127,11 @@ path for that case, unchanged.
 
 ### Definition of done
 
-- [ ] Closing and reopening the review retains in-session edits (typed text,
+- [x] Closing and reopening the review retains in-session edits (typed text,
       not yet saved).
-- [ ] A reload or later login still resumes the persisted draft, unaffected
+- [x] A reload or later login still resumes the persisted draft, unaffected
       by this change.
-- [ ] Covered by an extension to `onboarding-url.spec.ts`: type into a field,
+- [x] Covered by an extension to `onboarding-url.spec.ts`: type into a field,
       close the sheet, assert the dialog is hidden, reopen, assert the typed
       value is still there.
 
