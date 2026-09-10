@@ -69,9 +69,14 @@ Detailed records live in [`spec/completed/`](spec/completed/).
   Local config and docs landed (`GOTRUE_MAILER_OTP_LENGTH: "6"`, `deploy.md`
   GET/PATCH examples); auth E2E green. Hosted GET/PATCH/verify step still
   open - needs an operator with a Supabase Management API token.
-- [ ] W-12: make the email OTP resend cooldown visible and recovery from a
+- [x] W-12: make the email OTP resend cooldown visible and recovery from a
   failed code reliable, with mobile and desktop browser coverage
   ([`spec/active/16-auth-otp-reliability.md`](spec/active/16-auth-otp-reliability.md)).
+  Visible `Resend in Ns` / `Resend code` countdown, clear-and-refocus on
+  failed verification and on resend (including when nothing was typed yet),
+  one request per click, inline recoverable network errors. 12 new
+  deterministic Playwright cases (desktop + mobile) plus the existing 19
+  real GoTrue/Mailpit cases all green; `make check` green.
 - [ ] W-11: retain and review multi-file document drafts safely, publish
   successful documents independently, expose retryable failures, and disclose
   tenant-isolated storage and configured AI processing. Split into three

@@ -5,7 +5,8 @@
  * files don't duplicate selectors and input sequences.
  */
 
-import type { APIRequestContext, Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expectNoHorizontalOverflow, expectTapTargets } from "./mobile-helpers";
 
 // ---------------------------------------------------------------------------
 // Demo identities (from backend/seeds/seed_demo.py)
@@ -201,4 +202,176 @@ export async function getAccessToken(page: Page): Promise<string> {
     Buffer.from(raw, "base64url").toString("utf8")
   ) as { access_token: string };
   return accessToken;
+}
+
+// ---------------------------------------------------------------------------
+// W-12: OTP resend/retry recovery (deterministic, route-mocked)
+// ---------------------------------------------------------------------------
+
+/**
+ * Control handle for the OTP endpoint mocks installed by `mockOtpEndpoints`.
+ * `/auth/v1/verify` always returns GoTrue's real `otp_expired` shape (this
+ * suite never needs a successful verification - that path already has real
+ * GoTrue/Mailpit coverage in auth-login.spec.ts); `/auth/v1/otp` succeeds
+ * until `failOtp` is called.
+ */
+export interface OtpMock {
+  otpRequestCount: () => number;
+  failOtp: () => void;
+  succeedOtp: () => void;
+}
+
+export async function mockOtpEndpoints(page: Page): Promise<OtpMock> {
+  let requestCount = 0;
+  let failing = false;
+
+  await page.route(/\/auth\/v1\/otp(\?|$)/, async (route) => {
+    requestCount++;
+    if (failing) {
+      await route.abort("failed");
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+  });
+
+  await page.route(/\/auth\/v1\/verify(\?|$)/, async (route) => {
+    await route.fulfill({
+      status: 403,
+      contentType: "application/json",
+      body: JSON.stringify({ error_code: "otp_expired", msg: "Token has expired or is invalid" }),
+    });
+  });
+
+  return {
+    otpRequestCount: () => requestCount,
+    failOtp: () => {
+      failing = true;
+    },
+    succeedOtp: () => {
+      failing = false;
+    },
+  };
+}
+
+const RESEND_EMAIL = DEMO_USERS.find((u) => u.email === "owner@bytefix.dev")!.email;
+
+/**
+ * Registers the six W-12 resend/retry-recovery cases. A factory, not a
+ * spec file itself, so the same suite runs under both the desktop and
+ * mobile-chrome Playwright projects (`auth-otp-resend.spec.ts` and
+ * `mobile-auth-otp-resend.spec.ts`) without duplicating the scenarios.
+ *
+ * Uses `page.clock` (installed before navigation, so every timer on the page
+ * - including the countdown effect's recursive `setTimeout` chain - runs on
+ * fake time) to drive the sixty-second cooldown deterministically rather
+ * than waiting on it in real time.
+ */
+export function otpResendSuite({ mobile }: { mobile: boolean }): void {
+  async function openCodePhase(page: Page): Promise<OtpMock> {
+    const mock = await mockOtpEndpoints(page);
+    await page.clock.install();
+    await page.goto("/login");
+    await page.getByPlaceholder("you@example.com").fill(RESEND_EMAIL);
+    await page.getByRole("button", { name: "Send" }).click();
+    await page.getByLabel("Digit 1").waitFor();
+    return mock;
+  }
+
+  test.describe(`OTP resend and retry recovery${mobile ? " (mobile)" : ""}`, () => {
+    test("shows a counting-down resend control after the code is sent", async ({ page }) => {
+      await openCodePhase(page);
+      const button = page.getByRole("button", { name: /^Resend/ });
+      await expect(button).toHaveText("Resend in 60s");
+      await expect(button).toBeDisabled();
+      // Proves it actually counts down, not just starts disabled with a
+      // static label - `page.clock` freezes time, so a static string here
+      // would otherwise pass with no countdown behavior at all.
+      await page.clock.fastForward(30_000);
+      await expect(button).toHaveText("Resend in 30s");
+      if (mobile) {
+        await expectNoHorizontalOverflow(page);
+        await expectTapTargets(page);
+      }
+    });
+
+    test("a failed verification clears the code and refocuses Digit 1", async ({ page }) => {
+      await openCodePhase(page);
+      for (let i = 0; i < 6; i++) {
+        await page.getByLabel(`Digit ${i + 1}`).fill("0");
+      }
+      await expect(
+        page.getByText("That code didn't work or expired. Try again, or resend.")
+      ).toBeVisible();
+      for (let i = 0; i < 6; i++) {
+        await expect(page.getByLabel(`Digit ${i + 1}`)).toHaveValue("");
+      }
+      await expect(page.getByLabel("Digit 1")).toBeFocused();
+      // A failed verification also re-arms resend immediately (W-12) rather
+      // than leaving the owner to wait out the original cooldown.
+      await expect(page.getByRole("button", { name: "Resend code" })).toBeEnabled();
+    });
+
+    test("resend becomes an enabled action once the cooldown expires", async ({ page }) => {
+      await openCodePhase(page);
+      // Matched by a name common to both states (accessible name changes
+      // with the countdown, so a locator pinned to one state's text goes
+      // stale the moment it flips).
+      const button = page.getByRole("button", { name: /^Resend/ });
+      await expect(button).toHaveText(/Resend in \d+s/);
+      await page.clock.fastForward(60_000);
+      await expect(button).toHaveText("Resend code");
+      await expect(button).toBeEnabled();
+      if (mobile) await expectTapTargets(page);
+    });
+
+    test("a rapid double click sends exactly one resend request", async ({ page }) => {
+      const mock = await openCodePhase(page);
+      await page.clock.fastForward(60_000);
+      expect(mock.otpRequestCount()).toBe(1); // the initial send
+
+      // Two native clicks dispatched inside one page.evaluate: both reach
+      // React's handler before any re-render can disable the button or
+      // update the `busy` closure a second call would read - the one race
+      // `dblclick()` cannot force, and the one only the synchronous
+      // `sending` ref in submitEmail (not the `disabled` attribute) guards.
+      await page
+        .getByRole("button", { name: "Resend code" })
+        .evaluate((el: HTMLButtonElement) => {
+          el.click();
+          el.click();
+        });
+      await expect.poll(() => mock.otpRequestCount()).toBe(2);
+    });
+
+    test("a successful resend clears the cooldown, the code, and confirms", async ({ page }) => {
+      await openCodePhase(page);
+      await page.clock.fastForward(60_000);
+      await page.getByRole("button", { name: "Resend code" }).click();
+      await expect(page.getByText("New code sent.")).toBeVisible();
+      await expect(page.getByRole("button", { name: /Resend in \d+s/ })).toBeVisible();
+      for (let i = 0; i < 6; i++) {
+        await expect(page.getByLabel(`Digit ${i + 1}`)).toHaveValue("");
+      }
+      await expect(page.getByLabel("Digit 1")).toBeFocused();
+    });
+
+    test("a network failure on resend is inline and recoverable", async ({ page }) => {
+      const mock = await openCodePhase(page);
+      await page.clock.fastForward(60_000);
+      mock.failOtp();
+      const button = page.getByRole("button", { name: "Resend code" });
+      await button.click();
+      await expect(
+        page.getByText("Couldn't reach the code service. Check your connection and try again.")
+      ).toBeVisible();
+      // Recoverable, not trapping: the email is still shown and resend is
+      // still clickable - a failed resend does not touch the cooldown.
+      await expect(page.getByText(`Code sent to ${RESEND_EMAIL}`)).toBeVisible();
+      await expect(button).toBeEnabled();
+
+      mock.succeedOtp();
+      await button.click();
+      await expect(page.getByText("New code sent.")).toBeVisible();
+    });
+  });
 }
