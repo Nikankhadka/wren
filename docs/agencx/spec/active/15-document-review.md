@@ -34,8 +34,8 @@ items below live under whichever ticket actually delivers them.
 ## W-11a: backend contract
 
 Branch `feat/w-11a-document-batch`. No UI; fully testable through API tests.
-**Merged to `development` via PR #31.** Corrective follow-up is implemented on
-`fix/w-11a-backend-corrections`, pending review and merge before W-11c begins.
+**Merged to `development` via PR #31.** Corrective follow-up merged via PR #34
+(`fix/w-11a-backend-corrections`).
 
 ### User stories
 
