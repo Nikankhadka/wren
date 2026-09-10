@@ -173,6 +173,53 @@ def test_primary_alone_needs_no_chain(monkeypatch: pytest.MonkeyPatch) -> None:
     assert not isinstance(provider, FailoverProvider)
 
 
+def test_an_unconfigured_primary_leg_raises_a_named_config_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The bare-environment case: nothing LLM_* set at all, so LLM_PROVIDER keeps
+    its 'azure' default with no credentials behind it.
+
+    This used to reach ``AsyncAzureOpenAI``'s constructor, which raises
+    ``openai.OpenAIError('Missing credentials...')`` - during FastAPI dependency
+    resolution, so it surfaced as a 500 from whichever route happened to want a
+    provider, naming neither the leg nor the setting. The fallback and failover
+    legs had always guarded themselves; the primary is the one that did not.
+    """
+    with pytest.raises(ConfigError, match="AZURE_OPENAI_ENDPOINT"):
+        _wired(
+            monkeypatch,
+            llm_provider="azure",
+            azure_openai_endpoint="",
+            azure_openai_api_key="",
+            llm_api_key="",
+            llm_model="",
+            llm_fallback_api_key="",
+            llm_fallback_model="",
+            llm_failover_api_key="",
+            llm_failover_model="",
+        )
+
+
+def test_an_unconfigured_primary_falls_through_to_the_next_configured_leg(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The primary now answers "am I configured?" the same way the other legs
+    do, so an unset primary is a skipped leg rather than a crash."""
+    provider = _wired(
+        monkeypatch,
+        **_tiers(
+            llm_api_key="",
+            llm_model="",
+            llm_failover_api_key="",
+            llm_failover_model="",
+        ),
+    )
+
+    assert isinstance(provider, OpenAICompatProvider)
+    assert not isinstance(provider, FailoverProvider)
+    assert provider._model == "openai/gpt-oss-120b"
+
+
 def test_groq_leg_on_a_non_gpt_oss_model_refuses_to_start() -> None:
     # Groq serves strict json_schema only on its gpt-oss line; anything else
     # returns prose under a 200, breaking every extract() far from the cause.

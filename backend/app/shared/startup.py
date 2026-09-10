@@ -36,7 +36,19 @@ def check_startup_config(settings: Settings) -> None:
     if settings.environment.lower() in _DEV_ENVIRONMENTS:
         return
 
+    # Imported here for the same reason _check_provider_legs does it.
+    from app.llm.dependency import primary_leg_configured
+
     missing: list[str] = []
+    if not primary_leg_configured(settings):
+        # Not a dev-environment concern: local and CI runs stub the provider,
+        # and the factory now says so clearly if one slips through. A real
+        # deployment without a primary leg answers no customer at all, so it
+        # should die here rather than 500 on every turn.
+        missing.append(
+            f"the primary LLM leg (LLM_PROVIDER={settings.llm_provider!r}) has no "
+            "endpoint/model credentials"
+        )
     if not settings.supabase_jwt_secret:
         missing.append("SUPABASE_JWT_SECRET is empty")
     db_password = settings.wren_app_db_password

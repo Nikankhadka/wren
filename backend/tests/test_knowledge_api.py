@@ -23,7 +23,7 @@ import pytest_asyncio
 
 from app.features.knowledge import service
 from app.features.knowledge.api import MAX_UPLOAD_BYTES
-from app.llm.dependency import get_embedder_dependency
+from app.llm.dependency import get_embedder_dependency, get_llm_provider
 from app.llm.embedder import Embedder
 from app.llm.provider import LLMProvider
 from app.main import app
@@ -62,12 +62,22 @@ def _env(tmp_path: Path) -> Iterator[None]:
 async def client(migrated_db: str) -> AsyncIterator[httpx.AsyncClient]:
     await db.create_pool(dsn=_app_dsn_for(migrated_db), min_size=1, max_size=4)
     app.dependency_overrides[get_embedder_dependency] = ZeroEmbedder
+    # The fixture owns a default provider, the shape test_knowledge_records.py's
+    # client fixture already uses. Every draft route resolves get_llm_provider
+    # before its body runs, so a test that only asserts a rejection or patches
+    # the service layer still needs one injected - otherwise the real factory
+    # builds a live SDK client from env and, in an environment with no LLM
+    # credentials (CI has none), the route under test answers 500 instead of
+    # what it was written to assert. Tests needing particular model behaviour
+    # still override this with their own fake.
+    app.dependency_overrides[get_llm_provider] = lambda: _MenuProvider()
     try:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
             yield ac
     finally:
         app.dependency_overrides.pop(get_embedder_dependency, None)
+        app.dependency_overrides.pop(get_llm_provider, None)
         await db.close_pool()
 
 
@@ -423,6 +433,11 @@ async def test_draft_upload_processing_failure_persists_as_failed(
         ("big.txt", b"x" * (MAX_UPLOAD_BYTES + 1)),
         ("empty.txt", b""),
     ],
+    # Explicit, because pytest derives an id from the *value*: without these the
+    # oversize case's node id is the whole 4MB body, and every line that names
+    # the test - a failure header, the short summary, the cache's nodeids file -
+    # becomes a 4MB line.
+    ids=["unsupported-extension", "oversize", "empty"],
 )
 async def test_draft_upload_rejects_invalid_files_and_stores_nothing(
     client: httpx.AsyncClient, filename: str, content: bytes
