@@ -12,6 +12,7 @@ import {
   type KnowledgeRecord,
   type KnowledgeSection,
   type PendingOffering,
+  type ReviewWorkspace,
 } from "./lib/types";
 
 /**
@@ -33,7 +34,8 @@ export default function KnowledgePage() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [reviewing, setReviewing] = useState<KnowledgeRecord | null>(null);
+  const [workspace, setWorkspace] = useState<ReviewWorkspace | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [priceConflict, setPriceConflict] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -67,7 +69,8 @@ export default function KnowledgePage() {
       setUrl("");
       await refresh();
       setPriceConflict(null);
-      setReviewing(draft);
+      setWorkspace(draft);
+      setSheetOpen(true);
     } catch (err) {
       fail(err, "I couldn't read that page. Check the link, or send me a file instead.");
     } finally {
@@ -92,7 +95,8 @@ export default function KnowledgePage() {
       });
       await refresh();
       setPriceConflict(null);
-      setReviewing(draft);
+      setWorkspace(draft);
+      setSheetOpen(true);
     } catch (err) {
       fail(err, "I couldn't read that file.");
     } finally {
@@ -105,11 +109,11 @@ export default function KnowledgePage() {
     offerings: PendingOffering[] = [],
     acceptPriceChanges = false,
   ) {
-    if (!reviewing) return;
+    if (!workspace) return;
     setError(null);
     setWorking("Saving…");
     try {
-      await apiFetch<KnowledgeRecord>(`/api/knowledge/records/${reviewing.id}`, {
+      await apiFetch<KnowledgeRecord>(`/api/knowledge/records/${workspace.id}`, {
         method: "PUT",
         body: JSON.stringify({
           sections,
@@ -118,7 +122,8 @@ export default function KnowledgePage() {
         }),
       });
       setPriceConflict(null);
-      setReviewing(null);
+      setWorkspace(null);
+      setSheetOpen(false);
       await refresh();
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
@@ -153,7 +158,13 @@ export default function KnowledgePage() {
     setWorking("Removing…");
     try {
       await apiFetch(`/api/knowledge/records/${record.id}`, { method: "DELETE" });
-      setReviewing(null);
+      // W-11b: only close/clear the sheet if the record just deleted is the
+      // one it's showing - a row-level delete on a different, unrelated
+      // document must not discard an in-progress edit elsewhere.
+      if (workspace?.id === record.id) {
+        setWorkspace(null);
+        setSheetOpen(false);
+      }
       await refresh();
     } catch (err) {
       fail(err, "I couldn't remove that.");
@@ -167,12 +178,14 @@ export default function KnowledgePage() {
   async function open(record: KnowledgeRecord) {
     setPriceConflict(null);
     if (record.sections.length > 0) {
-      setReviewing(record);
+      setWorkspace(record);
+      setSheetOpen(true);
       return;
     }
     setWorking("Reading it back…");
     try {
-      setReviewing(await apiFetch<KnowledgeRecord>(`/api/knowledge/records/${record.id}`));
+      setWorkspace(await apiFetch<KnowledgeRecord>(`/api/knowledge/records/${record.id}`));
+      setSheetOpen(true);
     } catch (err) {
       fail(err, "I couldn't read that one back.");
     } finally {
@@ -359,19 +372,20 @@ export default function KnowledgePage() {
       </div>
 
       <ReviewSheet
-        record={reviewing}
+        workspace={workspace}
+        open={sheetOpen}
         busy={working !== null}
         priceConflict={priceConflict}
         onClose={() => {
           setPriceConflict(null);
-          setReviewing(null);
+          setSheetOpen(false);
         }}
         onSave={(sections, offerings, acceptPriceChanges) =>
           void save(sections, offerings, acceptPriceChanges)
         }
         onDiscard={() => {
           setPriceConflict(null);
-          if (reviewing) void remove(reviewing);
+          if (workspace) void remove(workspace);
         }}
       />
     </main>
