@@ -65,9 +65,9 @@ async def _replace_chunks(
     vectors: list[list[float]],
 ) -> None:
     """Delete and reinsert one document's chunks - DB writes only. Callers embed
-    first (a network call) and pass the resulting ``vectors`` in, so this can
-    run entirely inside a DB transaction without holding it open across that
-    network round-trip."""
+    first (a network call) and pass the resulting ``vectors`` in, so the write
+    itself needs no network I/O - see the callers' own comments for why this
+    does not change how long db.tenant_context's transaction is held."""
     await conn.execute(
         "delete from knowledge_chunks where document_id = $1 and tenant_id = $2",
         document_id,
@@ -125,9 +125,14 @@ async def process_document(
         if not chunks:
             raise _NoExtractableContent("no extractable content in this file")  # noqa: TRY301
 
-        # Embedding is a network call to the provider; it runs before the DB
-        # transaction opens so a slow or failing embed call never holds a
-        # transaction open (W-11a review fix 9).
+        # Embedding is a network call to the provider. It still runs inside the
+        # outer transaction db.tenant_context opened around this whole call (its
+        # RLS scoping is transaction-local, so that transaction spans the entire
+        # block regardless) - moving it here does not shorten that. What it does
+        # do: keep the chunk delete/insert and the status flip atomic with each
+        # other via this nested transaction (a savepoint on the already-open
+        # outer one), instead of racing a status update against a still-running
+        # chunk replace.
         vectors = await embed_texts(embedder, [chunk.content for chunk in chunks])
         async with conn.transaction():
             await _replace_chunks(
@@ -203,8 +208,9 @@ async def ingest_offerings(conn: AppConnection, *, tenant_id: UUID, embedder: Em
             )
             for item in items
         ]
-        # See process_document: embed before opening the transaction so it is
-        # never held across the embedding provider's network call.
+        # See process_document's comment above: the embed call still runs
+        # inside db.tenant_context's own transaction either way; this nested
+        # one only keeps the chunk replace and the status flip atomic.
         vectors = await embed_texts(embedder, [chunk.content for chunk in chunks])
         async with conn.transaction():
             await _replace_chunks(
