@@ -8,9 +8,12 @@ always replaced, never appended to, so re-running never doubles them up.
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
+
+import asyncpg
 
 from app.ingestion.chunker import Chunk, chunk_catalog_item, chunk_document
 from app.ingestion.embedder import embed_texts
@@ -21,16 +24,55 @@ if TYPE_CHECKING:
     from app.shared.db import AppConnection
 
 
+logger = logging.getLogger("app.ingestion.pipeline")
+_SAFE_EMBED_FAILURE_MESSAGE = "We could not make this document searchable. Please retry."
+
+
+class _NoExtractableContent(ValueError):
+    """The chunker produced zero chunks - the file has nothing to search over.
+    Deterministic: this fails identically on every retry, so it is the one
+    embed-stage failure ``_mark_failed`` must not mark retryable."""
+
+
+async def _mark_failed(
+    conn: AppConnection,
+    *,
+    tenant_id: UUID,
+    document_id: UUID,
+    retryable: bool = True,
+) -> None:
+    """Record a chunk+embed failure - W-11's 'embed' stage - the same failure
+    metadata a draft's own structuring/extraction failure gets. ``retryable``
+    is False only for a failure that will recur identically on every retry (a
+    file with no extractable content); every other embed/chunk failure (a
+    transient provider error, say) keeps the default of True."""
+    await conn.execute(
+        "update documents set status = 'failed', error = $2, failure_stage = 'embed', "
+        "failure_retryable = $4, failed_at = now() where id = $1 and tenant_id = $3",
+        document_id,
+        _SAFE_EMBED_FAILURE_MESSAGE,
+        tenant_id,
+        retryable,
+    )
+
+
 async def _replace_chunks(
     conn: AppConnection,
     *,
     document_id: UUID,
     tenant_id: UUID,
     chunks: list[Chunk],
-    embedder: Embedder,
+    vectors: list[list[float]],
 ) -> None:
-    vectors = await embed_texts(embedder, [chunk.content for chunk in chunks])
-    await conn.execute("delete from knowledge_chunks where document_id = $1", document_id)
+    """Delete and reinsert one document's chunks - DB writes only. Callers embed
+    first (a network call) and pass the resulting ``vectors`` in, so the write
+    itself needs no network I/O - see the callers' own comments for why this
+    does not change how long db.tenant_context's transaction is held."""
+    await conn.execute(
+        "delete from knowledge_chunks where document_id = $1 and tenant_id = $2",
+        document_id,
+        tenant_id,
+    )
     for chunk, vector in zip(chunks, vectors, strict=True):
         await conn.execute(
             "insert into knowledge_chunks (tenant_id, document_id, content, embedding, metadata) "
@@ -68,7 +110,11 @@ async def process_document(
     if row is None:
         raise ValueError(f"document {document_id} not found for tenant {tenant_id}")
 
-    await conn.execute("update documents set status = 'processing' where id = $1", document_id)
+    await conn.execute(
+        "update documents set status = 'processing' where id = $1 and tenant_id = $2",
+        document_id,
+        tenant_id,
+    )
 
     try:
         ext = extension if extension is not None else Path(row["filename"]).suffix.lower()
@@ -77,20 +123,43 @@ async def process_document(
             raise FileNotFoundError(f"no stored file for document {document_id}")  # noqa: TRY301
         chunks = chunk_document(body, ext, source=source or row["filename"])
         if not chunks:
-            raise ValueError("no extractable content in this file")  # noqa: TRY301
+            raise _NoExtractableContent("no extractable content in this file")  # noqa: TRY301
 
-        await _replace_chunks(
-            conn, document_id=document_id, tenant_id=tenant_id, chunks=chunks, embedder=embedder
-        )
-        await conn.execute(
-            "update documents set status = 'ready', error = null where id = $1", document_id
-        )
-    except Exception as exc:  # noqa: BLE001 - always recorded on the document, never re-raised
-        await conn.execute(
-            "update documents set status = 'failed', error = $2 where id = $1",
+        # Embedding is a network call to the provider. It still runs inside the
+        # outer transaction db.tenant_context opened around this whole call (its
+        # RLS scoping is transaction-local, so that transaction spans the entire
+        # block regardless) - moving it here does not shorten that. What it does
+        # do: keep the chunk delete/insert and the status flip atomic with each
+        # other via this nested transaction (a savepoint on the already-open
+        # outer one), instead of racing a status update against a still-running
+        # chunk replace.
+        vectors = await embed_texts(embedder, [chunk.content for chunk in chunks])
+        async with conn.transaction():
+            await _replace_chunks(
+                conn, document_id=document_id, tenant_id=tenant_id, chunks=chunks, vectors=vectors
+            )
+            await conn.execute(
+                "update documents set status = 'ready', error = null, failure_stage = null, "
+                "failure_retryable = null, failed_at = null where id = $1 and tenant_id = $2",
+                document_id,
+                tenant_id,
+            )
+    except (asyncpg.PostgresConnectionError, asyncpg.InterfaceError):
+        raise
+    except _NoExtractableContent:
+        logger.exception(
+            "knowledge document processing failed tenant_id=%s document_id=%s stage=embed",
+            tenant_id,
             document_id,
-            str(exc),
         )
+        await _mark_failed(conn, tenant_id=tenant_id, document_id=document_id, retryable=False)
+    except Exception:  # noqa: BLE001 - always recorded on the document, never re-raised
+        logger.exception(
+            "knowledge document processing failed tenant_id=%s document_id=%s stage=embed",
+            tenant_id,
+            document_id,
+        )
+        await _mark_failed(conn, tenant_id=tenant_id, document_id=document_id)
 
 
 async def ingest_offerings(conn: AppConnection, *, tenant_id: UUID, embedder: Embedder) -> None:
@@ -112,7 +181,9 @@ async def ingest_offerings(conn: AppConnection, *, tenant_id: UUID, embedder: Em
     )
     if not items:
         if document_id is not None:
-            await conn.execute("delete from documents where id = $1", document_id)
+            await conn.execute(
+                "delete from documents where id = $1 and tenant_id = $2", document_id, tenant_id
+            )
         return
 
     if document_id is None:
@@ -124,7 +195,11 @@ async def ingest_offerings(conn: AppConnection, *, tenant_id: UUID, embedder: Em
             tenant_id,
         )
     else:
-        await conn.execute("update documents set status = 'processing' where id = $1", document_id)
+        await conn.execute(
+            "update documents set status = 'processing' where id = $1 and tenant_id = $2",
+            document_id,
+            tenant_id,
+        )
 
     try:
         chunks = [
@@ -133,15 +208,26 @@ async def ingest_offerings(conn: AppConnection, *, tenant_id: UUID, embedder: Em
             )
             for item in items
         ]
-        await _replace_chunks(
-            conn, document_id=document_id, tenant_id=tenant_id, chunks=chunks, embedder=embedder
-        )
-        await conn.execute(
-            "update documents set status = 'ready', error = null where id = $1", document_id
-        )
-    except Exception as exc:  # noqa: BLE001 - always recorded on the document, never re-raised
-        await conn.execute(
-            "update documents set status = 'failed', error = $2 where id = $1",
+        # See process_document's comment above: the embed call still runs
+        # inside db.tenant_context's own transaction either way; this nested
+        # one only keeps the chunk replace and the status flip atomic.
+        vectors = await embed_texts(embedder, [chunk.content for chunk in chunks])
+        async with conn.transaction():
+            await _replace_chunks(
+                conn, document_id=document_id, tenant_id=tenant_id, chunks=chunks, vectors=vectors
+            )
+            await conn.execute(
+                "update documents set status = 'ready', error = null, failure_stage = null, "
+                "failure_retryable = null, failed_at = null where id = $1 and tenant_id = $2",
+                document_id,
+                tenant_id,
+            )
+    except (asyncpg.PostgresConnectionError, asyncpg.InterfaceError):
+        raise
+    except Exception:  # noqa: BLE001 - always recorded on the document, never re-raised
+        logger.exception(
+            "knowledge document processing failed tenant_id=%s document_id=%s stage=embed",
+            tenant_id,
             document_id,
-            str(exc),
         )
+        await _mark_failed(conn, tenant_id=tenant_id, document_id=document_id)

@@ -30,6 +30,7 @@ from app.llm.failover import FailoverProvider
 from app.llm.openai_compat import OpenAICompatProvider
 from app.llm.provider import LLMProvider
 from app.shared.config import Settings, get_settings
+from app.shared.startup import ConfigError
 
 logger = logging.getLogger(__name__)
 
@@ -91,10 +92,47 @@ def _openai_compat(settings: Settings, *, leg: str, zai: bool) -> OpenAICompatPr
     )
 
 
+def primary_leg_configured(settings: Settings) -> bool:
+    """Whether the primary leg has enough configuration to build a client at all.
+
+    Azure needs both halves of its endpoint/key pair: ``AsyncAzureOpenAI``
+    validates them in its constructor and raises ``openai.OpenAIError`` there,
+    which - because the primary leg is built during FastAPI dependency
+    resolution - used to surface as an opaque 500 from whatever route happened
+    to ask for a provider, naming neither the setting nor the leg. Every other
+    vendor speaks the OpenAI wire format through ``OpenAICompatProvider``, which
+    deliberately tolerates a keyless endpoint (a local Ollama) but cannot invent
+    a model name.
+
+    The fallback and failover legs have always answered this question for
+    themselves (see ``_leg_provider``); the primary is the leg that did not.
+    """
+    if settings.llm_provider == "azure":
+        return bool(settings.azure_openai_endpoint and settings.azure_openai_api_key)
+    return bool(settings.llm_model)
+
+
+def _unconfigured_error(settings: Settings) -> ConfigError:
+    needed = (
+        "AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY"
+        if settings.llm_provider == "azure"
+        else "LLM_MODEL (plus LLM_BASE_URL / LLM_API_KEY for a hosted vendor)"
+    )
+    return ConfigError(
+        f"no LLM provider leg is configured: LLM_PROVIDER={settings.llm_provider!r} "
+        f"needs {needed}, and no fallback or failover leg is set either. If this "
+        "reached a test, that test has not overridden "
+        "app.llm.dependency.get_llm_provider - a route that takes a provider "
+        "resolves it before its body runs, including routes that never call a model."
+    )
+
+
 def _leg_provider(settings: Settings, leg: str) -> LLMProvider | None:
     """The provider for one leg, or None when that leg is not configured."""
     provider_name, _, api_key, model = leg_settings(settings, leg)
     if leg == "primary":
+        if not primary_leg_configured(settings):
+            return None
         if provider_name == "azure":
             return AzureOpenAIProvider(settings)
         return _openai_compat(settings, leg=leg, zai=provider_name == "zai")
@@ -119,6 +157,11 @@ def get_llm_provider() -> LLMProvider:
     exactly what FailoverProvider already is. ``FailoverProvider(primary,
     FailoverProvider(fallback, failover))`` needs no new class and no chain
     type: each leg's failure hands the call to whatever is left.
+
+    Raises :class:`ConfigError` when no leg is configured. That is a fast,
+    self-describing failure by design: the alternative is a vendor SDK raising
+    its own error from inside dependency resolution, which reads as a mystery
+    500 in a route that has nothing to do with configuration.
     """
     settings = get_settings()
     legs = [
@@ -130,6 +173,8 @@ def get_llm_provider() -> LLMProvider:
         )
         if provider is not None
     ]
+    if not legs:
+        raise _unconfigured_error(settings)
     chain = legs[-1]
     for leg in reversed(legs[:-1]):
         chain = FailoverProvider(leg, chain, ttft_budget_s=settings.llm_ttft_budget_s)

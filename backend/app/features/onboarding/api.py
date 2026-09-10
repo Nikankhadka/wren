@@ -98,12 +98,64 @@ class OnboardingKnowledgeResponse(BaseModel):
     offering_candidates: list[PendingOffering]
 
 
+class OnboardingKnowledgeBatchDocument(BaseModel):
+    document_id: UUID
+    sections: list[KnowledgeSection] = Field(default_factory=list)
+
+
+class OnboardingKnowledgeBatchRequest(BaseModel):
+    documents: list[OnboardingKnowledgeBatchDocument]
+    offerings: list[PendingOffering] = Field(default_factory=list)
+    accept_price_changes: bool = False
+
+
+class OnboardingKnowledgeBatchFailure(BaseModel):
+    document_id: UUID
+    error: str
+
+
+class OnboardingKnowledgeBatchResponse(BaseModel):
+    published: list[UUID]
+    failed: list[OnboardingKnowledgeBatchFailure]
+    offering_candidates: list[PendingOffering]
+
+
 @router.get("/state", response_model=OnboardingStateResponse)
 async def get_state(
     admin: Annotated[auth.AuthedTenantAdmin, Depends(auth.require_owner)],
 ) -> OnboardingStateResponse:
     record = await controller.load_record_state(tenant_id=admin.tenant_id)
     return OnboardingStateResponse(**record)
+
+
+# W-11a: registered before the "/knowledge/{document_id}" route below - Starlette
+# matches routes in declaration order and "{document_id}" would otherwise
+# swallow "/knowledge/batch" (matching "batch" as the path segment, then 422ing
+# when FastAPI tries to parse it as a UUID) before this route is ever tried.
+@router.put("/knowledge/batch", response_model=OnboardingKnowledgeBatchResponse)
+async def save_onboarding_knowledge_batch(
+    body: OnboardingKnowledgeBatchRequest,
+    admin: Annotated[auth.AuthedTenantAdmin, Depends(auth.require_owner)],
+    embedder: Annotated[Embedder, Depends(get_embedder_dependency)],
+) -> OnboardingKnowledgeBatchResponse:
+    published, failed, offerings = await controller.save_onboarding_knowledge_batch(
+        tenant_id=admin.tenant_id,
+        documents=[
+            (document.document_id, [section.model_dump() for section in document.sections])
+            for document in body.documents
+        ],
+        offerings=body.offerings,
+        accept_price_changes=body.accept_price_changes,
+        embedder=embedder,
+    )
+    return OnboardingKnowledgeBatchResponse(
+        published=published,
+        failed=[
+            OnboardingKnowledgeBatchFailure(document_id=document_id, error=error)
+            for document_id, error in failed
+        ],
+        offering_candidates=offerings,
+    )
 
 
 @router.put("/knowledge/{document_id}", response_model=OnboardingKnowledgeResponse)

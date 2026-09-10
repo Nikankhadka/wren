@@ -61,8 +61,10 @@ async def test_all_migrations_recorded(superuser_conn: asyncpg.Connection[Any]) 
     # documents.offerings, the candidates extracted once at ingest instead of
     # re-derived on every read; 0027 back-fills W-9's config->customer_voice from
     # the free-text tone column, which application code stops reading with that
-    # ticket - the columns themselves are dropped by a later ticket, not this one.
-    assert len(on_disk) == 27, "expected migrations 0001-0027"
+    # ticket - the columns themselves are dropped by a later ticket, not this one;
+    # 0028 adds W-11's documents.failure_stage/failure_retryable/failed_at, so a
+    # processing failure that used to vanish into a 422 is now a retryable row.
+    assert len(on_disk) == 28, "expected migrations 0001-0028"
     applied = await superuser_conn.fetch("select version from schema_migrations order by version")
     assert [r["version"] for r in applied] == on_disk
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from collections.abc import AsyncIterator
 from typing import Any
+from uuid import uuid4
 
 import pytest
 
@@ -39,6 +40,8 @@ from app.onboarding.flow import (
     ProfileDraft,
     SourceReference,
     customer_voice_for,
+    merge_offerings,
+    reconcile_replacement,
 )
 from app.onboarding.tools import request_finalize, save_profile
 from app.shared.voice import CUSTOM_VOICE_MAX
@@ -1228,8 +1231,6 @@ async def test_an_off_topic_turn_burns_no_ask() -> None:
 def test_merge_offerings_lets_the_document_win_an_overlap() -> None:
     """W-7: an owner-typed name and a priced document candidate become one row,
     keeping the document's price and description; sources record both."""
-    from app.onboarding.flow import merge_offerings
-
     owner = PendingOffering(name="Flat white", sources=["owner"])
     document = PendingOffering(
         name="Flat White", description="Our house blend", price_cents=550, sources=["document"]
@@ -1240,6 +1241,149 @@ def test_merge_offerings_lets_the_document_win_an_overlap() -> None:
     assert merged.description == "Our house blend"
     assert merged.name == "Flat White"
     assert set(merged.sources) == {"owner", "document"}
+
+
+def test_merge_offerings_unions_supporting_document_ids() -> None:
+    """W-11: an offering found in two documents remembers both, so replacing
+    either one still leaves the other vouching for it."""
+    first_doc, second_doc = uuid4(), uuid4()
+    existing = PendingOffering(
+        name="Flat white", sources=["document"], supporting_document_ids=[first_doc]
+    )
+    incoming = PendingOffering(
+        name="Flat White", sources=["document"], supporting_document_ids=[second_doc]
+    )
+    merged = merge_offerings(existing, incoming)
+
+    assert set(merged.supporting_document_ids) == {first_doc, second_doc}
+
+
+def test_merge_offerings_keeps_the_documents_ids_when_the_other_side_is_owner_typed() -> None:
+    """An owner-typed candidate carries no document ids by design - that
+    emptiness must not wipe out the document's ids when the two combine."""
+    doc = uuid4()
+    owner = PendingOffering(name="Flat white", sources=["owner"])
+    document = PendingOffering(
+        name="Flat White", sources=["document"], supporting_document_ids=[doc]
+    )
+    merged = merge_offerings(owner, document)
+
+    assert merged.supporting_document_ids == [doc]
+
+
+def test_reconcile_replacement_drops_an_unedited_offering_stranded_by_the_replacement() -> None:
+    """Rule 1: nothing but the replaced document ever supported this candidate,
+    the owner never touched it, and the new upload has nothing matching it."""
+    replaced = uuid4()
+    stranded = PendingOffering(
+        name="Flat white", sources=["document"], supporting_document_ids=[replaced]
+    )
+    survivors = reconcile_replacement(
+        [stranded], [], replaced_document_id=replaced, edited_candidate_ids=set()
+    )
+
+    assert survivors == []
+
+
+def test_reconcile_replacement_orphans_instead_of_dropping_an_edited_offering() -> None:
+    """Rule 2: the same situation as rule 1, except the owner edited this
+    candidate - it survives, marked orphaned rather than silently vanishing."""
+    replaced = uuid4()
+    edited = PendingOffering(
+        name="Flat white", sources=["document"], supporting_document_ids=[replaced]
+    )
+    survivors = reconcile_replacement(
+        [edited],
+        [],
+        replaced_document_id=replaced,
+        edited_candidate_ids={edited.candidate_id},
+    )
+
+    assert len(survivors) == 1
+    assert survivors[0].name == "Flat white"
+    assert survivors[0].support_state == "orphaned"
+
+
+def test_reconcile_replacement_merges_a_matched_offering_through_merge_offerings() -> None:
+    """Rule 3: a candidate that matches something in the new upload is combined
+    by merge_offerings - reconcile_replacement states no precedence of its own."""
+    replaced, new_doc = uuid4(), uuid4()
+    existing_item = PendingOffering(
+        name="Flat white",
+        price_cents=550,
+        sources=["document"],
+        supporting_document_ids=[replaced],
+    )
+    incoming_item = PendingOffering(
+        name="Flat White",
+        description="Our house blend",
+        sources=["document"],
+        supporting_document_ids=[new_doc],
+    )
+    survivors = reconcile_replacement(
+        [existing_item],
+        [incoming_item],
+        replaced_document_id=replaced,
+        edited_candidate_ids=set(),
+    )
+
+    assert survivors == [
+        merge_offerings(
+            existing_item.model_copy(update={"supporting_document_ids": []}), incoming_item
+        )
+    ]
+
+
+def test_reconcile_replacement_keeps_an_offering_still_backed_by_another_document() -> None:
+    """A candidate supported by two documents is not "supported only by the
+    replaced document" - losing one of its two documents does not strand it."""
+    replaced, other = uuid4(), uuid4()
+    candidate = PendingOffering(
+        name="Flat white", sources=["document"], supporting_document_ids=[replaced, other]
+    )
+    survivors = reconcile_replacement(
+        [candidate], [], replaced_document_id=replaced, edited_candidate_ids=set()
+    )
+
+    assert survivors == [candidate.model_copy(update={"supporting_document_ids": [other]})]
+    assert survivors[0].support_state == "supported"
+
+
+def test_reconcile_replacement_keeps_owner_provenance_and_removes_document_source() -> None:
+    replaced = uuid4()
+    candidate = PendingOffering(
+        name="Flat white",
+        sources=["owner", "document"],
+        supporting_document_ids=[replaced],
+    )
+
+    survivors = reconcile_replacement(
+        [candidate], [], replaced_document_id=replaced, edited_candidate_ids=set()
+    )
+
+    assert survivors == [
+        candidate.model_copy(update={"sources": ["owner"], "supporting_document_ids": []})
+    ]
+    assert survivors[0].support_state == "supported"
+
+
+def test_reconcile_replacement_keeps_document_source_without_replaced_support() -> None:
+    """W-11a review fix 6: a candidate whose supporting_document_ids was
+    already empty *before* this call (legacy data predating W-11a's document-
+    id tracking, say) never depended on the document being replaced, so the
+    replacement must leave its sources untouched - "document" must not be
+    stripped just because supporting_document_ids happens to be empty."""
+    replaced = uuid4()
+    candidate = PendingOffering(
+        name="Flat white", sources=["owner", "document"], supporting_document_ids=[]
+    )
+
+    survivors = reconcile_replacement(
+        [candidate], [], replaced_document_id=replaced, edited_candidate_ids=set()
+    )
+
+    assert survivors == [candidate]
+    assert "document" in survivors[0].sources
 
 
 @pytest.mark.asyncio

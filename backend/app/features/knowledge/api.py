@@ -8,6 +8,7 @@ so a crafted filename can never escape the tenant's upload directory.
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Literal
 from urllib.parse import urlparse
@@ -56,6 +57,11 @@ class KnowledgeRecord(DocumentResponse):
     # rather than presenting a truncated list as if it were complete. "pending"
     # is a row ingested before extraction existed, filled in on first view.
     extraction_status: Literal["full", "partial", "failed", "pending"] = "pending"
+    # W-11: which processing step failed, and whether it can be retried through
+    # retry-draft. Both null except on a 'failed' row.
+    failure_stage: Literal["structure", "extract", "embed"] | None = None
+    failure_retryable: bool | None = None
+    failed_at: datetime | None = None
 
 
 class SourceDetail(BaseModel):
@@ -146,6 +152,21 @@ async def reprocess_document(
         tenant_id=admin.tenant_id, document_id=document_id, embedder=embedder
     )
     return DocumentResponse(**row)
+
+
+@router.post("/{document_id}/retry-draft", response_model=KnowledgeRecord)
+async def retry_draft(
+    document_id: UUID,
+    admin: Annotated[auth.AuthedTenantAdmin, Depends(auth.require_owner)],
+    provider: Annotated[LLMProvider, Depends(get_llm_provider)],
+) -> KnowledgeRecord:
+    """Retry a failed draft, including embed failures, and return it to review.
+    Re-reads stored source data when needed and never publishes anything -
+    saving is still a separate owner action."""
+    row = await controller.retry_draft(
+        tenant_id=admin.tenant_id, document_id=document_id, provider=provider
+    )
+    return KnowledgeRecord(**row)
 
 
 @router.post("/urls", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)

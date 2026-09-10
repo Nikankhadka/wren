@@ -107,22 +107,31 @@ async def draft_from_upload(
     extension: str,
     provider: LLMProvider,
 ) -> dict[str, Any]:
-    """Unreadable files are a 422 with the reason, never a stored failure - the
-    owner is standing at the screen waiting to see what we made of it."""
-    try:
-        row = await service.draft_from_upload(
-            tenant_id=tenant_id,
-            document_id=document_id,
-            filename=filename,
-            body=body,
-            extension=extension,
-            provider=provider,
-        )
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
-        ) from exc
+    """A file rejected at validation (api.py's _reject_upload, before storage)
+    stays a 422 with nothing stored - that half of the old rule is unchanged.
+    A file accepted and then failing during processing (structuring or
+    extraction) is now stored as a 'failed' draft instead of raised: the raw
+    upload already sits in storage by that point, so the owner can retry it
+    through retry-draft rather than lose it. Embed failures are also accepted
+    by retry-draft and returned to review without publishing."""
+    row = await service.draft_from_upload(
+        tenant_id=tenant_id,
+        document_id=document_id,
+        filename=filename,
+        body=body,
+        extension=extension,
+        provider=provider,
+    )
     return _created(row)
+
+
+async def retry_draft(
+    *, tenant_id: UUID, document_id: UUID, provider: LLMProvider
+) -> dict[str, Any]:
+    row = await service.retry_draft(tenant_id=tenant_id, document_id=document_id, provider=provider)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="document not found")
+    return row
 
 
 async def draft_from_url(
@@ -189,6 +198,11 @@ async def save_record(
         ) from exc
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="document not found")
+    if row.get("status") == "failed":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=row.get("error") or "document could not be published",
+        )
     return row
 
 
