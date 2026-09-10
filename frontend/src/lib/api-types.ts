@@ -172,6 +172,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/onboarding/knowledge/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Onboarding Knowledge Batch */
+        put: operations["save_onboarding_knowledge_batch_api_onboarding_knowledge_batch_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/onboarding/knowledge/{document_id}": {
         parameters: {
             query?: never;
@@ -285,6 +302,28 @@ export interface paths {
         put?: never;
         /** Reprocess Document */
         post: operations["reprocess_document_api_knowledge__document_id__reprocess_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/{document_id}/retry-draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Draft
+         * @description Retry a failed draft, including embed failures, and return it to review.
+         *     Re-reads stored source data when needed and never publishes anything -
+         *     saving is still a separate owner action.
+         */
+        post: operations["retry_draft_api_knowledge__document_id__retry_draft_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1235,13 +1274,19 @@ export interface components {
              * Offering Candidates
              * @default []
              */
-            offering_candidates: components["schemas"]["PendingOffering"][];
+            offering_candidates: components["schemas"]["PendingOffering-Output"][];
             /**
              * Extraction Status
              * @default pending
              * @enum {string}
              */
             extraction_status: "full" | "partial" | "failed" | "pending";
+            /** Failure Stage */
+            failure_stage?: ("structure" | "extract" | "embed") | null;
+            /** Failure Retryable */
+            failure_retryable?: boolean | null;
+            /** Failed At */
+            failed_at?: string | null;
         };
         /**
          * KnowledgeSection
@@ -1383,18 +1428,59 @@ export interface components {
             /** Slug */
             slug: string;
         };
+        /** OnboardingKnowledgeBatchDocument */
+        OnboardingKnowledgeBatchDocument: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Sections */
+            sections?: components["schemas"]["KnowledgeSection"][];
+        };
+        /** OnboardingKnowledgeBatchFailure */
+        OnboardingKnowledgeBatchFailure: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Error */
+            error: string;
+        };
+        /** OnboardingKnowledgeBatchRequest */
+        OnboardingKnowledgeBatchRequest: {
+            /** Documents */
+            documents: components["schemas"]["OnboardingKnowledgeBatchDocument"][];
+            /** Offerings */
+            offerings?: components["schemas"]["PendingOffering-Input"][];
+            /**
+             * Accept Price Changes
+             * @default false
+             */
+            accept_price_changes: boolean;
+        };
+        /** OnboardingKnowledgeBatchResponse */
+        OnboardingKnowledgeBatchResponse: {
+            /** Published */
+            published: string[];
+            /** Failed */
+            failed: components["schemas"]["OnboardingKnowledgeBatchFailure"][];
+            /** Offering Candidates */
+            offering_candidates: components["schemas"]["PendingOffering-Output"][];
+        };
         /** OnboardingKnowledgeRequest */
         OnboardingKnowledgeRequest: {
             /** Sections */
             sections?: components["schemas"]["KnowledgeSection"][];
             /** Offerings */
-            offerings?: components["schemas"]["PendingOffering"][];
+            offerings?: components["schemas"]["PendingOffering-Input"][];
         };
         /** OnboardingKnowledgeResponse */
         OnboardingKnowledgeResponse: {
             record: components["schemas"]["KnowledgeRecord"];
             /** Offering Candidates */
-            offering_candidates: components["schemas"]["PendingOffering"][];
+            offering_candidates: components["schemas"]["PendingOffering-Output"][];
         };
         /** OnboardingMessageRequest */
         OnboardingMessageRequest: {
@@ -1429,7 +1515,7 @@ export interface components {
             /** Suggested Slug */
             suggested_slug: string | null;
             /** Offering Candidates */
-            offering_candidates: components["schemas"]["PendingOffering"][];
+            offering_candidates: components["schemas"]["PendingOffering-Output"][];
             /** Paused Beat */
             paused_beat: string | null;
         };
@@ -1437,7 +1523,7 @@ export interface components {
          * PendingOffering
          * @description An offering waiting for owner review before it reaches the catalog.
          */
-        PendingOffering: {
+        "PendingOffering-Input": {
             /** Name */
             name: string;
             /**
@@ -1456,6 +1542,60 @@ export interface components {
             sources?: ("owner" | "document")[];
             /** Source References */
             source_references?: components["schemas"]["SourceReference"][];
+            /** Supporting Document Ids */
+            supporting_document_ids?: string[];
+            /**
+             * Support State
+             * @default supported
+             * @enum {string}
+             */
+            support_state: "supported" | "orphaned";
+            /**
+             * Price Note
+             * @default
+             */
+            price_note: string;
+            /**
+             * Needs Review
+             * @default false
+             */
+            needs_review: boolean;
+            /** Possible Matches */
+            possible_matches?: string[];
+            /** Price Options */
+            price_options?: number[];
+        };
+        /**
+         * PendingOffering
+         * @description An offering waiting for owner review before it reaches the catalog.
+         */
+        "PendingOffering-Output": {
+            /** Name */
+            name: string;
+            /**
+             * Candidate Id
+             * @default
+             */
+            candidate_id: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Price Cents */
+            price_cents?: number | null;
+            /** Sources */
+            sources?: ("owner" | "document")[];
+            /** Source References */
+            source_references?: components["schemas"]["SourceReference"][];
+            /** Supporting Document Ids */
+            supporting_document_ids?: string[];
+            /**
+             * Support State
+             * @default supported
+             * @enum {string}
+             */
+            support_state: "supported" | "orphaned";
             /**
              * Price Note
              * @default
@@ -1589,7 +1729,7 @@ export interface components {
              * Offerings
              * @default []
              */
-            offerings: components["schemas"]["PendingOffering"][];
+            offerings: components["schemas"]["PendingOffering-Input"][];
             /**
              * Accept Price Changes
              * @default false
@@ -2158,6 +2298,48 @@ export interface operations {
             };
         };
     };
+    save_onboarding_knowledge_batch_api_onboarding_knowledge_batch_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OnboardingKnowledgeBatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingKnowledgeBatchResponse"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Problem details error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     save_onboarding_knowledge_api_onboarding_knowledge__document_id__put: {
         parameters: {
             query?: never;
@@ -2417,6 +2599,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentResponse"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Problem details error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    retry_draft_api_knowledge__document_id__retry_draft_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeRecord"];
                 };
             };
             /** @description Validation failed */
