@@ -10,6 +10,7 @@ pattern.
 
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 from collections.abc import AsyncIterator, Iterator
@@ -21,11 +22,13 @@ import jwt
 import pytest
 import pytest_asyncio
 
+from app.ingestion import pipeline
 from app.llm.dependency import get_embedder_dependency, get_llm_provider
 from app.llm.provider import SchemaT
 from app.main import app
 from app.shared import db
 from app.shared.config import get_settings
+from app.shared.storage import get_storage
 from tests.conftest import _app_dsn_for
 from tests.fakes import BaseFakeProvider, ZeroEmbedder
 
@@ -136,7 +139,7 @@ async def test_one_failing_document_does_not_abort_the_rest_of_the_batch(
             "documents": [
                 {"document_id": draft["id"], "sections": draft["sections"]},
                 {"document_id": str(missing_id), "sections": []},
-            ]
+            ],
         },
     )
     assert response.status_code == 200, response.text
@@ -405,3 +408,194 @@ async def test_duplicate_offering_names_in_batch_request_is_422(
         },
     )
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    ("documents", "message"),
+    [
+        ([], "at least 1 item"),
+        ([{"document_id": str(uuid.uuid4()), "sections": []} for _ in range(6)], "at most 5"),
+        (
+            [
+                {"document_id": str(uuid.UUID("00000000-0000-0000-0000-000000000001"))},
+                {"document_id": str(uuid.UUID("00000000-0000-0000-0000-000000000001"))},
+            ],
+            "document_id values must be unique",
+        ),
+    ],
+    ids=["empty", "six-documents", "duplicate-ids"],
+)
+async def test_batch_request_rejects_invalid_document_cardinality(
+    client: httpx.AsyncClient, documents: list[dict[str, Any]], message: str
+) -> None:
+    headers = await _signup_tenant_admin(client)
+    response = await client.put(
+        "/api/onboarding/knowledge/batch", headers=headers, json={"documents": documents}
+    )
+    assert response.status_code == 422
+    assert message in response.text
+
+
+async def test_batch_only_publishes_reviewable_drafts(
+    client: httpx.AsyncClient,
+    superuser_conn: Any,
+) -> None:
+    headers = await _signup_tenant_admin(client)
+    records = [
+        await _upload_draft(client, headers, filename=f"{status}.txt")
+        for status in ["ready", "processing", "failed"]
+    ]
+    for record, status in zip(records, ["ready", "processing", "failed"], strict=True):
+        await superuser_conn.execute(
+            "update documents set status = $2, "
+            "failure_stage = case when $2 = 'failed' then 'structure' else null end, "
+            "failure_retryable = case when $2 = 'failed' then true else null end, "
+            "failed_at = case when $2 = 'failed' then now() else null end where id = $1",
+            record["id"],
+            status,
+        )
+
+    submitted = [{"heading": "Edited", "body": "This must not be saved.", "kind": "other"}]
+    response = await client.put(
+        "/api/onboarding/knowledge/batch",
+        headers=headers,
+        json={
+            "documents": [
+                {"document_id": record["id"], "sections": submitted} for record in records
+            ],
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["published"] == []
+    assert {failure["document_id"] for failure in response.json()["failed"]} == {
+        record["id"] for record in records
+    }
+    for record in records:
+        current = await client.get(f"/api/knowledge/records/{record['id']}", headers=headers)
+        assert current.json()["status"] in {"ready", "processing", "failed"}
+        assert current.json()["sections"] != submitted
+
+
+async def test_price_conflict_does_not_save_sections_on_non_draft(
+    client: httpx.AsyncClient, superuser_conn: Any
+) -> None:
+    headers = await _signup_tenant_admin(client)
+    record = await _upload_draft(client, headers, filename="ready-conflict.txt")
+    await superuser_conn.execute(
+        "update documents set status = 'ready' where id = $1", record["id"]
+    )
+    submitted = [{"heading": "Edited", "body": "This must not be saved.", "kind": "other"}]
+    response = await client.put(
+        "/api/onboarding/knowledge/batch",
+        headers=headers,
+        json={
+            "documents": [{"document_id": record["id"], "sections": submitted}],
+            "offerings": [
+                {
+                    "name": "Conflicted service",
+                    "price_options": [100, 200],
+                    "supporting_document_ids": [record["id"]],
+                }
+            ],
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["failed"][0]["document_id"] == record["id"]
+    assert response.json()["failed"][0]["error"] == "document is not a reviewable draft"
+    current = await client.get(f"/api/knowledge/records/{record['id']}", headers=headers)
+    assert current.json()["status"] == "ready"
+    assert current.json()["sections"] != submitted
+
+
+async def test_storage_failure_is_a_safe_per_document_failure(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    headers = await _signup_tenant_admin(client)
+    failed = await _upload_draft(client, headers, filename="storage-failed.txt")
+    healthy = await _upload_draft(client, headers, filename="healthy-after-storage.txt")
+    storage = get_storage()
+    original_put = storage.put
+
+    async def fail_one(key: str, body: bytes) -> None:
+        if str(failed["id"]) in key:
+            raise OSError("storage credentials leaked")
+        await original_put(key, body)
+
+    monkeypatch.setattr(storage, "put", fail_one)
+    edited = [{"heading": "Edited", "body": "Storage failure keeps this edit.", "kind": "other"}]
+    response = await client.put(
+        "/api/onboarding/knowledge/batch",
+        headers=headers,
+        json={
+            "documents": [
+                {"document_id": failed["id"], "sections": edited},
+                {"document_id": healthy["id"], "sections": healthy["sections"]},
+            ],
+            "offerings": [
+                {"name": "Storage-backed service", "supporting_document_ids": [failed["id"]]}
+            ],
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["published"] == [healthy["id"]]
+    assert body["failed"] == [
+        {
+            "document_id": failed["id"],
+            "error": "We could not save this document. Please retry.",
+        }
+    ]
+    assert body["offering_candidates"] == []
+    record = await client.get(f"/api/knowledge/records/{failed['id']}", headers=headers)
+    assert record.json()["status"] == "draft"
+    assert record.json()["sections"] == edited
+
+
+async def test_overlapping_batches_publish_a_draft_only_once(
+    client: httpx.AsyncClient,
+    superuser_conn: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    headers = await _signup_tenant_admin(client)
+    draft = await _upload_draft(client, headers, filename="overlap.txt")
+    entered_embedding = asyncio.Event()
+    release_embedding = asyncio.Event()
+    embed_calls = 0
+    original_embed_texts = pipeline.embed_texts  # type: ignore[attr-defined]
+
+    async def delayed_embed(*args: Any, **kwargs: Any) -> list[list[float]]:
+        nonlocal embed_calls
+        embed_calls += 1
+        if embed_calls == 1:
+            entered_embedding.set()
+            await release_embedding.wait()
+        return await original_embed_texts(*args, **kwargs)
+
+    monkeypatch.setattr(pipeline, "embed_texts", delayed_embed)
+    payload = {"documents": [{"document_id": draft["id"], "sections": draft["sections"]}]}
+    first = asyncio.create_task(
+        client.put("/api/onboarding/knowledge/batch", headers=headers, json=payload)
+    )
+    await entered_embedding.wait()
+    second = asyncio.create_task(
+        client.put("/api/onboarding/knowledge/batch", headers=headers, json=payload)
+    )
+    async with asyncio.timeout(5):
+        while not await superuser_conn.fetchval(  # noqa: ASYNC110 - bounded lock polling
+            "select exists ("
+            "select 1 from pg_stat_activity as activity "
+            "join pg_locks as lock on lock.pid = activity.pid "
+            "where not lock.granted and lock.locktype = 'transactionid' "
+            "and activity.query like 'select filename, status from documents%'"
+            ")"
+        ):
+            await asyncio.sleep(0)
+    release_embedding.set()
+    responses = await asyncio.gather(first, second)
+
+    assert sorted(response.json()["published"] for response in responses) == [[], [draft["id"]]]
+    failed = next(response.json()["failed"] for response in responses if response.json()["failed"])
+    assert failed == [{"document_id": draft["id"], "error": "document is not a reviewable draft"}]
+    assert embed_calls == 1
+    record = await client.get(f"/api/knowledge/records/{draft['id']}", headers=headers)
+    assert record.json()["status"] == "ready"

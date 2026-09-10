@@ -34,8 +34,8 @@ items below live under whichever ticket actually delivers them.
 ## W-11a: backend contract
 
 Branch `feat/w-11a-document-batch`. No UI; fully testable through API tests.
-**Merged to `development` via PR #31.** Corrective review findings remain to
-be resolved before W-11c begins.
+**Merged to `development` via PR #31.** Corrective follow-up is implemented on
+`fix/w-11a-backend-corrections`, pending review and merge before W-11c begins.
 
 ### User stories
 
@@ -56,7 +56,9 @@ be resolved before W-11c begins.
 - Migration `0028_document_failure_metadata.sql` adds
   `documents.failure_stage` (`structure` | `extract` | `embed`),
   `failure_retryable`, and `failed_at`. `error` (0004) still carries the
-  customer-safe message.
+  customer-safe message. Migration `0030_document_failure_metadata_check.sql`
+  keeps those fields null on non-failed rows while allowing legacy failed rows
+  with incomplete metadata.
 - `draft_from_upload` stores an accepted-then-failed upload as `status =
   'failed'` instead of raising; `POST /api/knowledge/{document_id}/retry-draft`
   re-reads the stored file, re-runs structuring and extraction, and returns
@@ -70,7 +72,7 @@ be resolved before W-11c begins.
   offerings survive a document replacement; `merge_offerings` itself stays the
   only pairwise precedence policy, now with one more caller.
 - `PUT /api/onboarding/knowledge/batch`:
-  - Request: `documents: [{document_id, sections}]`,
+  - Request: one to five unique `documents: [{document_id, sections}]`,
     `offerings: [{offering, supporting_document_ids}]`, `accept_price_changes`.
   - Response: `published: [uuid]`, `failed: [{document_id, error}]`, and the
     actually-persisted `offering_candidates`.
@@ -82,6 +84,10 @@ be resolved before W-11c begins.
     failed in this same batch - a price conflict never withholds the
     offering it names, since the owner needs it there to resubmit with
     `accept_price_changes`.
+  - Only `draft` documents are reviewable batch targets. `ready`, `processing`,
+    and `failed` rows return per-document failures without mutation. Storage
+    boundary failures are isolated to that document and return a safe failure
+    while later documents continue.
   - The existing single-document `PUT /api/onboarding/knowledge/{document_id}`
     is unchanged.
 

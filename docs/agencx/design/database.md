@@ -264,10 +264,19 @@ create table documents (
   status       text not null default 'pending' check (status in ('draft', 'pending', 'processing', 'ready', 'failed')),
   error        text,
   structured   jsonb,                                   -- 0019: the readable sections
+  failure_stage text check (failure_stage in ('structure', 'extract', 'embed')),
+  failure_retryable boolean,
+  failed_at    timestamptz,
   uploaded_at  timestamptz not null default now(),
   updated_at   timestamptz not null default now()       -- 0018: knowledge_version input
 );
 ```
+
+Migration `0028` adds `failure_stage` (`structure`, `extract`, or `embed`),
+`failure_retryable`, and `failed_at` for processing failures. Migration `0030`
+(with `0029` reserved for W-10) adds `documents_failure_metadata_check`: rows
+that are not `failed` must keep all three failure fields null. Failed rows can
+have incomplete metadata so legacy rows remain valid without a risky backfill.
 
 `website` (migration 0015) carries the URL-scrape ingest path, wired by O-3.
 
@@ -512,6 +521,9 @@ applied in order by a plain runner (no heavy framework):
 0025_schema_cleanup.sql   drops dead schema, adds app_role()/staff RLS, offerings.category and tenant_media (F-3/M-2)
 0026_documents_offerings.sql  documents.offerings - candidates extracted once at ingest, not re-derived per read (W-6)
 0027_customer_voice.sql    back-fills config->customer_voice from the tone column (W-9); drops no column
+0028_document_failure_metadata.sql  documents failure_stage, failure_retryable, failed_at (W-11a)
+0029 (reserved, not yet created)  W-10's retired tenant_config column drop
+0030_document_failure_metadata_check.sql  keeps failure metadata null on non-failed rows, legacy-safe (W-11a correction)
 ```
 
 Shipped Agencx migration: `0025_schema_cleanup.sql` (`M-2`,
