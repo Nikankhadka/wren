@@ -49,6 +49,13 @@ export interface KnowledgeRecord {
   extraction_status?: ExtractionStatus;
 }
 
+// W-11b: separates "which document's edit state is loaded" from "is the sheet
+// currently visible" - see ReviewSheet.tsx. A type alias for now; W-11c
+// extends this to represent several documents reviewed together, at which
+// point ReviewSheet's `key={workspace.id}` becomes one mount across all of
+// them instead of one per document.
+export type ReviewWorkspace = KnowledgeRecord;
+
 export interface SourceDetail {
   text: string;
   is_fallback: boolean;

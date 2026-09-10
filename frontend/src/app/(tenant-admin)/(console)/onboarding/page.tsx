@@ -32,6 +32,7 @@ import {
   type KnowledgeRecord,
   type PendingOffering,
   type ReviewOffering,
+  type ReviewWorkspace,
 } from "@/components/knowledge/types";
 import { ReviewSheet } from "@/components/knowledge/ReviewSheet";
 
@@ -121,7 +122,7 @@ function historyToMessages(
  * even visible, the other 409s this endpoint can raise (an unreviewed draft,
  * a paused beat, an already-completed record - controller.py:487-501) are
  * already excluded by this screen's own render condition
- * (`!completed && canConfirm && !reviewing`), so the one 409 left that can
+ * (`!completed && canConfirm && !workspace`), so the one 409 left that can
  * reach here is the taken-slug conflict (controller.py:535-539).
  */
 function isSlugConfirmFailure(err: ApiError): boolean {
@@ -199,7 +200,8 @@ export default function OnboardingPage() {
   const [loaded, setLoaded] = useState(false);
   const [ownerOfferings, setOwnerOfferings] = useState<PendingOffering[]>([]);
   const [drafts, setDrafts] = useState<KnowledgeRecord[]>([]);
-  const [reviewing, setReviewing] = useState<KnowledgeRecord | null>(null);
+  const [workspace, setWorkspace] = useState<ReviewWorkspace | null>(null);
+  const [open, setOpen] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [openingPaced, setOpeningPaced] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -237,7 +239,8 @@ export default function OnboardingPage() {
         setDrafts(pending);
         if (pending[0]) {
           setCanConfirm(false);
-          setReviewing(withCombinedOfferings(pending[0], state.offering_candidates ?? []));
+          setWorkspace(withCombinedOfferings(pending[0], state.offering_candidates ?? []));
+          setOpen(true);
         }
         const restored = historyToMessages(state.history);
         if (restored.length > 0) {
@@ -370,7 +373,8 @@ export default function OnboardingPage() {
       setDrafts(pending);
       if (pending[0]) {
         setCanConfirm(false);
-        setReviewing(withCombinedOfferings(pending[0], ownerOfferings));
+        setWorkspace(withCombinedOfferings(pending[0], ownerOfferings));
+        setOpen(true);
       }
     } catch (err) {
       // W-3: an aborted stream and a failed request both leave no reply behind
@@ -515,7 +519,10 @@ export default function OnboardingPage() {
           ]);
         }
       }
-      if (accepted[0]) setReviewing(withCombinedOfferings(accepted[0], ownerOfferings));
+      if (accepted[0]) {
+        setWorkspace(withCombinedOfferings(accepted[0], ownerOfferings));
+        setOpen(true);
+      }
     } finally {
       setBusy(false);
     }
@@ -529,21 +536,22 @@ export default function OnboardingPage() {
     sections: { heading: string; body: string }[],
     offerings: PendingOffering[],
   ) {
-    if (!reviewing) return;
+    if (!workspace) return;
     setReviewError(null);
     setBusy(true);
     try {
       const response = await apiFetch<{
         record: KnowledgeRecord;
         offering_candidates: PendingOffering[];
-      }>(`/api/onboarding/knowledge/${reviewing.id}`, {
+      }>(`/api/onboarding/knowledge/${workspace.id}`, {
         method: "PUT",
         body: JSON.stringify({ sections, offerings }),
       });
-      const remaining = nextDraft(reviewing.id);
+      const remaining = nextDraft(workspace.id);
       setOwnerOfferings(response.offering_candidates);
-      setDrafts((previous) => previous.filter((draft) => draft.id !== reviewing.id));
-      setReviewing(remaining ? withCombinedOfferings(remaining, response.offering_candidates) : null);
+      setDrafts((previous) => previous.filter((draft) => draft.id !== workspace.id));
+      setWorkspace(remaining ? withCombinedOfferings(remaining, response.offering_candidates) : null);
+      setOpen(remaining !== null);
       setCanConfirm(!remaining);
     } catch (err) {
       setReviewError(err instanceof ApiError ? err.detail : "I couldn't save that information.");
@@ -553,14 +561,15 @@ export default function OnboardingPage() {
   }
 
   async function discardKnowledge() {
-    if (!reviewing) return;
+    if (!workspace) return;
     setReviewError(null);
     setBusy(true);
     try {
-      await apiFetch(`/api/knowledge/records/${reviewing.id}`, { method: "DELETE" });
-      const remaining = nextDraft(reviewing.id);
-      setDrafts((previous) => previous.filter((draft) => draft.id !== reviewing.id));
-      setReviewing(remaining ? withCombinedOfferings(remaining, ownerOfferings) : null);
+      await apiFetch(`/api/knowledge/records/${workspace.id}`, { method: "DELETE" });
+      const remaining = nextDraft(workspace.id);
+      setDrafts((previous) => previous.filter((draft) => draft.id !== workspace.id));
+      setWorkspace(remaining ? withCombinedOfferings(remaining, ownerOfferings) : null);
+      setOpen(remaining !== null);
       setCanConfirm(!remaining);
     } catch (err) {
       setReviewError(err instanceof ApiError ? err.detail : "I couldn't discard that draft.");
@@ -690,7 +699,17 @@ export default function OnboardingPage() {
 
       <div className="relative z-[1] shrink-0 px-gutter pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
         <div className="mx-auto w-full max-w-thread">
-          {!completed && canConfirm && !reviewing ? (
+          {!open && drafts.length > 0 ? (
+            <Button
+              variant="secondary"
+              onClick={() => setOpen(true)}
+              className="mb-3"
+              data-testid="onboarding-reopen-review"
+            >
+              Review documents
+            </Button>
+          ) : null}
+          {!completed && canConfirm && !workspace ? (
             <div className="flex flex-col gap-3">
               {businessName ? (
                 <p className="text-meta text-ink-a40" data-testid="onboarding-going-live-as">
@@ -759,13 +778,14 @@ export default function OnboardingPage() {
         </div>
       </div>
       <ReviewSheet
-        record={reviewing}
+        workspace={workspace}
+        open={open}
         busy={busy}
         priceConflict={reviewError}
         onboarding
         onClose={() => {
           setReviewError(null);
-          setReviewing(null);
+          setOpen(false);
         }}
         onSave={(sections, offerings) => void saveKnowledge(sections, offerings)}
         onDiscard={() => void discardKnowledge()}

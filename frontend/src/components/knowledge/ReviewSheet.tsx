@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Sheet } from "@/components/ui/Sheet";
-import type { KnowledgeRecord, KnowledgeSection, PendingOffering, ReviewOffering, SourceDetail } from "./types";
+import type { KnowledgeRecord, KnowledgeSection, PendingOffering, ReviewOffering, ReviewWorkspace, SourceDetail } from "./types";
 import { sourceLabel } from "./types";
 
 const PAGE_SIZE = 5;
@@ -33,7 +33,8 @@ export function toWorkingOffering(item: ReviewOffering): WorkingOffering {
 }
 
 export interface ReviewSheetProps {
-  record: KnowledgeRecord | null;
+  workspace: ReviewWorkspace | null;
+  open: boolean;
   busy: boolean;
   priceConflict: string | null;
   onboarding?: boolean;
@@ -42,13 +43,13 @@ export interface ReviewSheetProps {
   onDiscard: () => void;
 }
 
-export function ReviewSheet({ record, busy, priceConflict, onboarding = false, onClose, onSave, onDiscard }: ReviewSheetProps) {
-  return <Sheet open={record !== null} onClose={onClose} desktop title={onboarding ? "Review your information" : record?.status === "draft" ? "Read this back" : "Edit what I know"}>
-    {record ? <ReviewDocument key={record.id} record={record} busy={busy} priceConflict={priceConflict} onboarding={onboarding} onSave={onSave} onDiscard={onDiscard} /> : null}
+export function ReviewSheet({ workspace, open, busy, priceConflict, onboarding = false, onClose, onSave, onDiscard }: ReviewSheetProps) {
+  return <Sheet open={open} onClose={onClose} desktop title={onboarding ? "Review your information" : workspace?.status === "draft" ? "Read this back" : "Edit what I know"}>
+    {workspace ? <ReviewDocument key={workspace.id} record={workspace} busy={busy} priceConflict={priceConflict} onboarding={onboarding} onSave={onSave} onDiscard={onDiscard} /> : null}
   </Sheet>;
 }
 
-function ReviewDocument({ record, busy, priceConflict, onboarding, onSave, onDiscard }: Omit<ReviewSheetProps, "record" | "onClose"> & { record: KnowledgeRecord; onboarding: boolean }) {
+function ReviewDocument({ record, busy, priceConflict, onboarding, onSave, onDiscard }: Omit<ReviewSheetProps, "workspace" | "open" | "onClose"> & { record: KnowledgeRecord; onboarding: boolean }) {
   const [sections, setSections] = useState(() => orderedSections(record.sections));
   const [offerings, setOfferings] = useState(() => (record.offering_candidates ?? []).map(toWorkingOffering));
   const [expanded, setExpanded] = useState(offerings.length <= PAGE_SIZE);
