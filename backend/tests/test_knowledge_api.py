@@ -195,6 +195,35 @@ async def test_reprocess_unknown_document_is_404(client: httpx.AsyncClient) -> N
     assert response.status_code == 404
 
 
+async def test_reprocess_returns_200_even_when_the_result_is_failed(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """W-11a review fix 4: /reprocess was not part of this ticket's brief (only
+    retry-draft was asked for), and nothing calls it today - it must keep
+    returning the row whatever its status, exactly as before W-11."""
+    from app.ingestion import pipeline
+
+    token = await _signup_tenant_admin(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    upload = await client.post(
+        "/api/knowledge/upload",
+        headers=headers,
+        files={"file": ("faq.md", b"We are open weekdays 9-5.", "text/markdown")},
+        data={"doc_type": "faq"},
+    )
+    document_id = upload.json()["id"]
+
+    async def fail_embed(*args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("embed-secret")
+
+    monkeypatch.setattr(pipeline, "embed_texts", fail_embed)
+    response = await client.post(f"/api/knowledge/{document_id}/reprocess", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "failed"
+    assert body["error"]
+
+
 async def test_upload_rejects_unsupported_extension(client: httpx.AsyncClient) -> None:
     token = await _signup_tenant_admin(client)
     response = await client.post(
@@ -472,6 +501,30 @@ async def test_retry_draft_unknown_document_is_404(client: httpx.AsyncClient) ->
     assert response.status_code == 404
 
 
+async def test_retry_draft_on_an_already_good_draft_is_404(client: httpx.AsyncClient) -> None:
+    """W-11a review fix 5: retry-draft targets a retryable *failed* document
+    only. Calling it on a document already at status='draft' must not silently
+    discard its stored structured/offerings for a needless re-run."""
+    from app.llm.dependency import get_llm_provider
+
+    app.dependency_overrides[get_llm_provider] = lambda: _MenuProvider()
+    try:
+        token = await _signup_tenant_admin(client)
+        headers = {"Authorization": f"Bearer {token}"}
+        upload = await client.post(
+            "/api/knowledge/drafts/upload",
+            headers=headers,
+            files={"file": ("menu.md", b"Hot Chips are $10.\n", "text/markdown")},
+        )
+        assert upload.json()["status"] == "draft"
+        document_id = upload.json()["id"]
+
+        response = await client.post(f"/api/knowledge/{document_id}/retry-draft", headers=headers)
+        assert response.status_code == 404
+    finally:
+        app.dependency_overrides.pop(get_llm_provider, None)
+
+
 async def test_retry_draft_scoped_to_tenant(client: httpx.AsyncClient) -> None:
     """A document belonging to another tenant must not be reachable."""
     from app.llm.dependency import get_llm_provider
@@ -518,9 +571,14 @@ async def test_structure_failure_redacts_exception_and_sets_failed_at(
     assert body["failed_at"] is not None
 
 
-async def test_complete_extraction_failure_is_failed_with_safe_metadata(
+async def test_complete_extraction_failure_lands_as_draft_not_failed(
     client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """W-11a review fix 3: extract_offerings's own docstring says status="failed"
+    means a degraded-but-reviewable result (fewer candidates, readable sections
+    still there), not a hard document failure. Only a raised exception should
+    ever land status='failed'."""
+
     async def extraction(*args: Any, **kwargs: Any) -> dict[str, Any]:
         return {"status": "failed", "candidates": []}
 
@@ -536,11 +594,12 @@ async def test_complete_extraction_failure_is_failed_with_safe_metadata(
         files={"file": ("notes.txt", b"hello", "text/plain")},
     )
     body = response.json()
-    assert body["status"] == "failed"
+    assert body["status"] == "draft"
     assert body["extraction_status"] == "failed"
-    assert body["failure_stage"] == "extract"
-    assert body["error"] == "We could not identify offerings in this document. Please retry."
-    assert body["failed_at"] is not None
+    assert body["failure_stage"] is None
+    assert body["error"] is None
+    assert body["offering_candidates"] == []
+    assert body["sections"] == [{"heading": "Other information", "body": "hello", "kind": "other"}]
 
 
 async def test_partial_extraction_remains_draft(
@@ -564,6 +623,57 @@ async def test_partial_extraction_remains_draft(
     assert response.json()["failure_stage"] is None
 
 
+class _AlwaysFailingExtractProvider:
+    """Every ``extract()`` call raises. Both structure_document and
+    extract_offerings catch per-segment model failures internally and degrade
+    rather than propagate (see their own docstrings) - the model failing is
+    never an exception that reaches draft_from_upload, so this proves a
+    document can legitimately land at extraction_status='failed' through the
+    real pipeline, not just by monkeypatching the service layer."""
+
+    async def extract(self, *, system_prompt: str, user_input: str, schema: Any) -> Any:
+        raise RuntimeError("model unavailable")
+
+    async def chat(self, messages: Any) -> str:  # pragma: no cover - unused
+        return ""
+
+    async def chat_stream(self, messages: Any) -> Any:  # pragma: no cover - unused
+        yield ""
+
+
+async def test_extraction_failure_via_real_provider_lands_as_draft(
+    client: httpx.AsyncClient,
+) -> None:
+    """End-to-end version of the fix-3 proof above, through the real upload
+    endpoint with a genuinely failing provider rather than a mocked service
+    function: the document still lands at status='draft' with its readable
+    sections intact and extraction_status='failed'."""
+    from app.llm.dependency import get_llm_provider
+
+    app.dependency_overrides[get_llm_provider] = lambda: _AlwaysFailingExtractProvider()
+    try:
+        token = await _signup_tenant_admin(client)
+        response = await client.post(
+            "/api/knowledge/drafts/upload",
+            headers={"Authorization": f"Bearer {token}"},
+            files={
+                "file": (
+                    "notes.txt",
+                    b"We are open weekdays 9-5. Call us on 555-1234.",
+                    "text/plain",
+                )
+            },
+        )
+        assert response.status_code == 201
+        body = response.json()
+        assert body["status"] == "draft"
+        assert body["extraction_status"] == "failed"
+        assert body["offering_candidates"] == []
+        assert body["sections"]
+    finally:
+        app.dependency_overrides.pop(get_llm_provider, None)
+
+
 async def test_draft_timeout_stores_retryable_safe_failure(
     client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -582,7 +692,9 @@ async def test_draft_timeout_stores_retryable_safe_failure(
 
 
 async def test_retry_failure_redacts_exception_and_keeps_metadata(
-    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+    client: httpx.AsyncClient,
+    superuser_conn: asyncpg.Connection[Any],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from app.llm.dependency import get_llm_provider
 
@@ -596,6 +708,16 @@ async def test_retry_failure_redacts_exception_and_keeps_metadata(
             files={"file": ("notes.txt", b"hello", "text/plain")},
         )
         document_id = upload.json()["id"]
+
+        # W-11a review fix 5: retry-draft targets a retryable failed document
+        # only, so this document must be parked as one before retrying it -
+        # exactly as a real structuring failure would have left it.
+        await superuser_conn.execute(
+            "update documents set status = 'failed', error = 'placeholder', "
+            "failure_stage = 'structure', failure_retryable = true, failed_at = now() "
+            "where id = $1",
+            document_id,
+        )
 
         async def fail(*args: Any, **kwargs: Any) -> Any:
             raise RuntimeError("retry-secret")
@@ -694,12 +816,18 @@ async def test_embed_failure_retry_demotes_without_embedding_or_publication(
         assert body["status"] == "draft"
         assert body["error"] is None
         assert body["failure_stage"] is None
-        assert await superuser_conn.fetchval(
-            "select count(*) from knowledge_chunks where document_id = $1", document_id
-        ) == 0
-        assert await superuser_conn.fetchval(
-            "select count(*) from offerings where tenant_id = $1", tenant_id
-        ) == 0
+        assert (
+            await superuser_conn.fetchval(
+                "select count(*) from knowledge_chunks where document_id = $1", document_id
+            )
+            == 0
+        )
+        assert (
+            await superuser_conn.fetchval(
+                "select count(*) from offerings where tenant_id = $1", tenant_id
+            )
+            == 0
+        )
     finally:
         app.dependency_overrides.pop(get_llm_provider, None)
 

@@ -1345,9 +1345,7 @@ def test_reconcile_replacement_keeps_an_offering_still_backed_by_another_documen
         [candidate], [], replaced_document_id=replaced, edited_candidate_ids=set()
     )
 
-    assert survivors == [
-        candidate.model_copy(update={"supporting_document_ids": [other]})
-    ]
+    assert survivors == [candidate.model_copy(update={"supporting_document_ids": [other]})]
     assert survivors[0].support_state == "supported"
 
 
@@ -1367,6 +1365,25 @@ def test_reconcile_replacement_keeps_owner_provenance_and_removes_document_sourc
         candidate.model_copy(update={"sources": ["owner"], "supporting_document_ids": []})
     ]
     assert survivors[0].support_state == "supported"
+
+
+def test_reconcile_replacement_keeps_document_source_without_replaced_support() -> None:
+    """W-11a review fix 6: a candidate whose supporting_document_ids was
+    already empty *before* this call (legacy data predating W-11a's document-
+    id tracking, say) never depended on the document being replaced, so the
+    replacement must leave its sources untouched - "document" must not be
+    stripped just because supporting_document_ids happens to be empty."""
+    replaced = uuid4()
+    candidate = PendingOffering(
+        name="Flat white", sources=["owner", "document"], supporting_document_ids=[]
+    )
+
+    survivors = reconcile_replacement(
+        [candidate], [], replaced_document_id=replaced, edited_candidate_ids=set()
+    )
+
+    assert survivors == [candidate]
+    assert "document" in survivors[0].sources
 
 
 @pytest.mark.asyncio

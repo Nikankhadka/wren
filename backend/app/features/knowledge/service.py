@@ -73,9 +73,7 @@ def _document_extension(filename: str) -> str:
     return ".txt" if filename.startswith(("http://", "https://")) else Path(filename).suffix.lower()
 
 
-def _log_failure(
-    *, tenant_id: UUID, document_id: UUID, stage: str, error: BaseException
-) -> None:
+def _log_failure(*, tenant_id: UUID, document_id: UUID, stage: str, error: BaseException) -> None:
     logger.exception(
         "knowledge document processing failed tenant_id=%s document_id=%s stage=%s",
         tenant_id,
@@ -544,17 +542,11 @@ async def draft_from_upload(
             extraction=None,
         )
     await _save_original_text(tenant_id=tenant_id, document_id=document_id, text=raw_text)
-    if extraction["status"] == "failed":
-        return await _insert_failed_draft(
-            tenant_id=tenant_id,
-            document_id=document_id,
-            filename=filename,
-            doc_type="other",
-            stage="extract",
-            error=_safe_failure_message("extract"),
-            sections=sections,
-            extraction=extraction,
-        )
+    # An extraction that comes back status="failed" is a degraded-but-reviewable
+    # result (see extract_offerings's docstring), not a document failure - it
+    # lands as an ordinary draft with a thin or empty candidate list, exactly
+    # like "partial" or "full". Only a raised exception (_StageFailure, above)
+    # blocks the document at status='failed'.
     return await _insert_draft(
         tenant_id=tenant_id,
         document_id=document_id,
@@ -568,20 +560,23 @@ async def draft_from_upload(
 async def retry_draft(
     *, tenant_id: UUID, document_id: UUID, provider: LLMProvider
 ) -> dict[str, Any] | None:
-    """Re-run structuring and extraction against a draft's already-stored file,
-    landing it back at 'draft' for review. Never chunks or embeds anything, so
-    it never publishes - saving stays a separate owner action.
+    """Re-run structuring and extraction against a failed draft's already-stored
+    file, landing it back at 'draft' for review. Never chunks or embeds
+    anything, so it never publishes - saving stays a separate owner action.
 
-    Targets a document parked as 'draft' or a retryable 'failed' document.
-    Embed failures already retain reviewed sections, so retrying them only
-    clears stale chunks and returns the document to draft. None means no such
-    document belongs to this tenant.
+    Targets a retryable 'failed' document only - a document already at
+    'draft' is not failed, so it is not this endpoint's business (a caller
+    hitting this on an already-good draft would otherwise discard its stored
+    structured/offerings for a needless re-run). Embed failures already
+    retain reviewed sections, so retrying them only clears stale chunks and
+    returns the document to draft. None means no such document belongs to
+    this tenant.
     """
     async with db.tenant_context(tenant_id, "tenant_admin") as conn:
         row = await conn.fetchrow(
             "select filename, structured, offerings, failure_stage from documents "
-            "where id = $1 and tenant_id = $2 and (status = 'draft' or (status = 'failed' "
-            "and failure_stage in ('structure', 'extract', 'embed')))",
+            "where id = $1 and tenant_id = $2 and status = 'failed' "
+            "and failure_stage in ('structure', 'extract', 'embed')",
             document_id,
             tenant_id,
         )
@@ -590,9 +585,7 @@ async def retry_draft(
 
     structured = row["structured"]
     if row["failure_stage"] == "embed" and structured is not None:
-        return await _return_failed_embed_to_draft(
-            tenant_id=tenant_id, document_id=document_id
-        )
+        return await _return_failed_embed_to_draft(tenant_id=tenant_id, document_id=document_id)
 
     extension = _document_extension(str(row["filename"]))
     body = await get_storage().get(document_key(tenant_id, document_id, extension))
@@ -625,15 +618,8 @@ async def retry_draft(
         )
 
     await _save_original_text(tenant_id=tenant_id, document_id=document_id, text=raw_text)
-    if extraction["status"] == "failed":
-        return await _mark_draft_failed(
-            tenant_id=tenant_id,
-            document_id=document_id,
-            stage="extract",
-            error=_safe_failure_message("extract"),
-            sections=sections,
-            extraction=extraction,
-        )
+    # See draft_from_upload: a degraded status="failed" extraction is still a
+    # reviewable draft, not a document failure.
     return await _update_draft(
         tenant_id=tenant_id, document_id=document_id, sections=sections, extraction=extraction
     )
@@ -708,26 +694,8 @@ async def draft_from_url_text(
             error=_safe_failure_message(failure.stage),
         )
     await _save_original_text(tenant_id=tenant_id, document_id=target, text=_raw_text)
-    if extraction["status"] == "failed":
-        if existing is None:
-            return await _insert_failed_draft(
-                tenant_id=tenant_id,
-                document_id=target,
-                filename=url,
-                doc_type="website",
-                stage="extract",
-                error=_safe_failure_message("extract"),
-                sections=sections,
-                extraction=extraction,
-            )
-        return await _mark_draft_failed(
-            tenant_id=tenant_id,
-            document_id=target,
-            stage="extract",
-            error=_safe_failure_message("extract"),
-            sections=sections,
-            extraction=extraction,
-        )
+    # See draft_from_upload: a degraded status="failed" extraction is still a
+    # reviewable draft, not a document failure.
     if existing is None:
         return await _insert_draft(
             tenant_id=tenant_id,
@@ -1012,6 +980,23 @@ async def _save_original_text(*, tenant_id: UUID, document_id: UUID, text: str) 
     await get_storage().put(
         document_key(tenant_id, document_id, ".source.txt"), text.encode("utf-8")
     )
+
+
+async def save_draft_sections(
+    *, tenant_id: UUID, document_id: UUID, sections: list[dict[str, str]]
+) -> None:
+    """Persist an owner's edited sections without publishing - the document's
+    status, offerings, and chunks are untouched. Used when a document can't be
+    published this round (a price conflict on an offering it supports) so the
+    edit isn't silently lost."""
+    sections = normalize_sections(sections)
+    async with db.tenant_context(tenant_id, "tenant_admin") as conn:
+        await conn.execute(
+            "update documents set structured = $2 where id = $1 and tenant_id = $3",
+            document_id,
+            json.dumps(sections),
+            tenant_id,
+        )
 
 
 async def _source_text_for_processing(*, tenant_id: UUID, filename: str, document_id: UUID) -> str:

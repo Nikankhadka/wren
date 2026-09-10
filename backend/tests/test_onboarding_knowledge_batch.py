@@ -227,7 +227,7 @@ async def test_price_conflict_fails_only_that_document_unless_accepted(
     assert rejected_body["published"] == []
     assert len(rejected_body["failed"]) == 1
     assert rejected_body["failed"][0]["document_id"] == draft["id"]
-    assert "price changes need confirmation" in rejected_body["failed"][0]["error"]
+    assert "multiple prices found" in rejected_body["failed"][0]["error"]
 
     # A price-conflicted document is skipped entirely - never handed to
     # publish_record - so it is still exactly where the upload left it.
@@ -243,3 +243,165 @@ async def test_price_conflict_fails_only_that_document_unless_accepted(
     accepted_body = accepted.json()
     assert accepted_body["failed"] == []
     assert accepted_body["published"] == [draft["id"]]
+
+
+# ---------------------------------------------------------------------------
+# W-11a review fixes: a price-conflicted offering must survive the batch call
+# so the owner has something to resubmit with accept_price_changes=True, and
+# its supporting document's submitted edits must not be lost.
+# ---------------------------------------------------------------------------
+
+
+async def test_price_conflicted_offering_survives_alongside_a_healthy_publish(
+    client: httpx.AsyncClient, uploads_tmp: Path
+) -> None:
+    """Fix 1: an offering wholly supported by price-conflict-failed documents
+    must still come back in offering_candidates - unlike a hard failure (not
+    found, or a publish-time processing failure), a price conflict is not a
+    reason to withhold the offering, since the owner needs it there to
+    resubmit with accept_price_changes=True."""
+    headers = await _signup_tenant_admin(client)
+    conflicted = await _upload_draft(client, headers, filename="conflicted.txt")
+    healthy = await _upload_draft(client, headers, filename="healthy.txt")
+
+    response = await client.put(
+        "/api/onboarding/knowledge/batch",
+        headers=headers,
+        json={
+            "documents": [
+                {"document_id": conflicted["id"], "sections": conflicted["sections"]},
+                {"document_id": healthy["id"], "sections": healthy["sections"]},
+            ],
+            "offerings": [
+                {
+                    "name": "Screen replacement",
+                    "price_options": [12900, 17900],
+                    "supporting_document_ids": [conflicted["id"]],
+                }
+            ],
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["published"] == [healthy["id"]]
+    assert len(body["failed"]) == 1
+    assert body["failed"][0]["document_id"] == conflicted["id"]
+    assert {item["name"] for item in body["offering_candidates"]} == {"Screen replacement"}
+
+
+async def test_price_conflict_document_sections_are_saved_without_publishing(
+    client: httpx.AsyncClient, uploads_tmp: Path
+) -> None:
+    """Fix 2: a price-conflicted document is skipped before publish_record ever
+    runs, but the owner's submitted edits to its sections must still be
+    persisted so they are not silently discarded."""
+    headers = await _signup_tenant_admin(client)
+    draft = await _upload_draft(client, headers)
+    edited_sections = [dict(section) for section in draft["sections"]]
+    edited_sections[0]["body"] = f"{edited_sections[0]['body']} EDITED BY OWNER."
+
+    response = await client.put(
+        "/api/onboarding/knowledge/batch",
+        headers=headers,
+        json={
+            "documents": [{"document_id": draft["id"], "sections": edited_sections}],
+            "offerings": [
+                {
+                    "name": "Screen replacement",
+                    "price_options": [12900, 17900],
+                    "supporting_document_ids": [draft["id"]],
+                }
+            ],
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["failed"][0]["document_id"] == draft["id"]
+
+    record = await client.get(f"/api/knowledge/records/{draft['id']}", headers=headers)
+    assert record.json()["status"] == "draft"
+    assert record.json()["sections"] == edited_sections
+
+
+async def test_price_conflict_message_names_every_price_option(
+    client: httpx.AsyncClient, uploads_tmp: Path
+) -> None:
+    """Fix 8: the failure message must name every conflicting price, not just
+    the first and last of a longer list."""
+    headers = await _signup_tenant_admin(client)
+    draft = await _upload_draft(client, headers)
+    price_options = [9900, 12900, 15900, 17900]
+
+    response = await client.put(
+        "/api/onboarding/knowledge/batch",
+        headers=headers,
+        json={
+            "documents": [{"document_id": draft["id"], "sections": draft["sections"]}],
+            "offerings": [
+                {
+                    "name": "Screen replacement",
+                    "price_options": price_options,
+                    "supporting_document_ids": [draft["id"]],
+                }
+            ],
+        },
+    )
+    assert response.status_code == 200, response.text
+    message = response.json()["failed"][0]["error"]
+    for cents in price_options:
+        assert f"{cents} cents" in message
+
+
+async def test_two_documents_supporting_the_same_conflicted_offering_both_fail(
+    client: httpx.AsyncClient, uploads_tmp: Path
+) -> None:
+    """Fix 1/8: when more than one document in the batch supports the same
+    conflicting offering, every one of them lands in failed, not just the
+    first the loop encounters."""
+    headers = await _signup_tenant_admin(client)
+    draft_a = await _upload_draft(client, headers, filename="a.txt")
+    draft_b = await _upload_draft(client, headers, filename="b.txt")
+
+    response = await client.put(
+        "/api/onboarding/knowledge/batch",
+        headers=headers,
+        json={
+            "documents": [
+                {"document_id": draft_a["id"], "sections": draft_a["sections"]},
+                {"document_id": draft_b["id"], "sections": draft_b["sections"]},
+            ],
+            "offerings": [
+                {
+                    "name": "Screen replacement",
+                    "price_options": [12900, 17900],
+                    "supporting_document_ids": [draft_a["id"], draft_b["id"]],
+                }
+            ],
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["published"] == []
+    failed_ids = {item["document_id"] for item in body["failed"]}
+    assert failed_ids == {draft_a["id"], draft_b["id"]}
+
+
+async def test_duplicate_offering_names_in_batch_request_is_422(
+    client: httpx.AsyncClient, uploads_tmp: Path
+) -> None:
+    """The offering-name-uniqueness check stays request-level: two offerings
+    that normalize to the same name make the whole request a 422."""
+    headers = await _signup_tenant_admin(client)
+    draft = await _upload_draft(client, headers)
+
+    response = await client.put(
+        "/api/onboarding/knowledge/batch",
+        headers=headers,
+        json={
+            "documents": [{"document_id": draft["id"], "sections": draft["sections"]}],
+            "offerings": [
+                {"name": "Screen Replacement"},
+                {"name": "screen replacement"},
+            ],
+        },
+    )
+    assert response.status_code == 422

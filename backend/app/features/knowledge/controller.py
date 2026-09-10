@@ -58,11 +58,6 @@ async def reprocess_document(
     )
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="document not found")
-    if row.get("status") == "failed":
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=row.get("error") or "document could not be published",
-        )
     return row
 
 

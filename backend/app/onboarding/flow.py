@@ -343,6 +343,7 @@ def reconcile_replacement(
       document) survives untouched, and every unmatched ``incoming`` candidate
       is kept as a new offering.
     """
+
     def without_replaced_document(item: PendingOffering) -> PendingOffering:
         """Drop the replaced source before any candidate is retained or merged."""
         if replaced_document_id not in item.supporting_document_ids:
@@ -365,11 +366,9 @@ def reconcile_replacement(
 
     for item in existing:
         match = incoming_by_key.get(normalize_name(item.name))
-        had_only_replaced_support = set(item.supporting_document_ids) == {
-            replaced_document_id
-        }
+        had_only_replaced_support = set(item.supporting_document_ids) == {replaced_document_id}
         item = without_replaced_document(item)
-        if "owner" in item.sources and not item.supporting_document_ids:
+        if "owner" in item.sources and had_only_replaced_support:
             item = item.model_copy(
                 update={"sources": [source for source in item.sources if source != "document"]}
             )

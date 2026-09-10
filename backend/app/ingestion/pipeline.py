@@ -28,20 +28,31 @@ logger = logging.getLogger("app.ingestion.pipeline")
 _SAFE_EMBED_FAILURE_MESSAGE = "We could not make this document searchable. Please retry."
 
 
+class _NoExtractableContent(ValueError):
+    """The chunker produced zero chunks - the file has nothing to search over.
+    Deterministic: this fails identically on every retry, so it is the one
+    embed-stage failure ``_mark_failed`` must not mark retryable."""
+
+
 async def _mark_failed(
     conn: AppConnection,
     *,
     tenant_id: UUID,
     document_id: UUID,
+    retryable: bool = True,
 ) -> None:
     """Record a chunk+embed failure - W-11's 'embed' stage - the same failure
-    metadata a draft's own structuring/extraction failure gets."""
+    metadata a draft's own structuring/extraction failure gets. ``retryable``
+    is False only for a failure that will recur identically on every retry (a
+    file with no extractable content); every other embed/chunk failure (a
+    transient provider error, say) keeps the default of True."""
     await conn.execute(
         "update documents set status = 'failed', error = $2, failure_stage = 'embed', "
-        "failure_retryable = true, failed_at = now() where id = $1 and tenant_id = $3",
+        "failure_retryable = $4, failed_at = now() where id = $1 and tenant_id = $3",
         document_id,
         _SAFE_EMBED_FAILURE_MESSAGE,
         tenant_id,
+        retryable,
     )
 
 
@@ -51,9 +62,12 @@ async def _replace_chunks(
     document_id: UUID,
     tenant_id: UUID,
     chunks: list[Chunk],
-    embedder: Embedder,
+    vectors: list[list[float]],
 ) -> None:
-    vectors = await embed_texts(embedder, [chunk.content for chunk in chunks])
+    """Delete and reinsert one document's chunks - DB writes only. Callers embed
+    first (a network call) and pass the resulting ``vectors`` in, so this can
+    run entirely inside a DB transaction without holding it open across that
+    network round-trip."""
     await conn.execute(
         "delete from knowledge_chunks where document_id = $1 and tenant_id = $2",
         document_id,
@@ -109,11 +123,15 @@ async def process_document(
             raise FileNotFoundError(f"no stored file for document {document_id}")  # noqa: TRY301
         chunks = chunk_document(body, ext, source=source or row["filename"])
         if not chunks:
-            raise ValueError("no extractable content in this file")  # noqa: TRY301
+            raise _NoExtractableContent("no extractable content in this file")  # noqa: TRY301
 
+        # Embedding is a network call to the provider; it runs before the DB
+        # transaction opens so a slow or failing embed call never holds a
+        # transaction open (W-11a review fix 9).
+        vectors = await embed_texts(embedder, [chunk.content for chunk in chunks])
         async with conn.transaction():
             await _replace_chunks(
-                conn, document_id=document_id, tenant_id=tenant_id, chunks=chunks, embedder=embedder
+                conn, document_id=document_id, tenant_id=tenant_id, chunks=chunks, vectors=vectors
             )
             await conn.execute(
                 "update documents set status = 'ready', error = null, failure_stage = null, "
@@ -123,6 +141,13 @@ async def process_document(
             )
     except (asyncpg.PostgresConnectionError, asyncpg.InterfaceError):
         raise
+    except _NoExtractableContent:
+        logger.exception(
+            "knowledge document processing failed tenant_id=%s document_id=%s stage=embed",
+            tenant_id,
+            document_id,
+        )
+        await _mark_failed(conn, tenant_id=tenant_id, document_id=document_id, retryable=False)
     except Exception:  # noqa: BLE001 - always recorded on the document, never re-raised
         logger.exception(
             "knowledge document processing failed tenant_id=%s document_id=%s stage=embed",
@@ -178,9 +203,12 @@ async def ingest_offerings(conn: AppConnection, *, tenant_id: UUID, embedder: Em
             )
             for item in items
         ]
+        # See process_document: embed before opening the transaction so it is
+        # never held across the embedding provider's network call.
+        vectors = await embed_texts(embedder, [chunk.content for chunk in chunks])
         async with conn.transaction():
             await _replace_chunks(
-                conn, document_id=document_id, tenant_id=tenant_id, chunks=chunks, embedder=embedder
+                conn, document_id=document_id, tenant_id=tenant_id, chunks=chunks, vectors=vectors
             )
             await conn.execute(
                 "update documents set status = 'ready', error = null, failure_stage = null, "

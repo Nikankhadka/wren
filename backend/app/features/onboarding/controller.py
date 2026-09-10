@@ -516,7 +516,8 @@ async def save_onboarding_knowledge_batch(
     embedder: Embedder,
 ) -> tuple[list[UUID], list[tuple[UUID, str]], list[PendingOffering]]:
     """Publish every reviewed document in one call; a document's own failure
-    (not found, still processing, or a price conflict) never aborts the rest.
+    (not found, a price conflict, or a processing failure surfaced at publish
+    time) never aborts the rest.
 
     W-11a: the offering-name-uniqueness check stays request-level (a malformed
     request is a 422), but everything past it is per-document data in the
@@ -533,28 +534,40 @@ async def save_onboarding_knowledge_batch(
         keys.add(key)
 
     batch_document_ids = {document_id for document_id, _ in documents}
+    document_sections = dict(documents)
     failed: list[tuple[UUID, str]] = []
-    price_conflict_ids: set[UUID] = set()
+    # Only a hard failure - not found, or publish_record itself reporting
+    # status='failed' - withholds an offering below. A price conflict must
+    # never count here: the owner needs the conflicted offering to still be in
+    # offering_candidates so they can resubmit with accept_price_changes=True.
+    hard_failure_ids: set[UUID] = set()
 
+    # A document can support more than one conflicting offering; collect every
+    # conflict's message per document rather than keeping only the first.
+    price_conflict_messages: dict[UUID, list[str]] = {}
     if not accept_price_changes:
         for offering in offerings:
             if len(offering.price_options) <= 1:
                 continue
-            message = str(
-                knowledge_service.OfferingPriceConflict(
-                    [
-                        {
-                            "name": offering.name,
-                            "current_price_cents": offering.price_options[0],
-                            "proposed_price_cents": offering.price_options[-1],
-                        }
-                    ]
-                )
+            message = (
+                f"{offering.name}: multiple prices found "
+                f"({', '.join(f'{cents} cents' for cents in offering.price_options)}) "
+                "- resolve before publishing"
             )
             for document_id in offering.supporting_document_ids:
-                if document_id in batch_document_ids and document_id not in price_conflict_ids:
-                    price_conflict_ids.add(document_id)
-                    failed.append((document_id, message))
+                if document_id in batch_document_ids:
+                    price_conflict_messages.setdefault(document_id, []).append(message)
+
+    price_conflict_ids = set(price_conflict_messages)
+    for document_id, messages in price_conflict_messages.items():
+        failed.append((document_id, "; ".join(messages)))
+        # The document is skipped below, never reaching publish_record, so its
+        # submitted edits would otherwise be silently lost.
+        await knowledge_service.save_draft_sections(
+            tenant_id=tenant_id,
+            document_id=document_id,
+            sections=document_sections[document_id],
+        )
 
     published: list[UUID] = []
     for document_id, sections in documents:
@@ -573,20 +586,21 @@ async def save_onboarding_knowledge_batch(
             continue
         if record is None:
             failed.append((document_id, "document not found"))
+            hard_failure_ids.add(document_id)
             continue
         if record.get("status") == "failed":
             failed.append(
                 (document_id, str(record.get("error") or "document could not be published"))
             )
+            hard_failure_ids.add(document_id)
             continue
         published.append(document_id)
 
-    failed_ids = {document_id for document_id, _ in failed}
     offering_candidates = [
         offering
         for offering in offerings
         if not offering.supporting_document_ids
-        or not set(offering.supporting_document_ids) <= failed_ids
+        or not set(offering.supporting_document_ids) <= hard_failure_ids
     ]
 
     onboarding = OnboardingRecord.from_jsonb(await service.load_record(tenant_id=tenant_id))
