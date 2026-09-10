@@ -1327,7 +1327,11 @@ def test_reconcile_replacement_merges_a_matched_offering_through_merge_offerings
         edited_candidate_ids=set(),
     )
 
-    assert survivors == [merge_offerings(existing_item, incoming_item)]
+    assert survivors == [
+        merge_offerings(
+            existing_item.model_copy(update={"supporting_document_ids": []}), incoming_item
+        )
+    ]
 
 
 def test_reconcile_replacement_keeps_an_offering_still_backed_by_another_document() -> None:
@@ -1341,7 +1345,27 @@ def test_reconcile_replacement_keeps_an_offering_still_backed_by_another_documen
         [candidate], [], replaced_document_id=replaced, edited_candidate_ids=set()
     )
 
-    assert survivors == [candidate]
+    assert survivors == [
+        candidate.model_copy(update={"supporting_document_ids": [other]})
+    ]
+    assert survivors[0].support_state == "supported"
+
+
+def test_reconcile_replacement_keeps_owner_provenance_and_removes_document_source() -> None:
+    replaced = uuid4()
+    candidate = PendingOffering(
+        name="Flat white",
+        sources=["owner", "document"],
+        supporting_document_ids=[replaced],
+    )
+
+    survivors = reconcile_replacement(
+        [candidate], [], replaced_document_id=replaced, edited_candidate_ids=set()
+    )
+
+    assert survivors == [
+        candidate.model_copy(update={"sources": ["owner"], "supporting_document_ids": []})
+    ]
     assert survivors[0].support_state == "supported"
 
 

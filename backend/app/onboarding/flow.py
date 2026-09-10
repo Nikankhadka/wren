@@ -343,20 +343,47 @@ def reconcile_replacement(
       document) survives untouched, and every unmatched ``incoming`` candidate
       is kept as a new offering.
     """
-    incoming_by_key = {normalize_name(item.name): item for item in incoming}
+    def without_replaced_document(item: PendingOffering) -> PendingOffering:
+        """Drop the replaced source before any candidate is retained or merged."""
+        if replaced_document_id not in item.supporting_document_ids:
+            return item
+        return item.model_copy(
+            update={
+                "supporting_document_ids": [
+                    item_id
+                    for item_id in item.supporting_document_ids
+                    if item_id != replaced_document_id
+                ]
+            }
+        )
+
+    incoming_by_key = {
+        normalize_name(item.name): without_replaced_document(item) for item in incoming
+    }
     matched: set[str] = set()
     survivors: list[PendingOffering] = []
 
     for item in existing:
         match = incoming_by_key.get(normalize_name(item.name))
+        had_only_replaced_support = set(item.supporting_document_ids) == {
+            replaced_document_id
+        }
+        item = without_replaced_document(item)
+        if "owner" in item.sources and not item.supporting_document_ids:
+            item = item.model_copy(
+                update={"sources": [source for source in item.sources if source != "document"]}
+            )
         if match is not None:
             matched.add(normalize_name(item.name))
             survivors.append(merge_offerings(item, match))
             continue
-        only_replaced = set(item.supporting_document_ids) == {replaced_document_id}
-        if only_replaced and item.candidate_id not in edited_candidate_ids:
+        if (
+            had_only_replaced_support
+            and "owner" not in item.sources
+            and item.candidate_id not in edited_candidate_ids
+        ):
             continue
-        if only_replaced:
+        if had_only_replaced_support and "owner" not in item.sources:
             item = item.model_copy(update={"support_state": "orphaned"})
         survivors.append(item)
 
