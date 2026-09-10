@@ -699,6 +699,12 @@ export default function OnboardingPage() {
 
       <div className="relative z-[1] shrink-0 px-gutter pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
         <div className="mx-auto w-full max-w-thread">
+          {/* W-11b: a minimal stopgap so a closed-but-unfinished draft has any
+              way back at all - onboarding had none before this ticket. The
+              recorded story (15-document-review.md) asks for a persistent
+              "Documents ready to review" card with a source count; W-11c
+              ships that, matched against the shipped-component reference
+              per convention 6, and replaces this bare button. */}
           {!open && drafts.length > 0 ? (
             <Button
               variant="secondary"

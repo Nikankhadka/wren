@@ -158,8 +158,13 @@ export default function KnowledgePage() {
     setWorking("Removing…");
     try {
       await apiFetch(`/api/knowledge/records/${record.id}`, { method: "DELETE" });
-      setWorkspace(null);
-      setSheetOpen(false);
+      // W-11b: only close/clear the sheet if the record just deleted is the
+      // one it's showing - a row-level delete on a different, unrelated
+      // document must not discard an in-progress edit elsewhere.
+      if (workspace?.id === record.id) {
+        setWorkspace(null);
+        setSheetOpen(false);
+      }
       await refresh();
     } catch (err) {
       fail(err, "I couldn't remove that.");
