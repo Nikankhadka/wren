@@ -66,6 +66,9 @@ Detailed records live in [`spec/completed/`](spec/completed/).
   hosted Auth configuration; inspect hosted `mailer_otp_length` before any
   change and verify a fresh real login
   ([`spec/active/16-auth-otp-reliability.md`](spec/active/16-auth-otp-reliability.md)).
+  Local config and docs landed (`GOTRUE_MAILER_OTP_LENGTH: "6"`, `deploy.md`
+  GET/PATCH examples); auth E2E green. Hosted GET/PATCH/verify step still
+  open - needs an operator with a Supabase Management API token.
 - [ ] W-12: make the email OTP resend cooldown visible and recovery from a
   failed code reliable, with mobile and desktop browser coverage
   ([`spec/active/16-auth-otp-reliability.md`](spec/active/16-auth-otp-reliability.md)).
@@ -78,10 +81,9 @@ Detailed records live in [`spec/completed/`](spec/completed/).
     and `reconcile_replacement` for document replacement, migration 0028's
     failure metadata with the reversed stored-failure rule, `retry-draft`,
     and the batch publish endpoint. Reviewed and merged to `development` via
-    PR #31; corrective follow-up adds retryability and review-state guards,
+    PR #31; corrective follow-up adding retryability and review-state guards,
     batch cardinality validation, storage-failure isolation, and migration
-    0030's legacy-safe metadata constraint on `fix/w-11a-backend-corrections`,
-    pending review and merge.
+    0030's legacy-safe metadata constraint merged via PR #34.
   - [x] W-11b: the retained review workspace (`ReviewSheet`'s `record` ->
     `workspace`/`open` split). Reviewed and merged to `development` via PR #32.
   - [ ] W-11c: bounded-concurrency batch upload, `Replace`, offering

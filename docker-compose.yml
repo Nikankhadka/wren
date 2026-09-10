@@ -196,6 +196,11 @@ services:
       GOTRUE_SMTP_SENDER_NAME: Agencx
       # Default is 24h; 600s matches the UX the old backend-issued code had.
       GOTRUE_MAILER_OTP_EXP: "600"
+      # D23's product contract: six digits, matching CodeInput's six cells.
+      # GoTrue's own default is already 6 but is left implicit here - pin it
+      # explicitly. Hosted is a separate setting, checked/set via the
+      # Management API (see docs/agencx/deploy.md).
+      GOTRUE_MAILER_OTP_LENGTH: "6"
       # Dev-only: the E2E suite logs in dozens of times per run, serially,
       # mostly as the same two demo owners - GoTrue's real defaults (1
       # mail/user/minute, 30 mails/hour project-wide) would fail the suite
