@@ -180,6 +180,18 @@ Create one hosted project. It backs the deployed stack; local dev keeps using
      -e DATABASE_URL='<pooler url>' \
      backend python -m seeds.seed_tenant1_phoneshop
    ```
+
+    To add Sabbaba (slug `sababa`) without touching the other tenants:
+
+    ```bash
+    docker compose run --rm \
+      -e DATABASE_URL='<pooler url>' \
+      backend python -m seeds.seed_sababa
+    ```
+
+    This wipe-and-recreates only the `sababa` slug. Do not run the full
+    `seeds.seed_demo` against the hosted database: it wipes and recreates
+    every demo tenant, which would destroy the live `bytefix` rows.
 5. **Auth dashboard configuration (D23, `design/decisions.md`) - blocking, not
    optional.** Login-in-chat's OTP is issued by GoTrue itself now, not by the
    backend, so this project's Auth settings are the only thing standing between
