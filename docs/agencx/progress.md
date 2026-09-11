@@ -77,11 +77,11 @@ Detailed records live in [`spec/completed/`](spec/completed/).
   one request per click, inline recoverable network errors. 12 new
   deterministic Playwright cases (desktop + mobile) plus the existing 19
   real GoTrue/Mailpit cases all green; `make check` green.
-- [ ] W-11: retain and review multi-file document drafts safely, publish
+- [x] W-11: retain and review multi-file document drafts safely, publish
   successful documents independently, expose retryable failures, and disclose
   tenant-isolated storage and configured AI processing. Split into three
   tickets, each on its own branch
-  ([`spec/active/15-document-review.md`](spec/active/15-document-review.md)).
+  ([`spec/completed/15-document-review.md`](spec/completed/15-document-review.md)).
   - [x] W-11a: backend contract - `supporting_document_ids`/`support_state`
     and `reconcile_replacement` for document replacement, migration 0028's
     failure metadata with the reversed stored-failure rule, `retry-draft`,
@@ -464,7 +464,7 @@ stubs the unnamed case the seed cannot produce.
 | [`spec/active/12-refinement.md`](spec/active/12-refinement.md) | Open | R-3, R-4, R-5 |
 | [`spec/completed/13-walkthrough.md`](spec/completed/13-walkthrough.md) | Complete | W-1 through W-9 delivered and verified |
 | [`spec/active/14-schema-drop.md`](spec/active/14-schema-drop.md) | Open | W-10, blocked on W-9 production verification |
-| [`spec/active/15-document-review.md`](spec/active/15-document-review.md) | Open | W-11, implementation may proceed now that W-9 is merged to `development` |
+| [`spec/completed/15-document-review.md`](spec/completed/15-document-review.md) | Complete | W-11a, W-11b, W-11c delivered and verified |
 | [`spec/completed/`](spec/completed/) | Complete | All delivered feature, deployment, and supporting phases |
 | [`docs/archive/phase1-complete/`](../archive/phase1-complete/) | Historical | Completed R-1 and R-2 records |
 

@@ -33,7 +33,8 @@ Active phase files contain unresolved tickets only:
 |---|---|
 | [`active/08-deferred.md`](active/08-deferred.md) | B-2, D-1, D-3 |
 | [`active/12-refinement.md`](active/12-refinement.md) | R-3, R-4, R-5 |
-| [`active/13-walkthrough.md`](active/13-walkthrough.md) | W-1 through W-9 |
+| [`active/14-schema-drop.md`](active/14-schema-drop.md) | W-10 |
+| [`active/16-auth-otp-reliability.md`](active/16-auth-otp-reliability.md) | W-12, W-13 |
 
 Completed phase files preserve the detailed records for shipped work:
 
@@ -49,6 +50,8 @@ Completed phase files preserve the detailed records for shipped work:
 | [`completed/09-devex.md`](completed/09-devex.md) | Developer experience |
 | [`completed/10-deploy.md`](completed/10-deploy.md) | Deployment |
 | [`completed/11-offerings-media.md`](completed/11-offerings-media.md) | Offerings and media |
+| [`completed/13-walkthrough.md`](completed/13-walkthrough.md) | Walkthrough fixes |
+| [`completed/15-document-review.md`](completed/15-document-review.md) | Document review and privacy workflow |
 
 Completed R-1 and R-2 refinement records are preserved in
 [`docs/archive/phase1-complete/12-refinement-r1-r2.md`](../../archive/phase1-complete/12-refinement-r1-r2.md).
