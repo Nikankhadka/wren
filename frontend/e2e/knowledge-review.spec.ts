@@ -26,7 +26,7 @@ import {
  */
 
 const PRIVACY_LINE =
-  "Your documents are stored in your business's tenant-isolated Agencx storage. A configured AI provider processes the text to organize facts and offerings. Documents cannot be used in customer answers until you review and save them.";
+  "Your documents stay private to your business, and nothing answers customers until you review and save it.";
 
 const FIVE_NAMES = ["menu.txt", "hours.txt", "policies.txt", "notes.txt", "faq.txt"];
 const SEVEN_NAMES = [...FIVE_NAMES, "extra6.txt", "extra7.txt"];
@@ -40,7 +40,7 @@ test("uploads five files three at a time and opens one combined review", async (
   request,
 }) => {
   const store = recordsStore([]);
-  await stubOnboardingState(page);
+  await stubOnboardingState(page, { stage: "knowledge" });
   await stubRecords(page, store);
   let nextId = 1;
   const upload = await stubUpload(page, store, {
@@ -85,7 +85,7 @@ test("uploads five files three at a time and opens one combined review", async (
 
 test("caps the batch at five files", async ({ page, request }) => {
   const store = recordsStore([]);
-  await stubOnboardingState(page);
+  await stubOnboardingState(page, { stage: "knowledge" });
   await stubRecords(page, store);
   let nextId = 1;
   const upload = await stubUpload(page, store, {
@@ -120,7 +120,7 @@ test("a stored failure stays in Knowledge and never joins the review", async ({
   request,
 }) => {
   const store = recordsStore([]);
-  await stubOnboardingState(page);
+  await stubOnboardingState(page, { stage: "knowledge" });
   const records = await stubRecords(page, store);
   await stubUpload(page, store, {
     recordFor: (filename) =>

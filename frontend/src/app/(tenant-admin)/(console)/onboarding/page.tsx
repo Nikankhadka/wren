@@ -1124,7 +1124,7 @@ export default function OnboardingPage() {
               onSelection={(values, label) => void sendSelection(values, label)}
               onStop={handleStop}
               ownerEmail={user?.email ?? null}
-              onFiles={(files) => void uploadFiles(files)}
+              onFiles={stage === "knowledge" ? (files) => void uploadFiles(files) : undefined}
             />
           ) : null}
 
@@ -1142,14 +1142,15 @@ export default function OnboardingPage() {
           >
             {error ?? ""}
           </p>
-          {/* W-11c: the onboarding half of the ticket's privacy disclosure
-              (15-document-review.md, "Privacy disclosure") - unconditional,
-              verbatim ticket copy, no vendor name. */}
+          {/* Onboarding half of the privacy disclosure (15-document-review.md,
+              "Privacy disclosure") - unconditional, shortened per founder
+              request to one sentence, no vendor name. The fuller disclosure
+              stays on Business > Knowledge, which has room for it. */}
           <p
             data-testid="onboarding-privacy-disclosure"
             className="mt-2 text-meta text-ink-a40"
           >
-            {"Your documents are stored in your business's tenant-isolated Agencx storage. A configured AI provider processes the text to organize facts and offerings. Documents cannot be used in customer answers until you review and save them."}
+            {"Your documents stay private to your business, and nothing answers customers until you review and save it."}
           </p>
         </div>
       </div>

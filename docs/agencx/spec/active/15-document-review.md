@@ -171,11 +171,12 @@ both merged. **Not started.**
 
 ### Privacy disclosure
 
-Onboarding displays:
+Onboarding displays (shortened per founder request, 2026-09-11, from the
+original three-sentence copy below - kept short since onboarding has less
+room and less patience for it than a settings page does):
 
-> Your documents are stored in your business's tenant-isolated Agencx storage.
-> A configured AI provider processes the text to organize facts and offerings.
-> Documents cannot be used in customer answers until you review and save them.
+> Your documents stay private to your business, and nothing answers customers
+> until you review and save it.
 
 Business > Knowledge displays a section titled `How your documents are used`:
 

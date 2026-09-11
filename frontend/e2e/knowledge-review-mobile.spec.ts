@@ -30,7 +30,7 @@ function dialog(page: Page) {
 
 test("five files settle into the review sheet at phone width", async ({ page, request }) => {
   const store = recordsStore([]);
-  await stubOnboardingState(page);
+  await stubOnboardingState(page, { stage: "knowledge" });
   await stubRecords(page, store);
   let nextId = 1;
   await stubUpload(page, store, {

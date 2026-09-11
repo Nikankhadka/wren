@@ -205,7 +205,7 @@ test("an upload stamp animates while pending and lands on an explicit outcome", 
     route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
-        stage: "services",
+        stage: "knowledge",
         prompt: "What do you offer?",
         draft: { name: "Ronin", business_name: "Test Repairs" },
         completed: false,
