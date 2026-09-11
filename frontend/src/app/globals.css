@@ -60,6 +60,8 @@
   --color-bubble-agent-in: var(--color-bubble-agent-in);
   --color-highlight: var(--color-highlight);
   --color-hairline: var(--color-hairline);
+  --background-image-brand: var(--gradient-brand);
+  --background-image-veil: var(--gradient-veil);
 
   --font-sans: var(--font-sans);
   --font-display: var(--font-display);
@@ -209,6 +211,14 @@ body {
 :focus-visible {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
+}
+
+/* Every button and button-role shows the pointer. Tailwind v4's preflight
+   leaves buttons `cursor: default`; this one unlayered rule restores the
+   affordance everywhere, so no individual button needs its own cursor class. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
 }
 
 /* A pill is one control visually, so the pill's rounded shape is what lights up

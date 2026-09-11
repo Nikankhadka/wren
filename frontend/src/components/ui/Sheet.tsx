@@ -105,7 +105,7 @@ export function Sheet({ open, onClose, title, children, desktop = false }: Sheet
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex h-11 w-11 items-center justify-center rounded-full text-text-tertiary hover:bg-surface-container hover:text-text"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-text-tertiary transition-colors duration-(--duration-fast) hover:bg-surface-container hover:text-text active:bg-surface-container-high"
           >
             <span aria-hidden="true" className="text-body-lg leading-none">
               ×

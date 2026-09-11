@@ -5,6 +5,7 @@ import { ChatBubble } from "@/components/ui/ChatBubble";
 import { CommandPill } from "@/components/ui/CommandPill";
 import { ScreenTopbar } from "@/components/ui/ScreenTopbar";
 import { StructuredResponse } from "@/components/ui/StructuredResponse";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { apiFetch, ApiError } from "@/lib/api";
 import type { ConversationDetail } from "@/lib/api-schemas";
 import { clockTime, customerLabel } from "@/lib/format";
@@ -35,6 +36,9 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
   const [working, setWorking] = useState(false);
   const [draft, setDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  // Handing back ends the owner's voice in the thread - that asks first.
+  // Stepping in never does: it only adds the owner, it takes nothing away.
+  const { confirm, dialog: confirmDialog } = useConfirm();
 
   // Bumped after a takeover, handback or reply so the transcript refetches
   // immediately instead of waiting out the poll interval.
@@ -72,6 +76,19 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
   // the point. The pill is simply absent rather than present-and-failing.
   const stopped = detail?.status === "escalated" || detail?.status === "closed";
 
+  async function handleTakeover() {
+    if (takenOver) {
+      await confirm({
+        title: "Hand this chat back?",
+        description: "Your assistant resumes replying to this customer.",
+        confirmLabel: "Hand back",
+        onConfirm: () => act("handback"),
+      });
+    } else {
+      void act("takeover");
+    }
+  }
+
   async function act(path: string, body?: unknown) {
     setWorking(true);
     setError(null);
@@ -97,7 +114,7 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
       <ScreenTopbar title={customerName} backHref="/chats" />
       <p
         data-testid="thread-status"
-        className={`px-5 pb-2 text-footnote ${takenOver ? "text-text-secondary" : "text-accent"}`}
+        className={`px-5 pb-2 text-footnote ${takenOver ? "text-text-secondary" : "text-accent-active"}`}
       >
         {stopped ? "Stopped" : takenOver ? "You're replying" : "Handling"}
       </p>
@@ -134,8 +151,8 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
               type="button"
               disabled={working}
               data-testid={takenOver ? "hand-back" : "take-over"}
-              onClick={() => void act(takenOver ? "handback" : "takeover")}
-              className="inline-block rounded-full bg-accent-subtle px-3.5 py-1.5 text-chip font-medium text-accent disabled:opacity-50"
+              onClick={() => void handleTakeover()}
+              className="inline-block rounded-full bg-accent-subtle px-3.5 py-1.5 text-chip font-medium text-accent-active transition-[filter] duration-(--duration-fast) hover:brightness-95 active:brightness-90 disabled:opacity-50"
             >
               {takenOver ? "Hand back to Agencx" : "Take over this conversation"}
             </button>
@@ -154,6 +171,7 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
           ) : null}
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }

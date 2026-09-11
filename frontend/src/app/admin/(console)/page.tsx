@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "react-hot-toast";
 import { Badge, toneForStatus } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -45,10 +46,8 @@ export default function PlatformHome() {
 
   const [confirmTarget, setConfirmTarget] = useState<Tenant | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
-  const [confirmError, setConfirmError] = useState<string | null>(null);
 
   async function submitStatusChange(tenant: Tenant, nextStatus: "active" | "suspended") {
-    setConfirmError(null);
     setConfirmBusy(true);
     try {
       await apiFetch(`/api/platform/tenants/${tenant.id}`, {
@@ -56,9 +55,10 @@ export default function PlatformHome() {
         body: JSON.stringify({ status: nextStatus }),
       });
       setConfirmTarget(null);
+      toast.success(nextStatus === "suspended" ? "Tenant suspended" : "Tenant reactivated");
       void tenantsQuery.refetch();
     } catch (err) {
-      setConfirmError(err instanceof ApiError ? err.detail : "Failed to update tenant");
+      toast.error(err instanceof ApiError ? err.detail : "Failed to update tenant");
     } finally {
       setConfirmBusy(false);
     }
@@ -146,7 +146,6 @@ export default function PlatformHome() {
                 ? `Suspend ${confirmTarget.name}? Customers will immediately see this business as unavailable.`
                 : `Reactivate ${confirmTarget.name}?`}
             </p>
-            {confirmError ? <p className="text-body-sm text-danger">{confirmError}</p> : null}
             <div className="flex gap-2">
               <Button
                 variant={confirmTarget.status === "active" ? "destructive" : "primary"}

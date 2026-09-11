@@ -96,7 +96,7 @@ export default function EscalationsPage() {
       render: (row) => (
         <Link
           href={`/conversations/${row.conversation_id}`}
-          className="font-medium text-accent hover:text-accent-hover"
+          className="font-medium text-accent-active transition-colors duration-(--duration-fast) hover:underline active:opacity-60"
         >
           View transcript
         </Link>

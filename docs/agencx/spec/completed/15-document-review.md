@@ -144,7 +144,8 @@ path for that case, unchanged.
 ## W-11c: batch upload, replace, and polish
 
 Branch `feat/w-11c-batch-review`, off `development` after W-11a and W-11b are
-both merged. **Not started.**
+both merged. **Shipped to `development`** as `6eeb0df`, `cf9fcb3`, `7205e6b`,
+`20d8ebc`, `72d153f`, `c802a50`, plus dashboard record `bc1f2ec`.
 
 ### User stories
 
@@ -204,16 +205,16 @@ disclosure, not a standalone legal Privacy Policy.
 
 ### Definition of done
 
-- [ ] Multi-file processing settles every file before one combined review
+- [x] Multi-file processing settles every file before one combined review
       opens; the batch caps at five files, three concurrent.
-- [ ] Replace is safe on failure (old source preserved) and merges edits
+- [x] Replace is safe on failure (old source preserved) and merges edits
       without silent loss, through the real UI.
-- [ ] Pagination, toolbar layout, field focus, keyboard access, and mobile
+- [x] Pagination, toolbar layout, field focus, keyboard access, and mobile
       widths are covered by browser tests.
-- [ ] Privacy copy matches this ticket exactly and contains no vendor name.
-- [ ] Covered by `knowledge-review.spec.ts` and an extension to
+- [x] Privacy copy matches this ticket exactly and contains no vendor name.
+- [x] Covered by `knowledge-review.spec.ts` and an extension to
       `settings-knowledge.spec.ts`.
-- [ ] Manual pass: a real five-file upload through onboarding, per-file rows
+- [x] Manual pass: a real five-file upload through onboarding, per-file rows
       settling, edit/close/reopen, replace a source, retry a failed one,
       publish a batch where one document fails - checked at 375px and desktop.
 
@@ -221,4 +222,5 @@ disclosure, not a standalone legal Privacy Policy.
 
 `make check` and `make eval-skip-llm` green per ticket as it lands. `make ci`
 and `make test-e2e` green before W-11c merges (`make test-e2e` needs `make dev
-&& make seed` first).
+&& make seed` first). W-11a/b/c all merged to `development`; `make check`,
+`make ci`, `make test-e2e`, and the eval gate green per `progress.md`.

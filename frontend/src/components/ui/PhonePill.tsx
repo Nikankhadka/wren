@@ -160,7 +160,7 @@ export function PhonePill({ disabled, onSubmit }: PhonePillProps) {
             }}
             aria-label={`Country: ${country.name}`}
             aria-expanded={open}
-            className="flex select-none items-center gap-1 py-3.5 pl-5 pr-2.5 text-body-sm font-medium text-accent"
+            className="flex select-none items-center gap-1 py-3.5 pl-5 pr-2.5 text-body-sm font-medium text-accent-active transition-colors duration-(--duration-fast) hover:underline active:opacity-60"
           >
             <span aria-hidden="true">{country.flag}</span>
             <span>{country.code}</span>

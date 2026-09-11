@@ -67,7 +67,7 @@ export function TraceTree({
 
   if (isEmpty) {
     return (
-      <div className="mt-1 rounded-md border border-border bg-surface-sunken p-2 font-mono text-caption text-text-tertiary">
+      <div className="mt-1 rounded-md border border-border bg-surface-sunken p-2 font-mono text-caption text-text-secondary">
         {agentNode ? `${agentNode} - no trace details` : "No trace details"}
       </div>
     );
@@ -81,17 +81,17 @@ export function TraceTree({
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
-        className="flex w-full items-center gap-2 px-2 py-1.5 text-left font-mono text-caption text-text-secondary hover:bg-surface"
+        className="flex w-full items-center gap-2 px-2 py-1.5 text-left font-mono text-caption text-text-secondary transition-colors duration-(--duration-fast) hover:bg-surface active:bg-surface-container"
       >
-        <span aria-hidden="true" className="text-text-tertiary">
+        <span aria-hidden="true" className="text-text-secondary">
           {open ? "▾" : "▸"}
         </span>
         <span className="font-medium text-text">{agentNode ?? "trace"}</span>
         {costUsd !== null ? (
-          <span className="tabular-nums text-text-tertiary">{formatUsd(costUsd)}</span>
+          <span className="tabular-nums text-text-secondary">{formatUsd(costUsd)}</span>
         ) : null}
         {toolCalls.length > 0 ? (
-          <span className="text-text-tertiary">
+          <span className="text-text-secondary">
             {toolCalls.length} tool{toolCalls.length === 1 ? "" : "s"}
           </span>
         ) : null}
@@ -108,7 +108,7 @@ export function TraceTree({
         <div className="flex flex-col gap-3 border-t border-border px-3 py-2">
           {toolCalls.length > 0 ? (
             <div className="flex flex-col gap-2">
-              <p className="font-mono text-caption font-medium uppercase tracking-wide text-text-tertiary">
+              <p className="font-mono text-caption font-medium uppercase tracking-wide text-text-secondary">
                 Tool calls
               </p>
               {toolCalls.map((call) => (
@@ -119,7 +119,7 @@ export function TraceTree({
                       {call.success ? "ok" : "failed"}
                     </Badge>
                     {call.latency_ms !== null ? (
-                      <span className="tabular-nums text-text-tertiary">{call.latency_ms}ms</span>
+                      <span className="tabular-nums text-text-secondary">{call.latency_ms}ms</span>
                     ) : null}
                   </div>
                   <pre className="overflow-x-auto rounded bg-surface p-2 text-text-secondary">
@@ -132,7 +132,7 @@ export function TraceTree({
 
           {checks.length > 0 ? (
             <div className="flex flex-col gap-1.5">
-              <p className="font-mono text-caption font-medium uppercase tracking-wide text-text-tertiary">
+              <p className="font-mono text-caption font-medium uppercase tracking-wide text-text-secondary">
                 Inspection
               </p>
               {checks.map(([name, verdict]) => (
@@ -142,7 +142,7 @@ export function TraceTree({
                   </Badge>
                   <span className="text-text">{name}</span>
                   {verdict.reason ? (
-                    <span className="text-text-tertiary">{verdict.reason}</span>
+                    <span className="text-text-secondary">{verdict.reason}</span>
                   ) : null}
                 </div>
               ))}

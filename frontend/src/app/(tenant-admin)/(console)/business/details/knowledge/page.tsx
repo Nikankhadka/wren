@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { toast } from "react-hot-toast";
 import { Icon } from "@/components/ui/Icon";
 import { ScreenTopbar } from "@/components/ui/ScreenTopbar";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { apiFetch, ApiError } from "@/lib/api";
 import { ACCEPTED_UPLOAD_EXTENSIONS, describeUpload } from "@/lib/onboarding";
 import { KnowledgeDocument, ReviewSheet } from "./components/ReviewSheet";
@@ -40,6 +42,8 @@ export default function KnowledgePage() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState<string | null>(null);
+  // Loading the record list is the one failure that stays inline at
+  // `knowledge-error` - every mutation reports through a toast instead.
   const [error, setError] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<ReviewWorkspace | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -49,6 +53,7 @@ export default function KnowledgePage() {
    *  that record instead of being added as a new one. */
   const [replaceTarget, setReplaceTarget] = useState<KnowledgeRecord | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const { confirm, dialog: confirmDialog } = useConfirm();
 
   async function refresh() {
     const rows = await apiFetch<KnowledgeRecord[]>("/api/knowledge/records");
@@ -64,13 +69,12 @@ export default function KnowledgePage() {
   }, []);
 
   function fail(err: unknown, fallback: string) {
-    setError(err instanceof ApiError && err.detail ? err.detail : fallback);
+    toast.error(err instanceof ApiError && err.detail ? err.detail : fallback);
   }
 
   async function addLink() {
     const trimmed = url.trim();
     if (!trimmed || working) return;
-    setError(null);
     setWorking("Reading your site…");
     try {
       const draft = await apiFetch<KnowledgeRecord>("/api/knowledge/drafts/url", {
@@ -82,6 +86,7 @@ export default function KnowledgePage() {
       setPriceConflict(null);
       setWorkspace(buildWorkspace([draft], draft.offering_candidates ?? [], draft.id));
       setSheetOpen(true);
+      toast.success("Draft ready to review");
     } catch (err) {
       fail(err, "I couldn't read that page. Check the link, or send me a file instead.");
     } finally {
@@ -104,10 +109,9 @@ export default function KnowledgePage() {
   async function addFile(file: File) {
     const verdict = describeUpload(file.name);
     if (!verdict.accepted) {
-      setError(verdict.message);
+      toast.error(verdict.message);
       return;
     }
-    setError(null);
     setWorking(`Reading ${file.name}…`);
     try {
       const draft = await uploadDraft(file);
@@ -115,6 +119,7 @@ export default function KnowledgePage() {
       setPriceConflict(null);
       setWorkspace(buildWorkspace([draft], draft.offering_candidates ?? [], draft.id));
       setSheetOpen(true);
+      toast.success("Draft ready to review");
     } catch (err) {
       fail(err, "I couldn't read that file.");
     } finally {
@@ -129,7 +134,6 @@ export default function KnowledgePage() {
   ): Promise<PendingOffering[] | null> {
     if (!workspace) return null;
     const documentId = workspace.documents[0].id;
-    setError(null);
     setWorking("Saving…");
     try {
       await apiFetch<KnowledgeRecord>(`/api/knowledge/records/${documentId}`, {
@@ -144,6 +148,7 @@ export default function KnowledgePage() {
       setWorkspace(null);
       setSheetOpen(false);
       await refresh();
+      toast.success("Saved");
       return null;
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
@@ -162,7 +167,6 @@ export default function KnowledgePage() {
    *  status "draft", never publishing anything - saving stays the owner's
    *  action, and the row just moves to the drafts group above. */
   async function retry(record: KnowledgeRecord) {
-    setError(null);
     setWorking("Trying again\u2026");
     try {
       await apiFetch<KnowledgeRecord>(`/api/knowledge/${record.id}/retry-draft`, {
@@ -170,7 +174,7 @@ export default function KnowledgePage() {
       });
       await refresh();
     } catch {
-      setError("That one can't be retried. Try replacing it.");
+      toast.error("That one can't be retried. Try replacing it.");
     } finally {
       setWorking(null);
     }
@@ -182,10 +186,9 @@ export default function KnowledgePage() {
   async function replace(record: KnowledgeRecord, file: File) {
     const verdict = describeUpload(file.name);
     if (!verdict.accepted) {
-      setError(verdict.message);
+      toast.error(verdict.message);
       return;
     }
-    setError(null);
     setWorking(`Replacing ${sourceLabel(record)}\u2026`);
     try {
       await uploadDraft(file);
@@ -197,6 +200,7 @@ export default function KnowledgePage() {
     try {
       await apiFetch(`/api/knowledge/records/${record.id}`, { method: "DELETE" });
       await refresh();
+      toast.success("Source replaced");
     } catch (err) {
       fail(err, "I couldn't replace that file.");
     } finally {
@@ -204,8 +208,21 @@ export default function KnowledgePage() {
     }
   }
 
-  async function remove(record: KnowledgeRecord) {
-    setError(null);
+  async function confirmRemove(record: KnowledgeRecord) {
+    await confirm({
+      title: `Remove ${sourceLabel(record)}?`,
+      description: "Its reviewed facts stop answering customers.",
+      confirmLabel: "Remove",
+      tone: "danger",
+      onConfirm: async () => {
+        if (await remove(record)) toast.success("Removed");
+      },
+    });
+  }
+
+  /** True when the record is gone - failures toast and report false, so the
+   *  caller knows whether its own success toast is due. */
+  async function remove(record: KnowledgeRecord): Promise<boolean> {
     setWorking("Removing…");
     try {
       await apiFetch(`/api/knowledge/records/${record.id}`, { method: "DELETE" });
@@ -217,11 +234,50 @@ export default function KnowledgePage() {
         setSheetOpen(false);
       }
       await refresh();
+      return true;
     } catch (err) {
       fail(err, "I couldn't remove that.");
+      return false;
     } finally {
       setWorking(null);
     }
+  }
+
+  function dropWorkspace() {
+    setPriceConflict(null);
+    if (workspace) void discardRecord(workspace.documents[0]);
+  }
+
+  /** Discarding from the sheet footer removes the draft and says so - the
+   *  row-level "Removed" toast belongs to the row action, not to this one. */
+  async function discardRecord(record: KnowledgeRecord) {
+    if (await remove(record)) toast.success("Draft discarded");
+  }
+
+  /**
+   * The sheet footer asks before it discards - but only for a document that
+   * already has a saved version. A draft never answered anything, so dropping
+   * it is not destructive and skips the question. Either way the dialog
+   * paints above the sheet (`layer: "top"`), which otherwise sits at the
+   * same z.
+   */
+  async function discardWorkspace() {
+    const document = workspace?.documents[0];
+    if (!document) return;
+    if (document.status === "draft") {
+      dropWorkspace();
+      return;
+    }
+    await confirm({
+      title: "Discard your changes?",
+      description: "The saved version stays as it is.",
+      confirmLabel: "Discard",
+      tone: "danger",
+      layer: "top",
+      onConfirm: () => {
+        dropWorkspace();
+      },
+    });
   }
 
   /** Open one record - fetching it first, so a source ingested before this
@@ -274,7 +330,7 @@ export default function KnowledgePage() {
                 inputMode="url"
                 disabled={working !== null}
                 data-testid="knowledge-url-input"
-                className="min-w-0 flex-1 rounded-field border-[length:var(--border-chip)] border-transparent bg-surface-container px-[18px] py-3.5 text-field text-text placeholder:text-ink-a40 outline-none transition-colors duration-(--duration-fast) focus:border-accent-a35 focus:bg-accent-a06 disabled:opacity-50"
+                className="min-w-0 flex-1 rounded-field border-[length:var(--border-chip)] border-border bg-surface px-[18px] py-3.5 text-field text-text placeholder:text-ink-a40 outline-none transition-colors duration-(--duration-fast) focus:border-text disabled:opacity-50"
               />
               <button
                 type="button"
@@ -282,7 +338,7 @@ export default function KnowledgePage() {
                 disabled={working !== null || !url.trim()}
                 aria-label="Read this link"
                 data-testid="knowledge-url-submit"
-                className="flex size-send shrink-0 items-center justify-center rounded-full bg-accent text-text-inverse transition-opacity active:opacity-85 disabled:bg-accent-a12 disabled:text-accent-a50"
+                className="flex size-send shrink-0 items-center justify-center rounded-full bg-accent text-text-inverse transition-colors duration-(--duration-fast) hover:bg-accent-hover active:bg-accent-active disabled:bg-accent-a12 disabled:text-accent-a50"
               >
                 <Icon name="arrow_forward" size={20} />
               </button>
@@ -293,7 +349,7 @@ export default function KnowledgePage() {
               onClick={() => fileRef.current?.click()}
               disabled={working !== null}
               data-testid="knowledge-add-document"
-              className="mt-1 flex w-full items-center gap-2 border-t border-dashed border-accent-a20 py-3.5 text-action font-medium text-accent active:opacity-60 disabled:opacity-50"
+              className="mt-1 flex w-full items-center gap-2 border-t border-dashed border-accent-a20 py-3.5 text-action font-medium text-accent-active transition-colors duration-(--duration-fast) hover:underline active:opacity-60 disabled:opacity-50"
             >
               <Icon name="add" size={16} />
               Add a document
@@ -338,7 +394,7 @@ export default function KnowledgePage() {
                   type="button"
                   onClick={() => void open(record)}
                   data-testid="knowledge-draft"
-                  className="flex items-center justify-between gap-3 rounded-field bg-accent-a06 px-4 py-3.5 text-left active:opacity-85"
+                  className="flex items-center justify-between gap-3 rounded-field bg-accent-a06 px-4 py-3.5 text-left transition-[filter] duration-(--duration-fast) hover:brightness-95 active:brightness-90"
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-row-label font-medium text-text">
@@ -348,7 +404,7 @@ export default function KnowledgePage() {
                       Read it back before it answers anything
                     </span>
                   </span>
-                  <span aria-hidden="true" className="text-accent">
+                  <span aria-hidden="true" className="text-accent-active">
                     <Icon name="chevron_right" size={20} />
                   </span>
                 </button>
@@ -398,7 +454,7 @@ export default function KnowledgePage() {
                           disabled={working !== null}
                           aria-label={`Try ${sourceLabel(record)} again`}
                           data-testid="knowledge-retry"
-                          className="flex size-icon-btn items-center justify-center rounded-full text-accent active:opacity-60"
+                          className="flex size-icon-btn items-center justify-center rounded-full text-accent-active transition-colors duration-(--duration-fast) hover:bg-accent-a09 active:bg-accent-a12"
                         >
                           <Icon name="refresh" size={18} />
                         </button>
@@ -413,7 +469,7 @@ export default function KnowledgePage() {
                           disabled={working !== null}
                           aria-label={`Replace ${sourceLabel(record)}`}
                           data-testid="knowledge-replace"
-                          className="flex size-icon-btn items-center justify-center rounded-full text-accent active:opacity-60"
+                          className="flex size-icon-btn items-center justify-center rounded-full text-accent-active transition-colors duration-(--duration-fast) hover:bg-accent-a09 active:bg-accent-a12"
                         >
                           <Icon name="swap_horiz" size={18} />
                         </button>
@@ -424,17 +480,17 @@ export default function KnowledgePage() {
                         disabled={working !== null}
                         aria-label={`Edit ${sourceLabel(record)}`}
                         data-testid="knowledge-edit"
-                        className="flex size-icon-btn items-center justify-center rounded-full text-ink-a40 active:opacity-60"
+                        className="flex size-icon-btn items-center justify-center rounded-full text-ink-a40 transition-colors duration-(--duration-fast) hover:bg-surface-container hover:text-text active:bg-surface-container-high"
                       >
                         <Icon name="edit" size={18} />
                       </button>
                       <button
                         type="button"
-                        onClick={() => void remove(record)}
+                        onClick={() => void confirmRemove(record)}
                         disabled={working !== null}
                         aria-label={`Remove ${sourceLabel(record)}`}
                         data-testid="knowledge-remove"
-                        className="flex size-icon-btn items-center justify-center rounded-full text-ink-a40 active:opacity-60"
+                        className="flex size-icon-btn items-center justify-center rounded-full text-ink-a40 transition-colors duration-(--duration-fast) hover:bg-surface-container hover:text-text active:bg-surface-container-high"
                       >
                         <Icon name="delete" size={18} />
                       </button>
@@ -442,7 +498,7 @@ export default function KnowledgePage() {
                   </div>
 
                   <details className="mt-3">
-                    <summary className="cursor-pointer text-action font-medium text-accent">
+                    <summary className="cursor-pointer text-action font-medium text-accent-active transition-colors duration-(--duration-fast) hover:underline">
                       What I read from this
                     </summary>
                     <KnowledgeDocument sections={record.sections} />
@@ -480,10 +536,10 @@ export default function KnowledgePage() {
           save(documents, offerings, acceptPriceChanges)
         }
         onDiscard={() => {
-          setPriceConflict(null);
-          if (workspace) void remove(workspace.documents[0]);
+          void discardWorkspace();
         }}
       />
+      {confirmDialog}
     </main>
   );
 }

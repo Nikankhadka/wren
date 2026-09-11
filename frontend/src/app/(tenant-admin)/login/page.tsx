@@ -62,7 +62,7 @@ const OPENING_PACE_MS = 820;
  *
  * This is the first half of the same conversation the onboarding interview
  * continues, so it renders on the same thread primitives as /onboarding: the
- * prototype's full-bleed thread, bare-prose agent turns, crimson owner bubbles
+ * prototype's full-bleed thread, bare-prose agent turns, berry owner bubbles
  * and pinned composer. The send circle dims rather than disappears until the
  * email parses - design/frontend.md section 6: "the inactive send state is the
  * only validation signal - no red error text".
@@ -213,7 +213,7 @@ export default function LoginPage() {
   const openingShown = opened || phase === "code";
 
   return (
-    <main className="relative flex h-dvh min-h-0 flex-col overflow-hidden bg-surface">
+    <main className="relative isolate flex h-dvh min-h-0 flex-col overflow-hidden bg-surface">
       <ThreadVeil started={phase === "code"} />
 
       <Thread label="Sign-in conversation" watch={phase} data-testid="login-thread">
@@ -255,7 +255,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={handleWrongEmail}
-                  className="flex min-h-11 items-center px-1 text-accent"
+                  className="flex min-h-11 items-center px-1 text-accent-active transition-colors duration-(--duration-fast) hover:underline active:opacity-60"
                 >
                   Wrong email?
                 </button>
@@ -274,7 +274,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => void submitEmail(email, true)}
                 disabled={secondsLeft > 0 || busy}
-                className="mx-auto flex min-h-11 items-center justify-center px-3 text-center text-meta text-accent disabled:pointer-events-none disabled:text-ink-a40"
+                className="mx-auto flex min-h-11 items-center justify-center px-3 text-center text-meta text-accent-active transition-colors duration-(--duration-fast) hover:underline active:opacity-60 disabled:pointer-events-none disabled:text-ink-a40"
               >
                 {secondsLeft > 0 ? `Resend in ${secondsLeft}s` : "Resend code"}
               </button>

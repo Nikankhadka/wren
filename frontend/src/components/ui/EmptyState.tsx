@@ -19,7 +19,7 @@ export function EmptyState({ title, description, action, icon }: EmptyStateProps
     <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
       {icon ? (
         <span
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-subtle text-accent"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-subtle text-accent-active"
           aria-hidden="true"
         >
           <Icon name={icon} size={22} />

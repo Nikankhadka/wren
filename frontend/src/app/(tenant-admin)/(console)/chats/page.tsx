@@ -80,7 +80,7 @@ export default function ChatsPage() {
               setSearching((open) => !open);
               setSearch("");
             }}
-            className="flex size-icon-btn items-center justify-center rounded-full text-text active:opacity-60"
+            className="flex size-icon-btn items-center justify-center rounded-full text-text transition-colors duration-(--duration-fast) hover:bg-surface-container active:bg-surface-container-high"
           >
             <Icon name="search" size={20} />
           </button>
@@ -111,8 +111,8 @@ export default function ChatsPage() {
             data-testid={`chats-filter-${option.id}`}
             className={
               filter === option.id
-                ? "shrink-0 rounded-chip border-[1.5px] border-accent-subtle bg-accent-subtle px-3.5 py-1.5 text-chip text-accent"
-                : "shrink-0 rounded-chip border-[1.5px] border-hairline px-3.5 py-1.5 text-chip text-text-secondary"
+                ? "shrink-0 rounded-chip border-[1.5px] border-accent-subtle bg-accent-subtle px-3.5 py-1.5 text-chip text-accent-active transition-colors duration-(--duration-fast)"
+                : "shrink-0 rounded-chip border-[1.5px] border-hairline px-3.5 py-1.5 text-chip text-text-secondary transition-colors duration-(--duration-fast) hover:bg-accent-a07 hover:text-accent-active active:bg-accent-a09"
             }
           >
             {option.label}
@@ -141,7 +141,7 @@ export default function ChatsPage() {
             type="button"
             onClick={() => router.push(`/chats/${row.id}`)}
             data-testid="chat-row"
-            className="w-full border-b border-hairline px-5 py-3.5 text-left active:bg-surface-sunken"
+            className="w-full border-b border-hairline px-5 py-3.5 text-left transition-colors duration-(--duration-fast) hover:bg-surface-container active:bg-surface-sunken"
           >
             <div className="mb-1 flex items-center justify-between gap-3">
               <span className="min-w-0 truncate text-body font-medium text-text">
@@ -153,7 +153,7 @@ export default function ChatsPage() {
                 </span>
                 {/* "Action needed" in words, reading exactly like the filter
                     chip above that selects for it - a bare amber dot named the
-                    state to nobody. Crimson dot = the assistant is handling it
+                    state to nobody. Berry dot = the assistant is handling it
                     itself. Nothing = nothing pending. */}
                 {row.needs_attention ? (
                   <span

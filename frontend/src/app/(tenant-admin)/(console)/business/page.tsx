@@ -3,6 +3,7 @@
 import { RowLink } from "@/components/ui/RowLink";
 import { ScreenTopbar } from "@/components/ui/ScreenTopbar";
 import { Icon } from "@/components/ui/Icon";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useAuth } from "@/components/AuthProvider";
 
 /**
@@ -22,6 +23,7 @@ import { useAuth } from "@/components/AuthProvider";
  */
 export default function BusinessPage() {
   const { signOut } = useAuth();
+  const { confirm: confirmSignOut, dialog: signOutDialog } = useConfirm();
   return (
     <main className="flex h-full min-h-0 flex-col overflow-hidden bg-surface">
       <ScreenTopbar title="Business" back={false} />
@@ -46,8 +48,15 @@ export default function BusinessPage() {
         />
         <button
           type="button"
-          onClick={() => signOut()}
-          className="flex w-full items-center gap-3.5 border-b border-hairline px-gutter py-[15px] text-left transition-colors duration-(--duration-fast) active:bg-ink-a05 lg:hidden"
+          onClick={() =>
+            void confirmSignOut({
+              title: "Sign out?",
+              description: "You will need your email code to sign back in.",
+              confirmLabel: "Sign out",
+              onConfirm: () => signOut(),
+            })
+          }
+          className="flex w-full items-center gap-3.5 border-b border-hairline px-gutter py-[15px] text-left transition-colors duration-(--duration-fast) hover:bg-surface-container active:bg-ink-a05 lg:hidden"
         >
           <span className="flex size-5 shrink-0 items-center justify-center text-ink-a40">
             <Icon name="logout" size={20} />
@@ -55,6 +64,7 @@ export default function BusinessPage() {
           <span className="flex-1 text-row-label font-medium text-text">Sign out</span>
         </button>
       </div>
+      {signOutDialog}
     </main>
   );
 }

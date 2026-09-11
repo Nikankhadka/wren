@@ -13,7 +13,7 @@ const TONE_CLASSES: Record<BadgeTone, string> = {
  *
  * The convention is `docs/agencx/design/frontend.md` section 2 - green for
  * things that went well, red for things that did not, amber for things still
- * in flight, neutral for statuses carrying no good/bad/pending charge. Crimson
+ * in flight, neutral for statuses carrying no good/bad/pending charge. Berry
  * is the brand accent and never appears here: a status that borrowed it would
  * read as "important" rather than as what it means.
  *

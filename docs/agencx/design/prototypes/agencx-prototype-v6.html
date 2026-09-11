@@ -1,4 +1,4 @@
-<!-- CURRENT prototype (2026-08) - reworked to match the shipped Agencx identity (crimson #C1123F, monogram mark) and the D18 bottom-tab mobile chrome, flavoured with the Sababa reference tenant. Trust for screen inventory, states, interaction vocabulary, and mobile chrome; copy is demo. See design/frontend.md and design/decisions.md (D17, D18). -->
+<!-- CURRENT prototype (2026-08) - reworked to match the shipped Agencx identity (Airbnb color system, D26: Rausch red #FF385C, deep red text #B4004E, soft red #FFD1DA, monogram mark) and the D18 bottom-tab mobile chrome, flavoured with the Sababa reference tenant. Trust for screen inventory, states, interaction vocabulary, and mobile chrome; copy is demo. See design/frontend.md and design/decisions.md (D17, D18, D26). -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,18 +7,18 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&display=swap');
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:#CACACA;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:28px 0 48px;gap:14px}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#EBEBEB;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:28px 0 48px;gap:14px}
 :root{
-  --c-bg:#FFFFFF;--c-ink:#1A1A18;--c-muted:rgba(26,26,24,.40);--c-teal:#C1123F;--c-teal-m:#E8385E;
-  --c-amber:#F5A623;--c-ok:#1F8A4C;--c-ok-m:#3EAD6C;--c-ok-bg:rgba(31,138,76,.10);--c-warn-m:#C4821C;--c-warn-bg:rgba(192,130,28,.12);--c-err:#BA1A1A;--c-err-bg:rgba(186,26,26,.10);--c-card-b:rgba(0,0,0,.07);--c-pill-bg:#F3F3F1;
+  --c-bg:#FFFFFF;--c-ink:#222222;--c-muted:rgba(34,34,34,.40);--c-teal:#FF385C;--c-teal-m:#B4004E;
+  --c-amber:#FFB400;--c-ok:#007A04;--c-ok-m:#007A04;--c-ok-bg:#E6F5E7;--c-warn-m:#8A5A00;--c-warn-bg:#FFF3D6;--c-err:#C13515;--c-err-bg:#FDEDEA;--c-card-b:rgba(0,0,0,.07);--c-pill-bg:#F7F7F7;
   --t-prose:400 16px/1.62 'Plus Jakarta Sans',sans-serif;--t-card-hl:500 15px/1.45 'Plus Jakarta Sans',sans-serif;
   --t-job:500 14px/1 'Plus Jakarta Sans',sans-serif;--t-chip:500 13px/1 'Plus Jakarta Sans',sans-serif;
   --t-meta:400 12px/1.4 'Plus Jakarta Sans',sans-serif;
   --sp:24px;--r-card:18px;--r-pill:30px;--r-chip:20px;--shadow:0 2px 16px rgba(0,0,0,.055);
 }
-.proto-lbl{font:500 11px/1 'Plus Jakarta Sans',sans-serif;color:rgba(26,26,24,.4);letter-spacing:1px;text-transform:uppercase}
+.proto-lbl{font:500 11px/1 'Plus Jakarta Sans',sans-serif;color:rgba(34,34,34,.4);letter-spacing:1px;text-transform:uppercase}
 #phone{width:390px;height:844px;background:var(--c-bg);border-radius:44px;overflow:hidden;position:relative;box-shadow:0 40px 100px rgba(0,0,0,.22);flex-shrink:0;display:flex;flex-direction:column}
-#s1-grad{position:absolute;bottom:0;left:0;right:0;height:56%;background:linear-gradient(to top,rgba(193,18,63,.09) 0%,transparent 100%);pointer-events:none;z-index:0;transition:opacity 700ms ease-out}
+#s1-grad{position:absolute;bottom:0;left:0;right:0;height:56%;background:linear-gradient(to top,#FFD1DA 0%,rgba(255,232,237,0) 100%);pointer-events:none;z-index:0;transition:opacity 700ms ease-out}
 #phone.started #s1-grad{opacity:0}
 #sb{height:44px;flex-shrink:0;position:relative;z-index:5}
 /* Bottom tab bar (D18) */
@@ -26,7 +26,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#CACACA;min-height:10
 #phone.post #tabbar{display:flex}
 .tab{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;flex:1;height:48px;margin:8px 24px;border-radius:24px;cursor:pointer;color:var(--c-muted);transition:background .15s,color .15s}
 .tab svg{opacity:.75}
-.tab.active{background:rgba(193,18,63,.08);color:var(--c-teal)}
+.tab.active{background:rgba(255,56,92,.08);color:var(--c-teal-m)}
 .tab.active svg{opacity:1}
 .tab-lbl{font:500 10px/1 'Plus Jakarta Sans',sans-serif}
 #ndot{position:absolute;top:7px;right:calc(50% - 26px);width:8px;height:8px;border-radius:50%;background:var(--c-amber);display:none}
@@ -38,24 +38,24 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#CACACA;min-height:10
 #first-msg{font:400 19px/1.58 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);letter-spacing:-.1px;padding-top:44px}
 #first-msg-q{display:block;margin-top:18px;font:500 19px/1.4 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}
 .a-prose{font:var(--t-prose);color:var(--c-ink);margin-top:14px;animation:fsu .22s ease-out both}
-.u-bubble{align-self:flex-end;background:var(--c-teal);color:#fff;border-radius:20px 20px 4px 20px;padding:10px 16px;font:400 15px/1.4 'Plus Jakarta Sans',sans-serif;max-width:78%;margin-top:14px;animation:fsu .18s ease-out both}
+.u-bubble{align-self:flex-end;background:#E31C5F;color:#fff;border-radius:20px 20px 4px 20px;padding:10px 16px;font:400 15px/1.4 'Plus Jakarta Sans',sans-serif;max-width:78%;margin-top:14px;animation:fsu .18s ease-out both}
 .u-bubble-row{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:14px;animation:fsu .18s ease-out both}
 .u-bubble-row .u-bubble{margin-top:0}
-.edit-btn{width:26px;height:26px;border-radius:50%;border:1.5px solid rgba(26,26,24,.12);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;color:var(--c-muted);transition:border-color .15s,color .15s}
-.edit-btn:hover{border-color:rgba(193,18,63,.35);color:var(--c-teal)}
+.edit-btn{width:26px;height:26px;border-radius:50%;border:1.5px solid rgba(34,34,34,.12);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;color:var(--c-muted);transition:border-color .15s,color .15s}
+.edit-btn:hover{border-color:rgba(255,56,92,.35);color:var(--c-teal-m)}
 .typing{display:flex;align-items:center;gap:5px;margin-top:16px;height:22px;animation:fsu .18s ease-out both}
 .td{width:7px;height:7px;border-radius:50%;background:var(--c-teal);animation:tp 1.3s ease-in-out infinite}
 .td:nth-child(2){animation-delay:.22s}.td:nth-child(3){animation-delay:.44s}
 @keyframes tp{0%,100%{opacity:.22;transform:translateY(0)}50%{opacity:.9;transform:translateY(-2.5px)}}
-.proc-txt{font:400 12px/1 'Plus Jakarta Sans',sans-serif;color:rgba(26,26,24,.35);font-style:italic;margin-top:12px;animation:fsu .18s ease-out both}
-.sys-pill{align-self:center;margin:12px 0;background:rgba(26,26,24,.05);border-radius:20px;padding:5px 14px;font:400 12px/1.3 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);white-space:nowrap;animation:fsu .22s ease-out both}
-.sys-pill-action{align-self:center;margin:12px 0;background:rgba(193,18,63,.08);border-radius:20px;padding:5px 14px;font:500 12px/1.3 'Plus Jakarta Sans',sans-serif;color:var(--c-teal);white-space:nowrap;animation:fsu .22s ease-out both}
+.proc-txt{font:400 12px/1 'Plus Jakarta Sans',sans-serif;color:rgba(34,34,34,.35);font-style:italic;margin-top:12px;animation:fsu .18s ease-out both}
+.sys-pill{align-self:center;margin:12px 0;background:rgba(34,34,34,.05);border-radius:20px;padding:5px 14px;font:400 12px/1.3 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);white-space:nowrap;animation:fsu .22s ease-out both}
+.sys-pill-action{align-self:center;margin:12px 0;background:rgba(255,56,92,.08);border-radius:20px;padding:5px 14px;font:500 12px/1.3 'Plus Jakarta Sans',sans-serif;color:var(--c-teal-m);white-space:nowrap;animation:fsu .22s ease-out both}
 .a-card{margin-top:16px;background:var(--c-bg);border-radius:var(--r-card);border:1px solid var(--c-card-b);box-shadow:var(--shadow);padding:16px 18px;animation:fsu .28s ease-out both}
 .a-hl{font:var(--t-card-hl);color:var(--c-ink);margin-bottom:12px}
 .a-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-.a-chip{font:var(--t-chip);color:var(--c-teal);border:1.5px solid rgba(193,18,63,.28);border-radius:var(--r-chip);padding:6px 14px;white-space:nowrap;cursor:pointer;transition:background .12s}
-.a-chip:active{background:rgba(193,18,63,.07)}
-.a-chip.sent{color:var(--c-teal-m);border-color:rgba(193,18,63,.15);pointer-events:none;border-style:solid}
+.a-chip{font:var(--t-chip);color:var(--c-teal-m);border:1.5px solid rgba(255,56,92,.28);border-radius:var(--r-chip);padding:6px 14px;white-space:nowrap;cursor:pointer;transition:background .12s}
+.a-chip:active{background:rgba(255,56,92,.07)}
+.a-chip.sent{color:var(--c-teal-m);border-color:rgba(255,56,92,.15);pointer-events:none;border-style:solid}
 .ctx-note{border-left:2px solid var(--c-teal);padding-left:10px;font:var(--t-meta);color:var(--c-muted)}
 .j-rows{margin-top:4px}
 .j-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid rgba(0,0,0,.05);cursor:pointer;animation:fsu .28s ease-out both}
@@ -63,48 +63,48 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#CACACA;min-height:10
 .j-time{font:var(--t-meta);color:var(--c-muted);width:38px;flex-shrink:0}
 .j-info{flex:1}.j-name{font:var(--t-job);color:var(--c-ink)}.j-sub{font:var(--t-meta);color:var(--c-muted);margin-top:2px}
 .j-acts{display:flex;align-items:center;gap:10px}
-.dir-btn{width:30px;height:30px;border-radius:50%;border:1.5px solid rgba(193,18,63,.25);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
-.j-chev{color:rgba(26,26,24,.18);font-size:20px;font-weight:300}
-.inline-chip{align-self:flex-start;margin-top:10px;font:var(--t-chip);color:var(--c-teal);border:1.5px solid rgba(193,18,63,.28);border-radius:var(--r-chip);padding:6px 14px;cursor:pointer;white-space:nowrap;animation:fsu .22s ease-out both}
-.bk-chip{align-self:flex-start;margin-top:10px;font:var(--t-chip);color:var(--c-teal);border:1.5px solid rgba(193,18,63,.28);border-radius:var(--r-chip);padding:8px 16px;cursor:pointer;white-space:nowrap;animation:fsu .22s ease-out both}
+.dir-btn{width:30px;height:30px;border-radius:50%;border:1.5px solid rgba(255,56,92,.25);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.j-chev{color:rgba(34,34,34,.18);font-size:20px;font-weight:300}
+.inline-chip{align-self:flex-start;margin-top:10px;font:var(--t-chip);color:var(--c-teal-m);border:1.5px solid rgba(255,56,92,.28);border-radius:var(--r-chip);padding:6px 14px;cursor:pointer;white-space:nowrap;animation:fsu .22s ease-out both}
+.bk-chip{align-self:flex-start;margin-top:10px;font:var(--t-chip);color:var(--c-teal-m);border:1.5px solid rgba(255,56,92,.28);border-radius:var(--r-chip);padding:8px 16px;cursor:pointer;white-space:nowrap;animation:fsu .22s ease-out both}
 .th-space{flex-shrink:0;height:20px}
 @keyframes fsu{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 /* Input area - transparent throughout */
 #input-area{flex-shrink:0;padding:12px var(--sp) 12px;background:transparent;position:relative;z-index:2;display:flex;flex-direction:column;gap:0;transition:opacity 80ms ease-out}
 #phone.post #input-area{padding-bottom:76px}
 .chips-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
-.c-reply{font:var(--t-chip);color:var(--c-teal);border:1.5px solid rgba(193,18,63,.28);border-radius:var(--r-chip);padding:8px 16px;white-space:nowrap;cursor:pointer;transition:background .12s}
-.c-reply:active{background:rgba(193,18,63,.07)}
-.c-suggest{font:var(--t-chip);color:var(--c-teal);border:1.5px dashed rgba(193,18,63,.35);border-radius:var(--r-chip);padding:8px 16px;white-space:nowrap;cursor:pointer}
+.c-reply{font:var(--t-chip);color:var(--c-teal-m);border:1.5px solid rgba(255,56,92,.28);border-radius:var(--r-chip);padding:8px 16px;white-space:nowrap;cursor:pointer;transition:background .12s}
+.c-reply:active{background:rgba(255,56,92,.07)}
+.c-suggest{font:var(--t-chip);color:var(--c-teal-m);border:1.5px dashed rgba(255,56,92,.35);border-radius:var(--r-chip);padding:8px 16px;white-space:nowrap;cursor:pointer}
 .plain-pill{display:flex;align-items:center;background:var(--c-bg);border-radius:var(--r-pill);box-shadow:0 0 0 1.5px rgba(0,0,0,.06),0 2px 14px rgba(0,0,0,.07);overflow:hidden;cursor:text}
 .plain-pill input{flex:1;padding:14px 0 14px 20px;font:var(--t-prose);color:var(--c-ink);background:transparent;border:none;outline:none}
 .plain-pill input::placeholder{color:var(--c-muted)}
 .fsend{width:52px;height:52px;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer}
-.sc{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(193,18,63,.12);transition:background .15s}
+.sc{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,56,92,.12);transition:background .15s}
 .sc.on{background:var(--c-teal)}
 .ph-wrap{display:flex;align-items:center;background:var(--c-bg);border-radius:var(--r-pill);box-shadow:0 0 0 1.5px rgba(0,0,0,.06),0 2px 14px rgba(0,0,0,.07);overflow:visible;position:relative}
-#cc-btn{display:flex;align-items:center;gap:4px;padding:14px 10px 14px 20px;font:500 14px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal);border-right:1px solid rgba(26,26,24,.07);flex-shrink:0;cursor:pointer;user-select:none}
+#cc-btn{display:flex;align-items:center;gap:4px;padding:14px 10px 14px 20px;font:500 14px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal-m);border-right:1px solid rgba(34,34,34,.07);flex-shrink:0;cursor:pointer;user-select:none}
 #ph-in{flex:1;padding:14px 8px 14px 10px;font:var(--t-prose);color:var(--c-ink);background:transparent;border:none;outline:none;letter-spacing:.3px}
 #ph-in::placeholder{color:var(--c-muted);letter-spacing:0}
-.ph-err{font:400 12px/1.4 'Plus Jakarta Sans',sans-serif;color:#E84040;padding:6px 4px 0;display:none}
+.ph-err{font:400 12px/1.4 'Plus Jakarta Sans',sans-serif;color:#C13515;padding:6px 4px 0;display:none}
 .ph-err.vis{display:block}
 #cc-pick{position:absolute;bottom:calc(100% + 8px);left:0;background:var(--c-bg);border-radius:16px;box-shadow:0 4px 32px rgba(0,0,0,.15);min-width:220px;overflow:hidden;display:none;z-index:100}
 #cc-pick.open{display:block}
 .cc-opt{display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;font:400 14px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);transition:background .1s}
-.cc-opt:hover{background:rgba(26,26,24,.04)}
+.cc-opt:hover{background:rgba(34,34,34,.04)}
 .otp-area{padding:4px 0}
 .otp-top{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px}
-.otp-meta{font:var(--t-meta);color:var(--c-muted)}.otp-wrong{font:var(--t-meta);color:var(--c-teal);cursor:pointer}
+.otp-meta{font:var(--t-meta);color:var(--c-muted)}.otp-wrong{font:var(--t-meta);color:var(--c-teal-m);cursor:pointer}
 .otp-cells{display:flex;gap:8px;justify-content:center;margin-bottom:12px}
-.otp-cell{width:46px;height:52px;border-radius:12px;background:var(--c-pill-bg);border:1.5px solid rgba(193,18,63,.16);display:flex;align-items:center;justify-content:center;font:500 22px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);position:relative;overflow:hidden;cursor:text;transition:border-color .15s,background .15s}
+.otp-cell{width:46px;height:52px;border-radius:12px;background:var(--c-pill-bg);border:1.5px solid rgba(255,56,92,.16);display:flex;align-items:center;justify-content:center;font:500 22px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);position:relative;overflow:hidden;cursor:text;transition:border-color .15s,background .15s}
 .otp-cell input{position:absolute;inset:0;opacity:0;width:100%;height:100%;font-size:22px;text-align:center;background:transparent;border:none;outline:none;caret-color:transparent}
 .otp-cell .od{pointer-events:none}
-.otp-cell.active{border-color:var(--c-teal);background:var(--c-bg)}
-.otp-cell.filled{border-color:rgba(193,18,63,.45);background:var(--c-bg)}
-.otp-cell.verif{border-color:var(--c-teal);background:rgba(193,18,63,.06);color:var(--c-teal)}
+.otp-cell.active{border-color:var(--c-teal-m);background:var(--c-bg)}
+.otp-cell.filled{border-color:rgba(255,56,92,.45);background:var(--c-bg)}
+.otp-cell.verif{border-color:var(--c-teal-m);background:rgba(255,56,92,.06);color:var(--c-teal-m)}
 .otp-cursor{width:1.5px;height:26px;background:var(--c-teal);border-radius:1px;animation:bc 1s ease-in-out infinite}
 @keyframes bc{0%,100%{opacity:1}50%{opacity:0}}
-.otp-hint{text-align:center;font:var(--t-meta);color:var(--c-teal);cursor:pointer}
+.otp-hint{text-align:center;font:var(--t-meta);color:var(--c-teal-m);cursor:pointer}
 .otp-hint.dim{color:var(--c-muted);pointer-events:none}
 /* Command pill - WhatsApp pattern: camera+mic when empty, send when typing */
 .cmd-pill{display:flex;align-items:center;background:var(--c-bg);border-radius:var(--r-pill);box-shadow:0 0 0 1.5px rgba(0,0,0,.06),0 2px 12px rgba(0,0,0,.06);padding:11px 10px 11px 18px;gap:8px}
@@ -112,12 +112,12 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#CACACA;min-height:10
 .cmd-pill textarea::placeholder{color:var(--c-muted)}
 .pill-plus{width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer}
 .abn-pill{display:flex;align-items:center;background:var(--c-bg);border-radius:var(--r-pill);box-shadow:0 0 0 1.5px rgba(0,0,0,.06),0 2px 14px rgba(0,0,0,.07);overflow:hidden}
-.abn-pre{padding:14px 12px 14px 20px;font:500 13px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);border-right:1px solid rgba(26,26,24,.07);flex-shrink:0}
+.abn-pre{padding:14px 12px 14px 20px;font:500 13px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);border-right:1px solid rgba(34,34,34,.07);flex-shrink:0}
 .abn-in{flex:1;padding:14px 10px;font:var(--t-prose);color:var(--c-ink);background:transparent;border:none;outline:none;letter-spacing:.5px}
 .abn-in::placeholder{color:var(--c-muted);letter-spacing:0}
 .kyc-cta{display:flex;align-items:center;justify-content:center;background:var(--c-teal);color:#fff;border-radius:var(--r-pill);padding:15px 24px;font:500 15px/1 'Plus Jakarta Sans',sans-serif;cursor:pointer;transition:opacity .12s}
 .kyc-cta:active{opacity:.85}
-#login-lnk{display:block;text-align:center;font:400 13px/1 'Plus Jakarta Sans',sans-serif;color:rgba(26,26,24,.40);padding:13px 0 0}
+#login-lnk{display:block;text-align:center;font:400 13px/1 'Plus Jakarta Sans',sans-serif;color:rgba(34,34,34,.40);padding:13px 0 0}
 /* Agencx float button - 44px emblem circle, no text */
 .hv-float-btn{position:absolute;bottom:96px;right:18px;width:44px;height:44px;border-radius:50%;background:var(--c-bg);box-shadow:0 4px 16px rgba(0,0,0,.14);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:8}
 .hv-float-btn:hover{box-shadow:0 6px 22px rgba(0,0,0,.18)}
@@ -133,31 +133,31 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#CACACA;min-height:10
 .scr-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px}
 .scr-scroll::-webkit-scrollbar{display:none}
 .filt-row{display:flex;gap:8px;padding:8px var(--sp) 10px;flex-shrink:0}
-.fc-on{font:var(--t-chip);border-radius:var(--r-chip);padding:6px 14px;white-space:nowrap;cursor:pointer;color:var(--c-teal);border:1.5px solid rgba(193,18,63,.30);background:rgba(193,18,63,.07)}
-.fc-off{font:var(--t-chip);border-radius:var(--r-chip);padding:6px 14px;white-space:nowrap;cursor:pointer;color:var(--c-muted);border:1.5px solid rgba(26,26,24,.12)}
+.fc-on{font:var(--t-chip);border-radius:var(--r-chip);padding:6px 14px;white-space:nowrap;cursor:pointer;color:var(--c-teal-m);border:1.5px solid rgba(255,56,92,.30);background:rgba(255,56,92,.07)}
+.fc-off{font:var(--t-chip);border-radius:var(--r-chip);padding:6px 14px;white-space:nowrap;cursor:pointer;color:var(--c-muted);border:1.5px solid rgba(34,34,34,.12)}
 .chat-row{padding:14px var(--sp);border-bottom:1px solid rgba(0,0,0,.05);cursor:pointer}
-.chat-row:active{background:rgba(26,26,24,.02)}
+.chat-row:active{background:rgba(34,34,34,.02)}
 .chat-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
 .chat-nm{font:var(--t-job);color:var(--c-ink)}.chat-rt{display:flex;align-items:center;gap:8px}
 .chat-dt{font:var(--t-meta);color:var(--c-muted)}.bdot-a{width:7px;height:7px;border-radius:50%;background:var(--c-amber)}.bdot-t{width:7px;height:7px;border-radius:50%;background:var(--c-teal)}
 .chat-prev{font:var(--t-meta);color:var(--c-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
 .thr-topbar{display:flex;align-items:center;padding:6px 20px 14px;flex-shrink:0;border-bottom:1px solid rgba(0,0,0,.055)}
 .thr-center{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px}
-.thr-nm{font:500 16px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}.thr-st{font:11px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal)}
+.thr-nm{font:500 16px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}.thr-st{font:11px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal-m)}
 .thr-area{flex:1;overflow-y:auto;padding:12px var(--sp) 8px;display:flex;flex-direction:column;-webkit-overflow-scrolling:touch}
 .thr-area::-webkit-scrollbar{display:none}
-.bbl-c{align-self:flex-start;background:rgba(26,26,24,.055);border-radius:4px 18px 18px 18px;padding:10px 14px;font:400 15px/1.45 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);max-width:82%;margin-bottom:8px}
-.bbl-a{align-self:flex-start;background:rgba(193,18,63,.07);border-radius:4px 18px 18px 18px;padding:10px 14px;font:400 15px/1.45 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);max-width:82%;margin-bottom:8px}
+.bbl-c{align-self:flex-start;background:rgba(34,34,34,.055);border-radius:4px 18px 18px 18px;padding:10px 14px;font:400 15px/1.45 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);max-width:82%;margin-bottom:8px}
+.bbl-a{align-self:flex-start;background:rgba(255,56,92,.07);border-radius:4px 18px 18px 18px;padding:10px 14px;font:400 15px/1.45 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);max-width:82%;margin-bottom:8px}
 .bbl-t{align-self:flex-end;background:var(--c-teal);border-radius:18px 4px 18px 18px;padding:10px 14px;font:400 15px/1.45 'Plus Jakarta Sans',sans-serif;color:#fff;max-width:82%;margin-bottom:8px}
-.thr-pill{align-self:center;background:rgba(26,26,24,.05);border-radius:20px;padding:5px 14px;font:400 12px/1.3 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);white-space:nowrap;margin-bottom:10px}
-.thr-pill-action{align-self:center;background:rgba(193,18,63,.09);border-radius:20px;padding:5px 14px;font:500 12px/1.3 'Plus Jakarta Sans',sans-serif;color:var(--c-teal);white-space:nowrap;margin-bottom:10px}
+.thr-pill{align-self:center;background:rgba(34,34,34,.05);border-radius:20px;padding:5px 14px;font:400 12px/1.3 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);white-space:nowrap;margin-bottom:10px}
+.thr-pill-action{align-self:center;background:rgba(255,56,92,.09);border-radius:20px;padding:5px 14px;font:500 12px/1.3 'Plus Jakarta Sans',sans-serif;color:var(--c-teal-m);white-space:nowrap;margin-bottom:10px}
 .hitl{background:#fff;border:1px solid var(--c-card-b);border-radius:var(--r-card);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:10px;width:100%;flex-shrink:0}
-.hitl-lbl{font:500 10px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.hitl-lbl{font:500 10px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal-m);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
 .hitl-sc{font:500 14px/1.3 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);margin-bottom:2px}
 .hitl-scd{font:var(--t-meta);color:var(--c-muted);margin-bottom:10px}
 .hitl-ln{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
 .hitl-ll{font:var(--t-meta);color:var(--c-muted)}.hitl-la{font:400 13px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}
-.hitl-la-input{font:400 13px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);background:rgba(26,26,24,.05);border:none;border-radius:6px;padding:3px 8px;width:72px;text-align:right;outline:none}
+.hitl-la-input{font:400 13px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);background:rgba(34,34,34,.05);border:none;border-radius:6px;padding:3px 8px;width:72px;text-align:right;outline:none}
 .hitl-div{height:1px;background:rgba(0,0,0,.06);margin:8px 0}
 .hitl-tr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px}
 .hitl-tl{font:500 14px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}.hitl-ta{font:700 16px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}
@@ -165,12 +165,12 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#CACACA;min-height:10
 .hitl-terms{font:var(--t-meta);color:var(--c-muted);margin-bottom:12px;padding-top:6px;border-top:1px solid rgba(0,0,0,.05)}
 .hitl-ch{display:flex;gap:8px}
 .ch-fill{font:var(--t-chip);color:#fff;background:var(--c-teal);border-radius:var(--r-chip);padding:8px 18px;cursor:pointer}
-.ch-out{font:var(--t-chip);color:var(--c-teal);border:1.5px solid rgba(193,18,63,.28);border-radius:var(--r-chip);padding:7px 16px;cursor:pointer}
+.ch-out{font:var(--t-chip);color:var(--c-teal-m);border:1.5px solid rgba(255,56,92,.28);border-radius:var(--r-chip);padding:7px 16px;cursor:pointer}
 .h-bar{flex-shrink:0;padding:10px 20px 24px;background:var(--c-bg)}
-.h-pill{display:flex;align-items:center;gap:10px;background:rgba(193,18,63,.06);border-radius:var(--r-pill);padding:12px 18px 12px 16px}
+.h-pill{display:flex;align-items:center;gap:10px;background:rgba(255,56,92,.06);border-radius:var(--r-pill);padding:12px 18px 12px 16px}
 .hdot{width:7px;height:7px;border-radius:50%;background:var(--c-teal);flex-shrink:0;animation:hdp 2s ease-in-out infinite}
 @keyframes hdp{0%,100%{opacity:.5}50%{opacity:1}}
-.htxt{flex:1;font:var(--t-meta);color:var(--c-teal-m)}.htake{font:500 13px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal);cursor:pointer}
+.htxt{flex:1;font:var(--t-meta);color:var(--c-teal-m)}.htake{font:500 13px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal-m);cursor:pointer}
 .tko-wrap{flex-shrink:0;padding:10px 16px 8px;background:var(--c-bg)}
 .hbk{display:block;text-align:center;font:var(--t-meta);color:var(--c-muted);padding:12px 0 20px;cursor:pointer}
 /* Schedule - added padding-top below topbar border */
@@ -182,15 +182,15 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#CACACA;min-height:10
 .vbtn{font:500 12px/1 'Plus Jakarta Sans',sans-serif;padding:7px 18px;border-radius:18px;color:var(--c-muted);cursor:pointer}
 .vbtn.on{background:#fff;color:var(--c-ink);box-shadow:0 1px 4px rgba(0,0,0,.08)}.vbtn.off{color:var(--c-muted)}
 .sch-row{display:flex;align-items:center;gap:12px;padding:13px var(--sp);border-bottom:1px solid rgba(0,0,0,.05);cursor:pointer;transition:background .12s}
-.sch-row:last-child{border-bottom:none}.sch-row:hover{background:rgba(26,26,24,.02)}
+.sch-row:last-child{border-bottom:none}.sch-row:hover{background:rgba(34,34,34,.02)}
 .sch-time{font:var(--t-meta);color:var(--c-muted);width:44px;flex-shrink:0;display:flex;flex-direction:column;gap:1px}
-.sch-end{font:400 10px/1 'Plus Jakarta Sans',sans-serif;color:rgba(26,26,24,.25)}
+.sch-end{font:400 10px/1 'Plus Jakarta Sans',sans-serif;color:rgba(34,34,34,.25)}
 .wk-strip{display:flex;padding:10px var(--sp) 8px;flex-shrink:0;border-bottom:1px solid rgba(0,0,0,.06)}
 .wk-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px}
 .wk-day{font:500 10px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);text-transform:uppercase}
 .wk-num{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:400 14px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);cursor:pointer;transition:background .15s}
-.wk-num:hover{background:rgba(193,18,63,.08)}.wk-num.today{background:var(--c-teal);color:#fff;font-weight:500}.wk-num.sel{background:rgba(193,18,63,.12);color:var(--c-teal);font-weight:500}
-.wk-dot{width:5px;height:5px;border-radius:50%;background:rgba(193,18,63,.4)}.wk-dot.none{background:transparent}
+.wk-num:hover{background:rgba(255,56,92,.08)}.wk-num.today{background:var(--c-teal);color:#fff;font-weight:500}.wk-num.sel{background:rgba(255,56,92,.12);color:var(--c-teal-m);font-weight:500}
+.wk-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,56,92,.4)}.wk-dot.none{background:transparent}
 .wk-sel-lbl{font:500 12px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);padding:10px var(--sp) 0;flex-shrink:0}
 .empty-day{padding:24px var(--sp);font:var(--t-meta);color:var(--c-muted);font-style:italic}
 .m-sum{display:flex;padding:18px var(--sp) 16px;flex-shrink:0;border-bottom:1px solid rgba(0,0,0,.06)}
@@ -204,22 +204,22 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#CACACA;min-height:10
 .txsv{font:var(--t-meta);color:var(--c-muted)}.txmr{display:flex;align-items:center;gap:8px}.txdt{font:var(--t-meta);color:var(--c-muted)}
 .spaid{font:500 11px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ok)}.sover{font:500 11px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-warn-m)}.spend{font:500 11px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted)}
 .txact{display:flex;gap:8px;padding-top:6px}
-.txchip{font:var(--t-chip);color:var(--c-teal);border:1.5px solid rgba(193,18,63,.28);border-radius:var(--r-chip);padding:6px 14px;cursor:pointer}
-.rconf{background:rgba(193,18,63,.05);border-radius:12px;padding:12px 14px;margin-top:8px}
+.txchip{font:var(--t-chip);color:var(--c-teal-m);border:1.5px solid rgba(255,56,92,.28);border-radius:var(--r-chip);padding:6px 14px;cursor:pointer}
+.rconf{background:rgba(255,56,92,.05);border-radius:12px;padding:12px 14px;margin-top:8px}
 .rctxt{font:400 13px/1.4 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);margin-bottom:10px}
 .rcch{display:flex;gap:8px}
 .ccfm{font:var(--t-chip);color:#fff;background:var(--c-teal);border-radius:var(--r-chip);padding:8px 16px;cursor:pointer}
-.ccnc{font:var(--t-chip);color:var(--c-muted);border:1.5px solid rgba(26,26,24,.15);border-radius:var(--r-chip);padding:7px 14px;cursor:pointer}
-.undo{font:var(--t-meta);color:var(--c-muted);padding-top:6px}.undo span{color:var(--c-teal);cursor:pointer}
+.ccnc{font:var(--t-chip);color:var(--c-muted);border:1.5px solid rgba(34,34,34,.15);border-radius:var(--r-chip);padding:7px 14px;cursor:pointer}
+.undo{font:var(--t-meta);color:var(--c-muted);padding-top:6px}.undo span{color:var(--c-teal-m);cursor:pointer}
 .plan-hero{margin:0 var(--sp);background:var(--c-bg);border:1px solid var(--c-card-b);border-radius:18px;box-shadow:var(--shadow);padding:20px}
 .ph-lbl{font:500 10px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
 .ph-nm{font:700 22px/1.1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);letter-spacing:-.3px;margin-bottom:6px}.ph-st{font:var(--t-meta);color:var(--c-muted)}
 .tbar-w{margin-top:14px}.tbar-r{display:flex;justify-content:space-between;margin-bottom:6px}
 .tbar-r span{font:var(--t-meta);color:var(--c-muted)}.tbar-r .days{color:var(--c-amber);font-weight:500}
-.tbar-bg{height:4px;background:rgba(26,26,24,.08);border-radius:2px}.tbar-fill{height:4px;background:var(--c-amber);border-radius:2px;width:57%}
+.tbar-bg{height:4px;background:rgba(34,34,34,.08);border-radius:2px}.tbar-fill{height:4px;background:var(--c-amber);border-radius:2px;width:57%}
 .p-incl{padding:16px var(--sp) 0}.pi-lbl{font:500 10px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
 .pi-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.05)}.pi-row:last-child{border-bottom:none}
-.pi-chk{color:var(--c-teal);font-size:14px;flex-shrink:0}.pi-txt{font:400 14px/1.3 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}
+.pi-chk{color:var(--c-teal-m);font-size:14px;flex-shrink:0}.pi-txt{font:400 14px/1.3 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}
 .p-cta{padding:16px var(--sp) 28px;flex-shrink:0}
 .pcta-main{display:flex;align-items:center;justify-content:center;background:var(--c-teal);color:#fff;border-radius:14px;padding:15px 24px;font:500 15px/1 'Plus Jakarta Sans',sans-serif;cursor:pointer;margin-bottom:10px}
 .pcta-sub{text-align:center;font:var(--t-meta);color:var(--c-muted);cursor:pointer}
@@ -229,44 +229,44 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#CACACA;min-height:10
 .set-chev{color:var(--c-muted);font-size:16px;transition:transform .2s}.set-chev.open{transform:rotate(90deg)}
 .set-body{padding:0 var(--sp) 16px;display:none}.set-body.open{display:block}
 .set-field-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.04)}.set-field-row:last-child{border-bottom:none}
-.set-field-lbl{font:var(--t-meta);color:var(--c-muted)}.set-field-val{font:400 14px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}.set-edit{font:var(--t-chip);color:var(--c-teal);cursor:pointer}
-.bk-hero{background:linear-gradient(135deg,rgba(193,18,63,.08) 0%,rgba(193,18,63,.03) 100%);padding:32px var(--sp) 24px;flex-shrink:0}
+.set-field-lbl{font:var(--t-meta);color:var(--c-muted)}.set-field-val{font:400 14px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}.set-edit{font:var(--t-chip);color:var(--c-teal-m);cursor:pointer}
+.bk-hero{background:linear-gradient(135deg,rgba(255,56,92,.08) 0%,rgba(255,56,92,.03) 100%);padding:32px var(--sp) 24px;flex-shrink:0}
 .bk-biz-name{font:700 24px/1.1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);letter-spacing:-.3px;margin-bottom:6px}
 .bk-tagline{font:var(--t-prose);color:var(--c-muted)}
 .bk-services{padding:var(--sp);flex-shrink:0}
 .bk-svc-lbl{font:500 10px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
 .bk-svc-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(0,0,0,.05)}.bk-svc-row:last-child{border-bottom:none}
-.bk-svc-icon{width:36px;height:36px;border-radius:10px;background:rgba(193,18,63,.08);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.bk-svc-icon{width:36px;height:36px;border-radius:10px;background:rgba(255,56,92,.08);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .bk-svc-name{font:var(--t-job);color:var(--c-ink)}.bk-svc-price{font:var(--t-meta);color:var(--c-muted)}
 .bk-cta-wrap{padding:var(--sp);flex-shrink:0;margin-top:auto}
 .bk-cta{display:flex;align-items:center;justify-content:center;background:var(--c-teal);color:#fff;border-radius:14px;padding:16px 24px;font:500 16px/1 'Plus Jakarta Sans',sans-serif;cursor:pointer;margin-bottom:12px}
 .bk-share-row{display:flex;gap:10px}
-.bk-share-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px solid rgba(193,18,63,.28);border-radius:14px;padding:12px;font:var(--t-chip);color:var(--c-teal);cursor:pointer}
+.bk-share-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px solid rgba(255,56,92,.28);border-radius:14px;padding:12px;font:var(--t-chip);color:var(--c-teal-m);cursor:pointer}
 /* Sheets */
-#sheet-scrim{position:absolute;inset:0;z-index:30;background:rgba(26,26,24,0);pointer-events:none;border-radius:44px;transition:background 280ms}
-#sheet-scrim.vis{background:rgba(26,26,24,0.35);pointer-events:all}
+#sheet-scrim{position:absolute;inset:0;z-index:30;background:rgba(34,34,34,0);pointer-events:none;border-radius:44px;transition:background 280ms}
+#sheet-scrim.vis{background:rgba(34,34,34,0.35);pointer-events:all}
 .bottom-sheet{position:absolute;left:0;right:0;bottom:0;background:var(--c-bg);border-radius:28px 28px 0 0;box-shadow:0 -6px 40px rgba(0,0,0,.13);z-index:31;display:flex;flex-direction:column;transform:translateY(100%);transition:transform 300ms cubic-bezier(.25,.1,.25,1);will-change:transform}
 .bottom-sheet.open{transform:translateY(0)}
 .sh-handle-area{flex-shrink:0;padding:12px 0 8px;display:flex;justify-content:center;cursor:grab;touch-action:none}
-.sh-handle{width:36px;height:4px;background:rgba(26,26,24,.15);border-radius:2px}
+.sh-handle{width:36px;height:4px;background:rgba(34,34,34,.15);border-radius:2px}
 .sh-topbar{display:flex;align-items:center;justify-content:space-between;padding:4px 20px 14px;flex-shrink:0;border-bottom:1px solid rgba(0,0,0,.055)}
 .sh-title{font:500 17px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}
 #sheet-job{height:85%}
 .jh{padding:16px var(--sp) 0;flex-shrink:0}
 .jh-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
-.svc-lbl{font:500 13px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal-m);background:rgba(193,18,63,.07);border-radius:var(--r-chip);padding:5px 12px}
+.svc-lbl{font:500 13px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal-m);background:rgba(255,56,92,.07);border-radius:var(--r-chip);padding:5px 12px}
 .jbg{font:500 11px/1 'Plus Jakarta Sans',sans-serif;border-radius:20px;padding:4px 10px;display:inline-flex;align-items:center;gap:5px}
-.jbg-sc{color:var(--c-warn-m);border:1px solid rgba(192,130,28,.3);background:var(--c-warn-bg)}.jbg-er{color:var(--c-warn-m);background:var(--c-warn-bg)}.jbg-ip{color:var(--c-warn-m);background:var(--c-warn-bg)}.jbg-dn{color:var(--c-ok);background:var(--c-ok-bg)}
+.jbg-sc{color:var(--c-warn-m);border:1px solid rgba(122,74,0,.3);background:var(--c-warn-bg)}.jbg-er{color:var(--c-warn-m);background:var(--c-warn-bg)}.jbg-ip{color:var(--c-warn-m);background:var(--c-warn-bg)}.jbg-dn{color:var(--c-ok);background:var(--c-ok-bg)}
 .bdot{width:5px;height:5px;border-radius:50%;background:currentColor}
 .jmt{font:var(--t-meta);color:var(--c-muted);margin-bottom:4px}.jmt strong{font-weight:500;color:var(--c-ink)}
-.maps-lnk{display:inline-flex;align-items:center;gap:5px;font:var(--t-chip);color:var(--c-teal);margin-top:8px;cursor:pointer}
+.maps-lnk{display:inline-flex;align-items:center;gap:5px;font:var(--t-chip);color:var(--c-teal-m);margin-top:8px;cursor:pointer}
 .jdiv{height:1px;background:rgba(0,0,0,.06);margin:14px var(--sp)}
 .jd-section{padding:0 var(--sp);margin-bottom:14px}
 .jd-sec-lbl{font:500 10px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
 .jd-req{font:var(--t-prose);color:var(--c-ink);line-height:1.5}
 .jd-links{display:flex;gap:10px;margin-top:10px}
-.jd-link{font:var(--t-chip);color:var(--c-teal);border:1.5px solid rgba(193,18,63,.28);border-radius:var(--r-chip);padding:7px 14px;cursor:pointer;white-space:nowrap}
-.jstate-body{flex-shrink:0;padding:0 var(--sp)}.jsilence{font:var(--t-meta);color:rgba(26,26,24,.22);font-style:italic}
+.jd-link{font:var(--t-chip);color:var(--c-teal-m);border:1.5px solid rgba(255,56,92,.28);border-radius:var(--r-chip);padding:7px 14px;cursor:pointer;white-space:nowrap}
+.jstate-body{flex-shrink:0;padding:0 var(--sp)}.jsilence{font:var(--t-meta);color:rgba(34,34,34,.22);font-style:italic}
 .inv-card{border:1px solid var(--c-card-b);border-radius:var(--r-card);box-shadow:var(--shadow);padding:16px;margin-top:4px}
 .inv-lbl{font:500 10px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
 .inv-main{font:var(--t-card-hl);color:var(--c-ink);margin-bottom:12px}.inv-ch{display:flex;gap:8px}
@@ -279,33 +279,33 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#CACACA;min-height:10
 .cr-meta{font:var(--t-meta);color:var(--c-muted)}
 .cr-section-lbl{font:500 10px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);text-transform:uppercase;letter-spacing:.5px;padding:14px var(--sp) 6px;flex-shrink:0;display:block}
 .cr-job-row{display:flex;align-items:center;justify-content:space-between;padding:12px var(--sp);border-bottom:1px solid rgba(0,0,0,.04);cursor:pointer}
-.cr-job-row:active{background:rgba(26,26,24,.02)}
+.cr-job-row:active{background:rgba(34,34,34,.02)}
 .cr-job-left{display:flex;flex-direction:column;gap:3px}
 .cr-job-date{font:var(--t-meta);color:var(--c-muted)}.cr-job-svc{font:var(--t-job);color:var(--c-ink)}
 .cr-job-right{display:flex;align-items:center;gap:8px}
 .cr-job-amt{font:500 14px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}
 .cr-job-st{font:500 11px/1 'Plus Jakarta Sans',sans-serif}.cr-job-st.paid{color:var(--c-teal-m)}.cr-job-st.pend{color:var(--c-muted)}
 /* Copilot overlay */
-#co-scrim{position:absolute;inset:0;z-index:50;background:rgba(26,26,24,0);pointer-events:none;border-radius:44px;transition:background 260ms}
-#co-scrim.vis{background:rgba(26,26,24,0.25);pointer-events:all}
+#co-scrim{position:absolute;inset:0;z-index:50;background:rgba(34,34,34,0);pointer-events:none;border-radius:44px;transition:background 260ms}
+#co-scrim.vis{background:rgba(34,34,34,0.25);pointer-events:all}
 #co-overlay{position:absolute;left:0;right:0;bottom:0;height:72%;background:var(--c-bg);border-radius:24px 24px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,.14);z-index:51;display:flex;flex-direction:column;transform:translateY(100%);transition:transform 300ms cubic-bezier(.25,.1,.25,1)}
 #co-overlay.open{transform:translateY(0)}
 .co-handle-area{flex-shrink:0;padding:12px 0 6px;display:flex;justify-content:center;cursor:grab;touch-action:none}
-.co-handle{width:36px;height:4px;background:rgba(26,26,24,.15);border-radius:2px}
+.co-handle{width:36px;height:4px;background:rgba(34,34,34,.15);border-radius:2px}
 .co-header{display:flex;align-items:center;justify-content:space-between;padding:4px 20px 12px;flex-shrink:0}
-.co-hdr-lft{display:flex;align-items:center;gap:7px;font:500 15px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal)}
+.co-hdr-lft{display:flex;align-items:center;gap:7px;font:500 15px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal-m)}
 .co-close{width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font:400 18px/1 'Plus Jakarta Sans';color:var(--c-muted)}
 #co-thread{flex:1;overflow-y:auto;padding:0 var(--sp) 8px;display:flex;flex-direction:column;-webkit-overflow-scrolling:touch}
 #co-thread::-webkit-scrollbar{display:none}
 #co-input{flex-shrink:0;padding:10px var(--sp) 28px}
 /* Care draft preview in copilot */
-.care-draft{background:rgba(193,18,63,.06);border:1px solid rgba(193,18,63,.15);border-radius:14px;padding:12px 14px;font:400 14px/1.5 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);margin-bottom:8px;font-style:italic}
+.care-draft{background:rgba(255,56,92,.06);border:1px solid rgba(255,56,92,.15);border-radius:14px;padding:12px 14px;font:400 14px/1.5 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);margin-bottom:8px;font-style:italic}
 /* Business hub rows */
 .bh-row{display:flex;align-items:center;gap:14px;padding:15px var(--sp);border-bottom:1px solid rgba(0,0,0,.05);cursor:pointer;transition:background .1s}
-.bh-row:active{background:rgba(26,26,24,.02)}
+.bh-row:active{background:rgba(34,34,34,.02)}
 .bh-ic{width:20px;height:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .bh-lb{flex:1;font:500 15px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}
-.bh-chev{color:rgba(26,26,24,.18);font-size:20px;font-weight:300}
+.bh-chev{color:rgba(34,34,34,.18);font-size:20px;font-weight:300}
 
 
 /* Settings edit sheet (H) */
@@ -315,48 +315,48 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#CACACA;min-height:10
 .se-field{margin-bottom:18px}
 .se-label{font:500 11px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:block}
 .se-input{font:400 18px/1.4 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);background:var(--c-pill-bg);border:1.5px solid transparent;border-radius:14px;padding:14px 18px;width:100%;-webkit-appearance:none;outline:none;box-sizing:border-box;transition:border-color .15s,background .15s}
-.se-input:focus{background:rgba(193,18,63,.06);border-color:rgba(193,18,63,.35)}
+.se-input:focus{background:rgba(255,56,92,.06);border-color:rgba(255,56,92,.35)}
 .se-list-item{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid rgba(0,0,0,.05)}
 .se-list-item:last-child{border-bottom:none}
 .se-list-nm{font:400 16px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}
-.se-remove{font:var(--t-chip);color:#E84040;cursor:pointer;padding:4px 0}
-.se-add{display:flex;align-items:center;gap:8px;padding:14px 0;font:500 14px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal);cursor:pointer;border-top:1px dashed rgba(193,18,63,.2);margin-top:4px}
+.se-remove{font:var(--t-chip);color:#C13515;cursor:pointer;padding:4px 0}
+.se-add{display:flex;align-items:center;gap:8px;padding:14px 0;font:500 14px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal-m);cursor:pointer;border-top:1px dashed rgba(255,56,92,.2);margin-top:4px}
 .se-choice-grid{display:flex;flex-direction:column;gap:8px}
 .se-choice-item{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;background:var(--c-pill-bg);border-radius:14px;cursor:pointer;transition:background .12s;border:1.5px solid transparent}
-.se-choice-item.sel{background:rgba(193,18,63,.07);border-color:rgba(193,18,63,.3)}
+.se-choice-item.sel{background:rgba(255,56,92,.07);border-color:rgba(255,56,92,.3)}
 .se-choice-lbl{font:400 16px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}
-.se-radio{width:20px;height:20px;border-radius:50%;border:1.5px solid rgba(26,26,24,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .12s}
-.se-choice-item.sel .se-radio{background:var(--c-teal);border-color:var(--c-teal)}
+.se-radio{width:20px;height:20px;border-radius:50%;border:1.5px solid rgba(34,34,34,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .12s}
+.se-choice-item.sel .se-radio{background:var(--c-teal);border-color:var(--c-teal-m)}
 .se-radio-dot{width:8px;height:8px;border-radius:50%;background:#fff;opacity:0;transition:opacity .12s}
 .se-choice-item.sel .se-radio-dot{opacity:1}
 .se-toggle-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0}
 .se-toggle-lbl{font:400 16px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}
-.se-toggle{width:48px;height:28px;border-radius:14px;background:rgba(26,26,24,.14);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.se-toggle{width:48px;height:28px;border-radius:14px;background:rgba(34,34,34,.14);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
 .se-toggle.on{background:var(--c-teal)}
 .se-knob{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:transform .2s}
 .se-toggle.on .se-knob{transform:translateX(20px)}
 .se-save-btn{display:flex;align-items:center;justify-content:center;background:var(--c-teal);color:#fff;border-radius:14px;padding:16px 24px;font:500 16px/1 'Plus Jakarta Sans',sans-serif;cursor:pointer;margin:0 var(--sp) 28px;flex-shrink:0;transition:opacity .15s}
 .se-save-btn:active{opacity:.85}
 /* Booking page richer design (I) */
-.bk-photo-wrap{width:100%;height:200px;background:linear-gradient(135deg,rgba(193,18,63,.13) 0%,rgba(193,18,63,.04) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;position:relative;flex-shrink:0;cursor:pointer}
-.bk-photo-hint{font:400 13px/1 'Plus Jakarta Sans',sans-serif;color:rgba(193,18,63,.55)}
+.bk-photo-wrap{width:100%;height:200px;background:linear-gradient(135deg,rgba(255,56,92,.13) 0%,rgba(255,56,92,.04) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;position:relative;flex-shrink:0;cursor:pointer}
+.bk-photo-hint{font:400 13px/1 'Plus Jakarta Sans',sans-serif;color:rgba(255,56,92,.55)}
 .bk-photo-edit-btn{position:absolute;bottom:12px;right:12px;background:rgba(0,0,0,.48);color:#fff;border-radius:20px;padding:6px 12px;font:500 11px/1 'Plus Jakarta Sans',sans-serif;display:flex;align-items:center;gap:5px}
-.bk-entry-wrap{margin:14px var(--sp) 0;background:rgba(193,18,63,.05);border-radius:var(--r-card);padding:16px}
-.bk-entry-title{font:500 13px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal);margin-bottom:4px}
+.bk-entry-wrap{margin:14px var(--sp) 0;background:rgba(255,56,92,.05);border-radius:var(--r-card);padding:16px}
+.bk-entry-title{font:500 13px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal-m);margin-bottom:4px}
 .bk-entry-sub{font:var(--t-meta);color:var(--c-muted);margin-bottom:14px}
 .bk-link-pill{display:flex;align-items:center;justify-content:space-between;background:var(--c-bg);border-radius:10px;padding:10px 14px;margin-bottom:12px}
 .bk-link-url{font:400 13px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}
-.bk-link-copy{font:500 12px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal);cursor:pointer;flex-shrink:0}
+.bk-link-copy{font:500 12px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal-m);cursor:pointer;flex-shrink:0}
 .bk-platforms{display:flex;gap:8px}
 .bk-plat{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;background:var(--c-bg);border-radius:10px;cursor:pointer}
 .bk-plat-ic{font:18px/1 sans-serif}
 .bk-plat-lbl{font:400 10px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);text-align:center}
 /* Share preview overlay (I) */
-#share-overlay{position:absolute;inset:0;background:rgba(26,26,24,0);z-index:62;display:none;flex-direction:column;align-items:center;justify-content:flex-end;border-radius:44px;transition:background .24s}
-#share-overlay.vis{display:flex;background:rgba(26,26,24,.58)}
+#share-overlay{position:absolute;inset:0;background:rgba(34,34,34,0);z-index:62;display:none;flex-direction:column;align-items:center;justify-content:flex-end;border-radius:44px;transition:background .24s}
+#share-overlay.vis{display:flex;background:rgba(34,34,34,.58)}
 .share-sheet{background:var(--c-bg);width:100%;border-radius:28px 28px 44px 44px;padding:20px var(--sp) 36px;animation:fsu .24s ease-out}
 .share-card-preview{border:1px solid rgba(0,0,0,.1);border-radius:14px;overflow:hidden;margin-bottom:18px}
-.share-card-img{width:100%;height:100px;background:linear-gradient(135deg,rgba(193,18,63,.2) 0%,rgba(193,18,63,.07) 100%);display:flex;align-items:center;justify-content:center}
+.share-card-img{width:100%;height:100px;background:linear-gradient(135deg,rgba(255,56,92,.2) 0%,rgba(255,56,92,.07) 100%);display:flex;align-items:center;justify-content:center}
 .share-card-meta{padding:10px 14px}
 .share-card-url{font:400 10px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);margin-bottom:4px}
 .share-card-nm{font:600 14px/1.2 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);margin-bottom:3px}
@@ -366,24 +366,24 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#CACACA;min-height:10
 .share-ch-ic{width:54px;height:54px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:24px}
 .share-ch-lbl{font:400 11px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}
 .share-copy-btn{display:flex;align-items:center;justify-content:center;background:var(--c-pill-bg);border-radius:14px;padding:14px;font:500 14px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);cursor:pointer;margin-bottom:10px}
-.share-cancel{display:flex;align-items:center;justify-content:center;font:500 15px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal);cursor:pointer;padding:10px}
+.share-cancel{display:flex;align-items:center;justify-content:center;font:500 15px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal-m);cursor:pointer;padding:10px}
 
 .list-btn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:8px;transition:background .12s}
-.list-btn.active{background:rgba(193,18,63,.1)}
+.list-btn.active{background:rgba(255,56,92,.1)}
 .upcoming-group{margin-top:0}
-.upcoming-date-hdr{font:500 12px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);padding:12px var(--sp) 4px;background:rgba(26,26,24,.025);text-transform:uppercase;letter-spacing:.4px;flex-shrink:0}
+.upcoming-date-hdr{font:500 12px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);padding:12px var(--sp) 4px;background:rgba(34,34,34,.025);text-transform:uppercase;letter-spacing:.4px;flex-shrink:0}
 
 .bbl-wrap{display:flex;flex-direction:column;margin-bottom:8px}
 .bbl-wrap.out{align-items:flex-end}
 .bbl-wrap.in{align-items:flex-start}
-.bbl-ts{font:400 10px/1 'Plus Jakarta Sans',sans-serif;color:rgba(26,26,24,.3);margin-top:3px;display:flex;align-items:center;gap:4px}
+.bbl-ts{font:400 10px/1 'Plus Jakarta Sans',sans-serif;color:rgba(34,34,34,.3);margin-top:3px;display:flex;align-items:center;gap:4px}
 .bbl-wrap.out .bbl-ts{padding-right:2px}
-.tick-sent{color:rgba(26,26,24,.3)}
-.tick-read{color:var(--c-teal)}
-.date-sep{align-self:center;font:400 11px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);background:rgba(26,26,24,.05);border-radius:20px;padding:4px 12px;margin:10px 0}
+.tick-sent{color:rgba(34,34,34,.3)}
+.tick-read{color:var(--c-teal-m)}
+.date-sep{align-self:center;font:400 11px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);background:rgba(34,34,34,.05);border-radius:20px;padding:4px 12px;margin:10px 0}
 
 .se-curr-wrap{display:flex;align-items:center;background:var(--c-pill-bg);border-radius:14px;border:1.5px solid transparent;transition:border-color .15s,background .15s}
-.se-curr-wrap:focus-within{border-color:rgba(193,18,63,.35);background:rgba(193,18,63,.06)}
+.se-curr-wrap:focus-within{border-color:rgba(255,56,92,.35);background:rgba(255,56,92,.06)}
 .se-curr-sym{font:400 18px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);padding:14px 0 14px 18px;flex-shrink:0}
 .se-curr-in{background:transparent!important;border:none!important;padding:14px 12px 14px 6px!important;flex:1}
 .se-bin{cursor:pointer;padding:4px 2px;display:flex;align-items:center;opacity:.6;transition:opacity .15s}
@@ -394,15 +394,15 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#CACACA;min-height:10
 .dp-wrap{padding:8px 20px 24px}
 .dp-mhead{display:flex;align-items:center;justify-content:space-between;padding:6px 4px 14px}
 .dp-mtitle{font:500 16px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}
-.dp-marr{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--c-teal);cursor:pointer;user-select:none}
-.dp-marr:active{background:rgba(193,18,63,.08)}
+.dp-marr{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--c-teal-m);cursor:pointer;user-select:none}
+.dp-marr:active{background:rgba(255,56,92,.08)}
 .dp-wdrow{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:6px}
 .dp-wdrow span{text-align:center;font:500 10px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);text-transform:uppercase;letter-spacing:.4px;padding:6px 0}
 .dp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
 .dp-cell{position:relative;height:42px;display:flex;align-items:center;justify-content:center;font:400 15px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);border-radius:50%;cursor:pointer}
 .dp-cell.dp-empty{cursor:default}
-.dp-cell:not(.dp-empty):active{background:rgba(193,18,63,.08)}
-.dp-cell.today{font-weight:700;color:var(--c-teal)}
+.dp-cell:not(.dp-empty):active{background:rgba(255,56,92,.08)}
+.dp-cell.today{font-weight:700;color:var(--c-teal-m)}
 .dp-cell.sel{background:var(--c-teal);color:#fff;font-weight:500}
 .dp-cell.sel.today{color:#fff}
 .dp-dot{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--c-teal)}
@@ -414,7 +414,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#CACACA;min-height:10
 .srch-ic:active{background:rgba(0,0,0,.06)}
 .srch-bar{display:flex;align-items:center;padding:8px 16px;gap:10px;border-bottom:1px solid rgba(0,0,0,.06);background:var(--c-bg);flex-shrink:0}
 .srch-input{flex:1;background:var(--c-pill-bg);border:1.5px solid transparent;border-radius:20px;padding:10px 16px;font:400 15px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);outline:none;-webkit-appearance:none}
-.srch-input:focus{border-color:rgba(193,18,63,.3)}
+.srch-input:focus{border-color:rgba(255,56,92,.3)}
 .srch-input::placeholder{color:var(--c-muted)}
 .srch-clear{width:32px;height:32px;display:flex;align-items:center;justify-content:center;color:var(--c-muted);cursor:pointer;font-size:18px;border-radius:50%;flex-shrink:0}
 .srch-clear:active{background:rgba(0,0,0,.06)}
@@ -422,19 +422,19 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#CACACA;min-height:10
 
 .qe-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(0,0,0,.05)}
 .qe-label{flex:1;font:400 15px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);background:var(--c-pill-bg);border:1.5px solid transparent;border-radius:10px;padding:10px 12px;outline:none;min-width:0}
-.qe-label:focus{border-color:rgba(193,18,63,.3)}
+.qe-label:focus{border-color:rgba(255,56,92,.3)}
 .qe-right{display:flex;align-items:center;background:var(--c-pill-bg);border:1.5px solid transparent;border-radius:10px;padding:0 10px;flex-shrink:0}
-.qe-right:focus-within{border-color:rgba(193,18,63,.3)}
+.qe-right:focus-within{border-color:rgba(255,56,92,.3)}
 .qe-sym{font:400 14px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted)}
 .qe-amt{width:60px;font:400 15px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);background:transparent;border:none;outline:none;padding:10px 4px;text-align:right}
 .qe-bin{cursor:pointer;opacity:.5;padding:4px;flex-shrink:0}
 .qe-bin:active{opacity:1}
-.qe-add{display:flex;align-items:center;gap:8px;font:500 14px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal);cursor:pointer;padding:4px 0}
+.qe-add{display:flex;align-items:center;gap:8px;font:500 14px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-teal-m);cursor:pointer;padding:4px 0}
 .qe-cop{text-align:center;font:400 13px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);cursor:pointer;padding:4px 0}
 .qe-cop:active{opacity:.6}
 
-.qe-cop-chip{display:flex;align-items:center;gap:10px;padding:11px 14px;border:1.5px solid rgba(193,18,63,.22);border-radius:14px;margin-bottom:18px;cursor:pointer;background:rgba(193,18,63,.03);transition:background .12s}
-.qe-cop-chip:active{background:rgba(193,18,63,.08)}
+.qe-cop-chip{display:flex;align-items:center;gap:10px;padding:11px 14px;border:1.5px solid rgba(255,56,92,.22);border-radius:14px;margin-bottom:18px;cursor:pointer;background:rgba(255,56,92,.03);transition:background .12s}
+.qe-cop-chip:active{background:rgba(255,56,92,.08)}
 .qe-cop-chip span{font:400 13px/1.4 'Plus Jakarta Sans',sans-serif;color:var(--c-ink)}
 </style>
 </head>
@@ -456,7 +456,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#CACACA;min-height:10
   <div id="co-scrim" onclick="closeCopilot()"></div>
   <div id="co-overlay">
     <div class="co-handle-area" id="co-handle"><div class="co-handle"></div></div>
-    <div class="co-header"><div class="co-hdr-lft"><svg width="18" height="18" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#C1123F"/><text x="16" y="22" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-size="18" font-weight="700" fill="#FFFFFF">A</text></svg>Agencx</div><div class="co-close" onclick="closeCopilot()">✕</div></div>
+    <div class="co-header"><div class="co-hdr-lft"><svg width="18" height="18" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#FF385C"/><text x="16" y="22" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-size="18" font-weight="700" fill="#FFFFFF">A</text></svg>Agencx</div><div class="co-close" onclick="closeCopilot()">✕</div></div>
     <div id="co-thread"></div><div id="co-input"></div>
   </div>
   <div id="sheet-settings-edit" class="bottom-sheet">
@@ -477,7 +477,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#CACACA;min-height:10
   <div id="share-overlay">
     <div class="share-sheet">
       <div class="share-card-preview">
-        <div class="share-card-img"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#C1123F"/><text x="16" y="22" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-size="18" font-weight="700" fill="#FFFFFF">A</text></svg></div>
+        <div class="share-card-img"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#FF385C"/><text x="16" y="22" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-size="18" font-weight="700" fill="#FFFFFF">A</text></svg></div>
         <div class="share-card-meta">
           <div class="share-card-url">agencx.app/sababa</div>
           <div class="share-card-nm">Sababa</div>
@@ -501,14 +501,14 @@ const $=id=>document.getElementById(id);
 const thread=$('thread'),inputArea=$('input-area'),phone=$('phone'),sl=$('screen-layer');
 
 /* ══ SVG CONSTANTS ══ */
-const PLUS_SVG='<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2.5V15.5M2.5 9H15.5" stroke="#1A1A18" stroke-width="1.6" stroke-linecap="round" opacity=".4"/></svg>';
-const CAM_SVG='<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 7.5C3 6.67 3.67 6 4.5 6H5.5L7 4H13L14.5 6H15.5C16.33 6 17 6.67 17 7.5V15C17 15.83 16.33 16.5 15.5 16.5H4.5C3.67 16.5 3 15.83 3 15V7.5Z" stroke="#C1123F" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" opacity=".45"/><circle cx="10" cy="11" r="2.5" stroke="#C1123F" stroke-width="1.4" opacity=".45"/></svg>';
-const MIC_SVG='<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="7.5" y="2" width="5" height="8" rx="2.5" fill="#C1123F" opacity=".45"/><path d="M4 11c0 3.3 12 3.3 12 0" stroke="#C1123F" stroke-width="1.4" stroke-linecap="round" opacity=".45"/><line x1="10" y1="14.5" x2="10" y2="17.5" stroke="#C1123F" stroke-width="1.4" stroke-linecap="round" opacity=".45"/></svg>';
+const PLUS_SVG='<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2.5V15.5M2.5 9H15.5" stroke="#222222" stroke-width="1.6" stroke-linecap="round" opacity=".4"/></svg>';
+const CAM_SVG='<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 7.5C3 6.67 3.67 6 4.5 6H5.5L7 4H13L14.5 6H15.5C16.33 6 17 6.67 17 7.5V15C17 15.83 16.33 16.5 15.5 16.5H4.5C3.67 16.5 3 15.83 3 15V7.5Z" stroke="#FF385C" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" opacity=".45"/><circle cx="10" cy="11" r="2.5" stroke="#FF385C" stroke-width="1.4" opacity=".45"/></svg>';
+const MIC_SVG='<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="7.5" y="2" width="5" height="8" rx="2.5" fill="#FF385C" opacity=".45"/><path d="M4 11c0 3.3 12 3.3 12 0" stroke="#FF385C" stroke-width="1.4" stroke-linecap="round" opacity=".45"/><line x1="10" y1="14.5" x2="10" y2="17.5" stroke="#FF385C" stroke-width="1.4" stroke-linecap="round" opacity=".45"/></svg>';
 const SEND_SVG='<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M9 4L13 8L9 12" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const BACK_SVG='<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 4L7 12L15 20" stroke="#1A1A18" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const BACK_SVG='<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 4L7 12L15 20" stroke="#222222" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const PENCIL_SVG='<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8.5 1.5L10.5 3.5L4 10H2V8L8.5 1.5Z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const DIR_SVG='<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7L11.5 2.5L7 12L6 8L2 7Z" fill="#C1123F" opacity=".75"/></svg>';
-const EMB_SVG='<svg width="20" height="20" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#C1123F"/><text x="16" y="22" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-size="18" font-weight="700" fill="#FFFFFF">A</text></svg>';
+const DIR_SVG='<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7L11.5 2.5L7 12L6 8L2 7Z" fill="#FF385C" opacity=".75"/></svg>';
+const EMB_SVG='<svg width="20" height="20" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#FF385C"/><text x="16" y="22" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-size="18" font-weight="700" fill="#FFFFFF">A</text></svg>';
 
 /* ══ UTILS ══ */
 function scrollThread(){const s=()=>{thread.scrollTop=thread.scrollHeight;};requestAnimationFrame(()=>requestAnimationFrame(s));setTimeout(s,160);}
@@ -595,18 +595,18 @@ const COUNTRIES=[
 let selCC=COUNTRIES[0],conv='name',ud={},otpDone=false,mbShown=false;
 
 /* ══ ONBOARDING ══ */
-function initName(){setInput(area=>{area.innerHTML=`<div class="plain-pill"><input id="ni" type="text" placeholder="First name" autocomplete="given-name"><div class="fsend" id="ns"><div class="sc" id="nsc"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M9 4L13 8L9 12" stroke="rgba(193,18,63,.5)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" id="na"/></svg></div></div></div><span id="login-lnk">Already with Agencx? Log in</span>`;
+function initName(){setInput(area=>{area.innerHTML=`<div class="plain-pill"><input id="ni" type="text" placeholder="First name" autocomplete="given-name"><div class="fsend" id="ns"><div class="sc" id="nsc"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M9 4L13 8L9 12" stroke="rgba(255,56,92,.5)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" id="na"/></svg></div></div></div><span id="login-lnk">Already with Agencx? Log in</span>`;
   const ni=$('ni'),nsc=$('nsc'),na=$('na');
-  ni.oninput=()=>{const ok=ni.value.trim().length>=2;nsc.classList.toggle('on',ok);na.setAttribute('stroke',ok?'#fff':'rgba(193,18,63,.5)');};
+  ni.oninput=()=>{const ok=ni.value.trim().length>=2;nsc.classList.toggle('on',ok);na.setAttribute('stroke',ok?'#fff':'rgba(255,56,92,.5)');};
   const submit=async()=>{const v=ni.value.trim();if(v.length<2){ni.focus();return;}phone.classList.add('started');ud.name=v.split(/\s+/)[0];conv='phone';userMsg(v);await agentMsg(`Nice to meet you, ${ud.name}. What's the best number to reach you on? I'll send a quick code so we can pick this up anytime, even if you close the app.`);initPhone();};
   ni.onkeydown=e=>{if(e.key==='Enter')submit();};$('ns').onclick=submit;setTimeout(()=>ni.focus(),80);});}
 
-function initPhone(){setInput(area=>{area.innerHTML=`<div style="display:flex;flex-direction:column;gap:6px;"><div class="ph-wrap"><div id="cc-btn"><span id="ccf">${selCC.flag}</span>&nbsp;<span id="ccl">${selCC.code}</span></div><input id="ph-in" type="tel" placeholder="${selCC.code==='+61'?'0412 345 678':'Phone number'}" inputmode="numeric"><div class="fsend" id="phs"><div class="sc" id="phsc"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M9 4L13 8L9 12" stroke="rgba(193,18,63,.5)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" id="pha"/></svg></div></div><div id="cc-pick">${COUNTRIES.map(c=>`<div class="cc-opt" data-code="${c.code}"><span>${c.flag}</span><span>${c.name}</span><span style="color:var(--c-muted);margin-left:auto;">${c.code}</span></div>`).join('')}</div></div><p class="ph-err" id="ph-err">Please enter a valid mobile number for ${selCC.name}.</p></div>`;
+function initPhone(){setInput(area=>{area.innerHTML=`<div style="display:flex;flex-direction:column;gap:6px;"><div class="ph-wrap"><div id="cc-btn"><span id="ccf">${selCC.flag}</span>&nbsp;<span id="ccl">${selCC.code}</span></div><input id="ph-in" type="tel" placeholder="${selCC.code==='+61'?'0412 345 678':'Phone number'}" inputmode="numeric"><div class="fsend" id="phs"><div class="sc" id="phsc"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M9 4L13 8L9 12" stroke="rgba(255,56,92,.5)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" id="pha"/></svg></div></div><div id="cc-pick">${COUNTRIES.map(c=>`<div class="cc-opt" data-code="${c.code}"><span>${c.flag}</span><span>${c.name}</span><span style="color:var(--c-muted);margin-left:auto;">${c.code}</span></div>`).join('')}</div></div><p class="ph-err" id="ph-err">Please enter a valid mobile number for ${selCC.name}.</p></div>`;
   const phi=$('ph-in'),phsc=$('phsc'),pha=$('pha'),pick=$('cc-pick'),err=$('ph-err');
   $('cc-btn').onclick=e=>{e.stopPropagation();pick.classList.toggle('open');};
   document.querySelectorAll('.cc-opt').forEach(opt=>{opt.onclick=()=>{selCC=COUNTRIES.find(c=>c.code===opt.dataset.code)||COUNTRIES[0];$('ccf').textContent=selCC.flag;$('ccl').textContent=selCC.code;pick.classList.remove('open');phi.value='';phi.placeholder=selCC.code==='+61'?'0412 345 678':'Phone number';err.textContent=`Please enter a valid mobile number for ${selCC.name}.`;phi.focus();chkPh(false);};});
   document.addEventListener('click',()=>pick.classList.remove('open'));
-  function chkPh(showErr=false){const ok=selCC.ok(phi.value);phsc.classList.toggle('on',ok);pha.setAttribute('stroke',ok?'#fff':'rgba(193,18,63,.5)');if(showErr&&!ok&&phi.value.length>0)err.classList.add('vis');else err.classList.remove('vis');return ok;}
+  function chkPh(showErr=false){const ok=selCC.ok(phi.value);phsc.classList.toggle('on',ok);pha.setAttribute('stroke',ok?'#fff':'rgba(255,56,92,.5)');if(showErr&&!ok&&phi.value.length>0)err.classList.add('vis');else err.classList.remove('vis');return ok;}
   phi.oninput=()=>{if(selCC.code==='+61'){const d=phi.value.replace(/\D/g,'');phi.value=selCC.fmt(d);}err.classList.remove('vis');chkPh(false);};
   const submit=async()=>{if(!chkPh(true)){phi.focus();return;}ud.phone=`${selCC.code} ${phi.value.trim()}`;conv='otp';userMsg(ud.phone);await agentMsg('Code sent.',600);initOtp();};
   phi.onkeydown=e=>{if(e.key==='Enter')submit();};$('phs').onclick=submit;setTimeout(()=>phi.focus(),80);});}
@@ -654,11 +654,11 @@ async function handleAbn(label,value){
     await agentMsg('What\'s the ABN?');
     setInput(area=>{
       const fw=document.createElement('div');fw.className='abn-pill';
-      fw.innerHTML='<span class="abn-pre">ABN</span><input id="abni" class="abn-in" type="tel" inputmode="numeric" placeholder="XX XXX XXX XXX" maxlength="14"><div class="fsend" id="abns"><div class="sc" id="abnsc"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M9 4L13 8L9 12" stroke="rgba(193,18,63,.5)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" id="abna"/></svg></div></div>';
+      fw.innerHTML='<span class="abn-pre">ABN</span><input id="abni" class="abn-in" type="tel" inputmode="numeric" placeholder="XX XXX XXX XXX" maxlength="14"><div class="fsend" id="abns"><div class="sc" id="abnsc"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M9 4L13 8L9 12" stroke="rgba(255,56,92,.5)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" id="abna"/></svg></div></div>';
       area.appendChild(fw);
       // NO "No, not yet" chip - edit pencil on the bubble is the only escape
       const ai=$('abni'),asc=$('abnsc'),aa=$('abna');
-      ai.oninput=()=>{const d=ai.value.replace(/\D/g,'');let f=d;if(d.length>2)f=`${d.slice(0,2)} ${d.slice(2)}`;if(d.length>5)f=`${d.slice(0,2)} ${d.slice(2,5)} ${d.slice(5)}`;if(d.length>8)f=`${d.slice(0,2)} ${d.slice(2,5)} ${d.slice(5,8)} ${d.slice(8,11)}`;ai.value=f.slice(0,14);const ok=d.length===11;asc.classList.toggle('on',ok);aa.setAttribute('stroke',ok?'#fff':'rgba(193,18,63,.5)');};
+      ai.oninput=()=>{const d=ai.value.replace(/\D/g,'');let f=d;if(d.length>2)f=`${d.slice(0,2)} ${d.slice(2)}`;if(d.length>5)f=`${d.slice(0,2)} ${d.slice(2,5)} ${d.slice(5)}`;if(d.length>8)f=`${d.slice(0,2)} ${d.slice(2,5)} ${d.slice(5,8)} ${d.slice(8,11)}`;ai.value=f.slice(0,14);const ok=d.length===11;asc.classList.toggle('on',ok);aa.setAttribute('stroke',ok?'#fff':'rgba(255,56,92,.5)');};
       const submit=async()=>{const d=ai.value.replace(/\D/g,'');if(d.length<11){ai.focus();return;}
         editBtn.remove();// Step committed - edit icon gone
         userMsg(ai.value);await agentMsg('And are you registered for GST?');
@@ -675,7 +675,7 @@ async function proceedToTerms(){await agentMsg('How do you usually want to be pa
 async function handleTerms(label,value){setInput(area=>area.appendChild(buildCmdPill('Type a message\u2026',()=>{})));userMsg(label);if(/deposit/i.test(label)){await agentMsg('What percentage do you usually take?');setInput(area=>area.appendChild(buildCmdPill('or type\u2026',async(l)=>{userMsg(l);await proceedToChannels();},[{label:'20%'},{label:'30%'},{label:'50%'},{label:'Custom'}])));}else{await proceedToChannels();}}
 async function proceedToChannels(){await agentMsg('Before we set anything up: how do customers usually get in touch? Phone, text, socials, your own site, word of mouth?');setInput(area=>area.appendChild(buildCmdPill('Or describe it\u2026',handleChannels,[{label:'Phone / text',dashed:true},{label:'Facebook',dashed:true},{label:'Word of mouth',dashed:true},{label:'My website',dashed:true}])));}
 async function handleChannels(label){setInput(area=>area.appendChild(buildCmdPill('Type a message\u2026',()=>{})));userMsg(label);await transitionToHome();}
-async function transitionToHome(){phone.classList.add('post');$('ndot').style.display='block';$('greeting-h1').innerHTML=`Good morning,<br>${ud.name||'Sam'}.`;setInput(area=>area.appendChild(buildCmdPill('Type a message\u2026',handleHomeMsg)));await agentMsg('That\'s the business set up. I\'m ready for your first lead. When a customer messages, I\'ll work out the job and draft a quote for you to send.');const bc=document.createElement('div');bc.className='bk-chip';bc.textContent='See your booking page';bc.onclick=()=>navTo('booking');thread.appendChild(bc);scrollThread();const hint=document.createElement('p');hint.style.cssText='font:400 12px/1 "Plus Jakarta Sans";color:rgba(193,18,63,.45);margin-top:6px;cursor:pointer;';hint.textContent='↓ Tap to fast-forward to the next morning';hint.onclick=()=>{hint.remove();bc.remove();showMorningBrief();};thread.appendChild(hint);scrollThread();}
+async function transitionToHome(){phone.classList.add('post');$('ndot').style.display='block';$('greeting-h1').innerHTML=`Good morning,<br>${ud.name||'Sam'}.`;setInput(area=>area.appendChild(buildCmdPill('Type a message\u2026',handleHomeMsg)));await agentMsg('That\'s the business set up. I\'m ready for your first lead. When a customer messages, I\'ll work out the job and draft a quote for you to send.');const bc=document.createElement('div');bc.className='bk-chip';bc.textContent='See your booking page';bc.onclick=()=>navTo('booking');thread.appendChild(bc);scrollThread();const hint=document.createElement('p');hint.style.cssText='font:400 12px/1 "Plus Jakarta Sans";color:rgba(255,56,92,.45);margin-top:6px;cursor:pointer;';hint.textContent='↓ Tap to fast-forward to the next morning';hint.onclick=()=>{hint.remove();bc.remove();showMorningBrief();};thread.appendChild(hint);scrollThread();}
 
 async function showMorningBrief(){
   if(mbShown)return;mbShown=true;
@@ -727,7 +727,7 @@ function showReminderHitl(chipEl){
   const sendChip=document.createElement('div');sendChip.className='c-reply';sendChip.textContent='Send it';
   sendChip.onclick=()=>{chipRow.remove();addToCoThread('you','Send it');setTimeout(()=>{addToCoThread('agencx','Sent. Emma\'ll receive the reminder.');if(chipEl){chipEl.classList.add('sent');chipEl.textContent='Reminder sent';}setTimeout(closeCopilot,1600);},600);};
   const editChip=document.createElement('div');editChip.className='ch-out';editChip.textContent='Edit';
-  editChip.onclick=()=>{chipRow.remove();draft.contentEditable='true';draft.style.outline='none';draft.style.borderColor='rgba(193,18,63,.4)';draft.focus();const confirmRow=document.createElement('div');confirmRow.className='chips-row';const conf=document.createElement('div');conf.className='c-reply';conf.textContent='Send this version';conf.onclick=()=>{if(chipEl){chipEl.classList.add('sent');chipEl.textContent='Reminder sent';}setTimeout(closeCopilot,300);};confirmRow.appendChild(conf);inp.appendChild(confirmRow);};
+  editChip.onclick=()=>{chipRow.remove();draft.contentEditable='true';draft.style.outline='none';draft.style.borderColor='rgba(255,56,92,.4)';draft.focus();const confirmRow=document.createElement('div');confirmRow.className='chips-row';const conf=document.createElement('div');conf.className='c-reply';conf.textContent='Send this version';conf.onclick=()=>{if(chipEl){chipEl.classList.add('sent');chipEl.textContent='Reminder sent';}setTimeout(closeCopilot,300);};confirmRow.appendChild(conf);inp.appendChild(confirmRow);};
   chipRow.appendChild(sendChip);chipRow.appendChild(editChip);
   inp.appendChild(chipRow);
   openCopilotOverlay();
@@ -775,18 +775,18 @@ const JOB_STATES=[
   {badge:'<span class="jbg jbg-sc">Scheduled</span>',body:'<p style="font:var(--t-meta);color:var(--c-muted);">Nothing to do yet. Order is upcoming.</p>',cta:`<div class="jcta"><div class="jcta-btn" onclick="nextJob()">Start prep \u2192</div></div>`},
   {badge:'<span class="jbg jbg-er"><span class="bdot"></span>In prep</span>',body:'<p style="font:var(--t-meta);color:var(--c-muted);">Prep started &middot; pickup ~12:15</p>',cta:`<div class="jcta"><div class="jcta-btn" onclick="nextJob()">Ready for pickup \u2192</div></div>`},
   {badge:'<span class="jbg jbg-ip"><span class="bdot"></span>Ready</span>',body:'<p class="jsilence">Agencx\'s out of the way while you work.</p>',cta:`<div class="jcta"><div class="jcta-btn" onclick="showCompleteConfirm()">Mark complete</div></div>`},
-  {badge:'<span class="jbg jbg-dn">\u2713 Complete</span>',body:'<div class="inv-card" onclick="openInvoiceDetail()" style="cursor:pointer;"><div style="display:flex;justify-content:space-between;align-items:center;"><span class="inv-lbl" style="margin-bottom:0;">Invoice ready</span><span style="font:var(--t-chip);color:var(--c-teal);">View \u203a</span></div><div class="inv-main" style="margin-top:6px;">Shawarma plate &middot; $16.00</div></div>',cta:`<div class="jcta" style="display:flex;flex-direction:column;gap:8px;"><div class="jcta-btn" onclick="sendInvoice()">Send invoice</div><div style="display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(26,26,24,.15);color:var(--c-ink);border-radius:14px;padding:13px 24px;font:500 15px/1 'Plus Jakarta Sans';cursor:pointer;" onclick="closeJobSheet()">Not now</div></div>`}
+  {badge:'<span class="jbg jbg-dn">\u2713 Complete</span>',body:'<div class="inv-card" onclick="openInvoiceDetail()" style="cursor:pointer;"><div style="display:flex;justify-content:space-between;align-items:center;"><span class="inv-lbl" style="margin-bottom:0;">Invoice ready</span><span style="font:var(--t-chip);color:var(--c-teal-m);">View \u203a</span></div><div class="inv-main" style="margin-top:6px;">Shawarma plate &middot; $16.00</div></div>',cta:`<div class="jcta" style="display:flex;flex-direction:column;gap:8px;"><div class="jcta-btn" onclick="sendInvoice()">Send invoice</div><div style="display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(34,34,34,.15);color:var(--c-ink);border-radius:14px;padding:13px 24px;font:500 15px/1 'Plus Jakarta Sans';cursor:pointer;" onclick="closeJobSheet()">Not now</div></div>`}
 ];
 function openJobSheet(job){
   currentJob=job;jobStep=0;$('sh-job-title').textContent=job.name;
   const s=JOB_STATES[0];
-  $('sh-job-body').innerHTML=`<div class="jh"><div class="jh-top"><span class="svc-lbl">${job.svc||'Shawarma plate'}</span><span id="jbg">${s.badge}</span></div><div class="jmt"><strong>${job.name}</strong></div><div class="jmt"><strong>${job.time}${job.end?' &ndash; '+job.end:''}</strong> &middot; Mon 2 Jun</div><div class="jmt">${job.addr||job.suburb}</div><div class="maps-lnk"><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="5" r="2" stroke="#C1123F" stroke-width="1.4"/><path d="M6.5 11C6.5 11 2 7.5 2 5a4.5 4.5 0 019 0c0 2.5-4.5 6-4.5 6z" stroke="#C1123F" stroke-width="1.4"/></svg>Open in Maps</div></div><div class="jdiv"></div><div class="jd-section"><div class="jd-sec-lbl">Job requirements</div><div class="jd-req">Order confirmed. Prep notes and any extras are in the thread. Customer gets a ping when it's ready.</div><div class="jd-links"><div class="jd-link" onclick="viewJobThread()">View thread</div><div class="jd-link" onclick="closeJobSheet();setTimeout(openQuotePreview,300)">View quote</div></div></div><div class="jdiv"></div><div class="jstate-body" id="jstate-body">${s.body}</div><div id="jcta-area">${s.cta}</div>`;
+  $('sh-job-body').innerHTML=`<div class="jh"><div class="jh-top"><span class="svc-lbl">${job.svc||'Shawarma plate'}</span><span id="jbg">${s.badge}</span></div><div class="jmt"><strong>${job.name}</strong></div><div class="jmt"><strong>${job.time}${job.end?' &ndash; '+job.end:''}</strong> &middot; Mon 2 Jun</div><div class="jmt">${job.addr||job.suburb}</div><div class="maps-lnk"><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="5" r="2" stroke="#FF385C" stroke-width="1.4"/><path d="M6.5 11C6.5 11 2 7.5 2 5a4.5 4.5 0 019 0c0 2.5-4.5 6-4.5 6z" stroke="#FF385C" stroke-width="1.4"/></svg>Open in Maps</div></div><div class="jdiv"></div><div class="jd-section"><div class="jd-sec-lbl">Job requirements</div><div class="jd-req">Order confirmed. Prep notes and any extras are in the thread. Customer gets a ping when it's ready.</div><div class="jd-links"><div class="jd-link" onclick="viewJobThread()">View thread</div><div class="jd-link" onclick="closeJobSheet();setTimeout(openQuotePreview,300)">View quote</div></div></div><div class="jdiv"></div><div class="jstate-body" id="jstate-body">${s.body}</div><div id="jcta-area">${s.cta}</div>`;
   $('sheet-job').classList.add('open');$('sheet-scrim').classList.add('vis');setupDrag($('sh-job-handle'),$('sheet-job'),closeJobSheet);
 }
 function nextJob(){if(jobStep<JOB_STATES.length-1)jobStep++;const s=JOB_STATES[jobStep];$('jbg').innerHTML=s.badge;$('jstate-body').innerHTML=s.body;$('jcta-area').innerHTML=s.cta;}
 function showCompleteConfirm(){
-  $('jstate-body').innerHTML='<div style="background:rgba(193,18,63,.07);border-radius:4px 14px 14px 14px;padding:12px 14px;font:400 14px/1.45 \'Plus Jakarta Sans\';color:var(--c-ink);">Mark this order complete? I\'ll get the invoice ready to send.</div>';
-  $('jcta-area').innerHTML='<div class="jcta" style="display:flex;flex-direction:column;gap:8px;"><div class="jcta-btn" onclick="nextJob()">Yes, all done</div><div style="display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(26,26,24,.15);color:var(--c-ink);border-radius:14px;padding:13px 24px;font:500 15px/1 \'Plus Jakarta Sans\';cursor:pointer;" onclick="restoreInProgress()">Not yet</div></div>';
+  $('jstate-body').innerHTML='<div style="background:rgba(255,56,92,.07);border-radius:4px 14px 14px 14px;padding:12px 14px;font:400 14px/1.45 \'Plus Jakarta Sans\';color:var(--c-ink);">Mark this order complete? I\'ll get the invoice ready to send.</div>';
+  $('jcta-area').innerHTML='<div class="jcta" style="display:flex;flex-direction:column;gap:8px;"><div class="jcta-btn" onclick="nextJob()">Yes, all done</div><div style="display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(34,34,34,.15);color:var(--c-ink);border-radius:14px;padding:13px 24px;font:500 15px/1 \'Plus Jakarta Sans\';cursor:pointer;" onclick="restoreInProgress()">Not yet</div></div>';
 }
 function restoreInProgress(){
   const s=JOB_STATES[2];$('jbg').innerHTML=s.badge;$('jstate-body').innerHTML=s.body;$('jcta-area').innerHTML=s.cta;
@@ -810,7 +810,7 @@ function openInvoiceDetail(){
   const lineRows=lines.map(l=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(0,0,0,.05);"><span style="font:var(--t-meta);color:var(--c-muted);">${l.l}</span><span style="font:400 13px/1 'Plus Jakarta Sans';color:var(--c-ink);">${fmt(l.c)}</span></div>`).join('');
   body.innerHTML=`<div style="flex:1;overflow-y:auto;padding:18px 24px 8px;-webkit-overflow-scrolling:touch;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
-      <div><div style="font:700 13px/1 'Plus Jakarta Sans';color:var(--c-teal);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Tax Invoice</div><div style="font:500 11px/1 'Plus Jakarta Sans';color:var(--c-muted);">INV-001 \u00b7 2 Jun 2026</div></div>
+      <div><div style="font:700 13px/1 'Plus Jakarta Sans';color:var(--c-teal-m);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Tax Invoice</div><div style="font:500 11px/1 'Plus Jakarta Sans';color:var(--c-muted);">INV-001 \u00b7 2 Jun 2026</div></div>
       <div style="text-align:right;"><div style="font:600 13px/1.2 'Plus Jakarta Sans';color:var(--c-ink);">Sababa</div><div style="font:var(--t-meta);color:var(--c-muted);margin-top:2px;">ABN 51 824 753 556</div></div>
     </div>
     <div style="font:var(--t-meta);color:var(--c-muted);margin-bottom:14px;">Bill to: <span style="color:var(--c-ink);font-weight:500;">${nm||'Customer'}</span></div>
@@ -827,7 +827,7 @@ function openInvoiceDetail(){
     </div>
     <div style="font:var(--t-meta);color:var(--c-muted);margin-top:12px;padding-bottom:8px;">Payment: Agencx</div>
   </div>`;
-  if(ctaArea)ctaArea.innerHTML=`<div class="jcta" style="display:flex;flex-direction:column;gap:8px;"><div class="jcta-btn" onclick="sendInvoice()">Send invoice</div><div style="display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(26,26,24,.15);color:var(--c-ink);border-radius:14px;padding:13px 24px;font:500 15px/1 'Plus Jakarta Sans';cursor:pointer;" onclick="closeInvoiceDetail()">Not now</div></div>`;
+  if(ctaArea)ctaArea.innerHTML=`<div class="jcta" style="display:flex;flex-direction:column;gap:8px;"><div class="jcta-btn" onclick="sendInvoice()">Send invoice</div><div style="display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(34,34,34,.15);color:var(--c-ink);border-radius:14px;padding:13px 24px;font:500 15px/1 'Plus Jakarta Sans';cursor:pointer;" onclick="closeInvoiceDetail()">Not now</div></div>`;
 }
 function closeInvoiceDetail(){
   const body=$('sh-job-body');const ctaArea=$('jcta-area');const shTitle=$('sh-job-title');
@@ -841,7 +841,7 @@ function sendInvoice(){
   const body=$('sh-job-body');const ctaArea=$('jcta-area');const shTitle=$('sh-job-title');
   const nm=(currentJob||{}).name||'the customer';
   if(shTitle)shTitle.textContent='Sent';
-  if(body)body.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;text-align:center;min-height:200px;"><div style="width:52px;height:52px;border-radius:50%;background:rgba(193,18,63,.1);display:flex;align-items:center;justify-content:center;margin-bottom:14px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L19 7" stroke="#C1123F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div style="font:600 17px/1.2 'Plus Jakarta Sans';color:var(--c-ink);margin-bottom:6px;">Invoice sent</div><div style="font:var(--t-meta);color:var(--c-muted);">Agencx has sent the invoice to ${nm}.</div></div>`;
+  if(body)body.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;text-align:center;min-height:200px;"><div style="width:52px;height:52px;border-radius:50%;background:rgba(255,56,92,.1);display:flex;align-items:center;justify-content:center;margin-bottom:14px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L19 7" stroke="#FF385C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div style="font:600 17px/1.2 'Plus Jakarta Sans';color:var(--c-ink);margin-bottom:6px;">Invoice sent</div><div style="font:var(--t-meta);color:var(--c-muted);">Agencx has sent the invoice to ${nm}.</div></div>`;
   if(ctaArea)ctaArea.innerHTML='';
   setTimeout(closeJobSheet,2400);
 }
@@ -852,7 +852,7 @@ function openQuotePreview(){
   const job=currentJob||{name:'Alex Nguyen',svc:'Catering box (feeds 15)',time:'12:00',end:'13:00',suburb:'Bondi Junction'};const existing=$('quote-preview');if(existing)existing.remove();
   const isAlex=/alex/i.test(job.name);
   const o=document.createElement('div');o.id='quote-preview';o.style.cssText='position:absolute;left:0;right:0;bottom:0;height:62%;background:#fff;border-radius:24px 24px 0 0;z-index:35;box-shadow:0 -8px 40px rgba(0,0,0,.14);display:flex;flex-direction:column;transform:translateY(100%);transition:transform 300ms cubic-bezier(.25,.1,.25,1);';
-  o.innerHTML=`<div style="flex-shrink:0;padding:12px 0 8px;display:flex;justify-content:center;cursor:grab;" onclick="closeQuotePreview()"><div style="width:36px;height:4px;background:rgba(26,26,24,.15);border-radius:2px;"></div></div><div style="display:flex;align-items:center;justify-content:space-between;padding:4px 20px 14px;flex-shrink:0;border-bottom:1px solid rgba(0,0,0,.06);"><div style="width:36px"></div><span style="font:500 16px/1 'Plus Jakarta Sans';color:var(--c-ink);">Quote</span><div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font:400 20px/1 'Plus Jakarta Sans';color:var(--c-muted);" onclick="closeQuotePreview()">✕</div></div><div id="qp-scroll" style="flex:1;overflow-y:auto;padding:16px 24px;"><div style="font:500 10px/1 'Plus Jakarta Sans';color:${isAlex?'var(--c-teal)':'var(--c-muted)'};text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">${isAlex?'Sent':'Draft'}</div><div style="font:700 20px/1.1 'Plus Jakarta Sans';color:var(--c-ink);letter-spacing:-.3px;margin-bottom:4px;">${job.svc||'Shawarma plate'}</div><div style="font:var(--t-meta);color:var(--c-muted);margin-bottom:20px;">${job.name} &middot; ${job.time}${job.end?' &ndash; '+job.end:''}</div><div style="border:1px solid rgba(0,0,0,.07);border-radius:16px;padding:16px;box-shadow:0 2px 14px rgba(0,0,0,.05);">${isAlex?`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span style="font:var(--t-meta);color:var(--c-muted);">Catering box (feeds 15)</span><input class="hitl-la-input" value="$285.00"></div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font:var(--t-meta);color:var(--c-muted);">Delivery fee</span><input class="hitl-la-input" value="$35.00"></div><div style="height:1px;background:rgba(0,0,0,.06);margin-bottom:10px;"></div><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;"><span style="font:500 14px/1 'Plus Jakarta Sans';color:var(--c-ink);">Total</span><span style="font:700 18px/1 'Plus Jakarta Sans';color:var(--c-ink);">$320.00</span></div><div style="font:var(--t-meta);color:var(--c-muted);text-align:right;margin-bottom:10px;">incl. GST</div><div style="font:var(--t-meta);color:var(--c-muted);padding-top:8px;border-top:1px solid rgba(0,0,0,.05);">Deposit 30% upfront &middot; Payment: Agencx</div>`:`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font:var(--t-meta);color:var(--c-muted);">${job.svc||'Shawarma plate'}</span><input class="hitl-la-input" value="$16.00"></div><div style="height:1px;background:rgba(0,0,0,.06);margin-bottom:10px;"></div><div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font:500 14px/1 'Plus Jakarta Sans';color:var(--c-ink);">Total</span><span style="font:700 18px/1 'Plus Jakarta Sans';color:var(--c-ink);">$16.00</span></div>`}</div></div><div id="qp-footer"><div style="flex-shrink:0;padding:0 24px 4px;text-align:center"><span style="font:500 13px/1 'Plus Jakarta Sans';color:var(--c-teal);cursor:pointer" onclick="openQuoteEdit()">Edit quote</span></div><div style="flex-shrink:0;padding:12px 24px 28px;">${isAlex?`<div style="display:flex;align-items:center;justify-content:center;background:rgba(193,18,63,.08);color:var(--c-teal);border-radius:14px;padding:15px 24px;font:500 15px/1 'Plus Jakarta Sans';cursor:pointer;">Resend to ${job.name.split(' ')[0]}</div>`:`<div style="display:flex;align-items:center;justify-content:center;background:var(--c-teal);color:#fff;border-radius:14px;padding:15px 24px;font:500 15px/1 'Plus Jakarta Sans';cursor:pointer;">Send quote</div>`}</div></div>`;
+  o.innerHTML=`<div style="flex-shrink:0;padding:12px 0 8px;display:flex;justify-content:center;cursor:grab;" onclick="closeQuotePreview()"><div style="width:36px;height:4px;background:rgba(34,34,34,.15);border-radius:2px;"></div></div><div style="display:flex;align-items:center;justify-content:space-between;padding:4px 20px 14px;flex-shrink:0;border-bottom:1px solid rgba(0,0,0,.06);"><div style="width:36px"></div><span style="font:500 16px/1 'Plus Jakarta Sans';color:var(--c-ink);">Quote</span><div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font:400 20px/1 'Plus Jakarta Sans';color:var(--c-muted);" onclick="closeQuotePreview()">✕</div></div><div id="qp-scroll" style="flex:1;overflow-y:auto;padding:16px 24px;"><div style="font:500 10px/1 'Plus Jakarta Sans';color:${isAlex?'var(--c-teal)':'var(--c-muted)'};text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">${isAlex?'Sent':'Draft'}</div><div style="font:700 20px/1.1 'Plus Jakarta Sans';color:var(--c-ink);letter-spacing:-.3px;margin-bottom:4px;">${job.svc||'Shawarma plate'}</div><div style="font:var(--t-meta);color:var(--c-muted);margin-bottom:20px;">${job.name} &middot; ${job.time}${job.end?' &ndash; '+job.end:''}</div><div style="border:1px solid rgba(0,0,0,.07);border-radius:16px;padding:16px;box-shadow:0 2px 14px rgba(0,0,0,.05);">${isAlex?`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span style="font:var(--t-meta);color:var(--c-muted);">Catering box (feeds 15)</span><input class="hitl-la-input" value="$285.00"></div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font:var(--t-meta);color:var(--c-muted);">Delivery fee</span><input class="hitl-la-input" value="$35.00"></div><div style="height:1px;background:rgba(0,0,0,.06);margin-bottom:10px;"></div><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;"><span style="font:500 14px/1 'Plus Jakarta Sans';color:var(--c-ink);">Total</span><span style="font:700 18px/1 'Plus Jakarta Sans';color:var(--c-ink);">$320.00</span></div><div style="font:var(--t-meta);color:var(--c-muted);text-align:right;margin-bottom:10px;">incl. GST</div><div style="font:var(--t-meta);color:var(--c-muted);padding-top:8px;border-top:1px solid rgba(0,0,0,.05);">Deposit 30% upfront &middot; Payment: Agencx</div>`:`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font:var(--t-meta);color:var(--c-muted);">${job.svc||'Shawarma plate'}</span><input class="hitl-la-input" value="$16.00"></div><div style="height:1px;background:rgba(0,0,0,.06);margin-bottom:10px;"></div><div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font:500 14px/1 'Plus Jakarta Sans';color:var(--c-ink);">Total</span><span style="font:700 18px/1 'Plus Jakarta Sans';color:var(--c-ink);">$16.00</span></div>`}</div></div><div id="qp-footer"><div style="flex-shrink:0;padding:0 24px 4px;text-align:center"><span style="font:500 13px/1 'Plus Jakarta Sans';color:var(--c-teal-m);cursor:pointer" onclick="openQuoteEdit()">Edit quote</span></div><div style="flex-shrink:0;padding:12px 24px 28px;">${isAlex?`<div style="display:flex;align-items:center;justify-content:center;background:rgba(255,56,92,.08);color:var(--c-teal-m);border-radius:14px;padding:15px 24px;font:500 15px/1 'Plus Jakarta Sans';cursor:pointer;">Resend to ${job.name.split(' ')[0]}</div>`:`<div style="display:flex;align-items:center;justify-content:center;background:var(--c-teal);color:#fff;border-radius:14px;padding:15px 24px;font:500 15px/1 'Plus Jakarta Sans';cursor:pointer;">Send quote</div>`}</div></div>`;
   phone.appendChild(o);requestAnimationFrame(()=>requestAnimationFrame(()=>{o.style.transform='translateY(0)';}));
 }
 function closeQuotePreview(){const o=$('quote-preview');if(!o)return;o.style.transform='translateY(100%)';setTimeout(()=>o.remove(),320);}
@@ -890,11 +890,11 @@ function getDayLbl(n){const dys=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];cons
 
 function renderScreen(id){
   const FLOAT_BTN=ctx=>`<div class="hv-float-btn" onclick="openCopilotWithContext('${ctx}')">${EMB_SVG}</div>`;
-  const dirSvg='<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7L11.5 2.5L7 12L6 8L2 7Z" fill="#C1123F" opacity=".75"/></svg>';
-  const LIST_SVG='<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h12" stroke="#C1123F" stroke-width="1.5" stroke-linecap="round" opacity=".8"/><circle cx="2" cy="4" r="1" fill="#C1123F" opacity=".8"/><circle cx="2" cy="8" r="1" fill="#C1123F" opacity=".8"/><circle cx="2" cy="12" r="1" fill="#C1123F" opacity=".8"/></svg>';
-  const CAL_SVG='<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3" width="13" height="11" rx="2" stroke="#C1123F" stroke-width="1.4" opacity=".8"/><path d="M5 1.5v3M11 1.5v3M1.5 7h13" stroke="#C1123F" stroke-width="1.4" stroke-linecap="round" opacity=".8"/></svg>';
+  const dirSvg='<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7L11.5 2.5L7 12L6 8L2 7Z" fill="#FF385C" opacity=".75"/></svg>';
+  const LIST_SVG='<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h12" stroke="#FF385C" stroke-width="1.5" stroke-linecap="round" opacity=".8"/><circle cx="2" cy="4" r="1" fill="#FF385C" opacity=".8"/><circle cx="2" cy="8" r="1" fill="#FF385C" opacity=".8"/><circle cx="2" cy="12" r="1" fill="#FF385C" opacity=".8"/></svg>';
+  const CAL_SVG='<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3" width="13" height="11" rx="2" stroke="#FF385C" stroke-width="1.4" opacity=".8"/><path d="M5 1.5v3M11 1.5v3M1.5 7h13" stroke="#FF385C" stroke-width="1.4" stroke-linecap="round" opacity=".8"/></svg>';
 
-  if(id==='business')return`<div class="scr"><div class="dst-topbar"><div style="width:36px"></div><span class="dst-title">Business</span><div class="x-btn" onclick="navBack()">✕</div></div><div class="scr-scroll" style="padding-bottom:80px;"><div class="bh-row" onclick="navTo('schedule')"><div class="bh-ic"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="3.5" width="14" height="12" rx="2" stroke="#1A1A18" stroke-width="1.4" opacity=".6"/><path d="M6 2v3M12 2v3M2 8h14" stroke="#1A1A18" stroke-width="1.4" stroke-linecap="round" opacity=".6"/></svg></div><span class="bh-lb">Schedule</span><span class="bh-chev">›</span></div><div class="bh-row" onclick="navTo('money')"><div class="bh-ic"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="#1A1A18" stroke-width="1.4" opacity=".6"/><path d="M9 5.5v7M6.5 7.5c0-1.1.9-2 2.5-2s2.5.9 2.5 2-1 1.5-2.5 1.5S6.5 10 6.5 11c0 1.1 1 2 2.5 2s2.5-.9 2.5-2" stroke="#1A1A18" stroke-width="1.4" stroke-linecap="round" opacity=".6"/></svg></div><span class="bh-lb">Money</span><span class="bh-chev">›</span></div><div class="bh-row" onclick="navTo('booking')"><div class="bh-ic"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M10 5l3 3-3 3" stroke="#C1123F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="bh-lb">Booking page</span><span class="bh-chev">›</span></div><div class="bh-row" onclick="navTo('plan')"><div class="bh-ic"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L10 6h4.5L11 9l1.5 4.5L8 11l-4.5 2.5L5 9 1.5 6H6L8 1.5z" stroke="#1A1A18" stroke-width="1.3" stroke-linejoin="round" opacity=".5"/></svg></div><span class="bh-lb">Plan</span><span class="bh-chev">›</span></div><div class="bh-row" onclick="navTo('settings')"><div class="bh-ic"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="2.5" stroke="#1A1A18" stroke-width="1.4" opacity=".6"/><path d="M9 1.5v2M9 14.5v2M1.5 9h2M14.5 9h2M3.9 3.9l1.4 1.4M12.7 12.7l1.4 1.4M3.9 14.1l1.4-1.4M12.7 5.3l1.4-1.4" stroke="#1A1A18" stroke-width="1.4" stroke-linecap="round" opacity=".6"/></svg></div><span class="bh-lb">Settings</span><span class="bh-chev">›</span></div></div></div>`;
+  if(id==='business')return`<div class="scr"><div class="dst-topbar"><div style="width:36px"></div><span class="dst-title">Business</span><div class="x-btn" onclick="navBack()">✕</div></div><div class="scr-scroll" style="padding-bottom:80px;"><div class="bh-row" onclick="navTo('schedule')"><div class="bh-ic"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="3.5" width="14" height="12" rx="2" stroke="#222222" stroke-width="1.4" opacity=".6"/><path d="M6 2v3M12 2v3M2 8h14" stroke="#222222" stroke-width="1.4" stroke-linecap="round" opacity=".6"/></svg></div><span class="bh-lb">Schedule</span><span class="bh-chev">›</span></div><div class="bh-row" onclick="navTo('money')"><div class="bh-ic"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="#222222" stroke-width="1.4" opacity=".6"/><path d="M9 5.5v7M6.5 7.5c0-1.1.9-2 2.5-2s2.5.9 2.5 2-1 1.5-2.5 1.5S6.5 10 6.5 11c0 1.1 1 2 2.5 2s2.5-.9 2.5-2" stroke="#222222" stroke-width="1.4" stroke-linecap="round" opacity=".6"/></svg></div><span class="bh-lb">Money</span><span class="bh-chev">›</span></div><div class="bh-row" onclick="navTo('booking')"><div class="bh-ic"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M10 5l3 3-3 3" stroke="#FF385C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="bh-lb">Booking page</span><span class="bh-chev">›</span></div><div class="bh-row" onclick="navTo('plan')"><div class="bh-ic"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L10 6h4.5L11 9l1.5 4.5L8 11l-4.5 2.5L5 9 1.5 6H6L8 1.5z" stroke="#222222" stroke-width="1.3" stroke-linejoin="round" opacity=".5"/></svg></div><span class="bh-lb">Plan</span><span class="bh-chev">›</span></div><div class="bh-row" onclick="navTo('settings')"><div class="bh-ic"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="2.5" stroke="#222222" stroke-width="1.4" opacity=".6"/><path d="M9 1.5v2M9 14.5v2M1.5 9h2M14.5 9h2M3.9 3.9l1.4 1.4M12.7 12.7l1.4 1.4M3.9 14.1l1.4-1.4M12.7 5.3l1.4-1.4" stroke="#222222" stroke-width="1.4" stroke-linecap="round" opacity=".6"/></svg></div><span class="bh-lb">Settings</span><span class="bh-chev">›</span></div></div></div>`;
 
   if(id==='chats')return`<div class="scr"><div class="dst-topbar"><div class="bk-btn" onclick="navBack()">${BACK_SVG}</div><span class="dst-title">Chats</span><div class="srch-ic" onclick="openChatsSearch()">${SRCH_SVG}</div></div><div class="filt-row"><div class="fc-on">All</div><div class="fc-off">Action needed</div><div class="fc-off">Unread</div></div><div class="scr-scroll"><div class="chat-row" onclick="navTo('thread',{name:'Emma W.',state:'emma'})"><div class="chat-top"><span class="chat-nm">Emma W.</span><div class="chat-rt"><span class="chat-dt">2d</span><div class="bdot-a"></div></div></div><span class="chat-prev">Balance outstanding 4 days. Send a reminder?</span></div><div class="chat-row" onclick="navTo('thread',{name:'Alex',state:'alex'})"><div class="chat-top"><span class="chat-nm">Alex</span><div class="chat-rt"><span class="chat-dt">47m</span><div class="bdot-t"></div></div></div><span class="chat-prev">That's everything. Sam will put your quote together shortly.</span></div><div class="chat-row"><div class="chat-top"><span class="chat-nm">Sarah Mitchell</span><div class="chat-rt"><span class="chat-dt">Yesterday</span></div></div><span class="chat-prev">Confirmed, pickup Saturday 12pm.</span></div><div class="chat-row"><div class="chat-top"><span class="chat-nm">Michael T.</span><div class="chat-rt"><span class="chat-dt">Mon</span></div></div><span class="chat-prev">All done, thanks! Great job as always.</span></div></div>${FLOAT_BTN('chats')}</div>`;
 
@@ -922,7 +922,7 @@ function renderScreen(id){
 
   if(id==='plan')return`<div class="scr"><div class="dst-topbar"><div class="bk-btn" onclick="navBack()">${BACK_SVG}</div><span class="dst-title">Plan</span><div style="width:36px"></div></div><div class="scr-scroll"><div class="plan-hero"><div class="ph-lbl">Current plan</div><div class="ph-nm">Pro Trial</div><div class="ph-st">Renews 10 Jun 2026, no charge until then</div><div class="tbar-w"><div class="tbar-r"><span>Trial started 27 May</span><span class="days">8 days left</span></div><div class="tbar-bg"><div class="tbar-fill"></div></div></div></div><div class="p-incl"><div class="pi-lbl">What's included on Pro</div><div class="pi-row"><span class="pi-chk">\u2713</span><span class="pi-txt">Unlimited jobs and quotes</span></div><div class="pi-row"><span class="pi-chk">\u2713</span><span class="pi-txt">Agencx payment collection</span></div><div class="pi-row"><span class="pi-chk">\u2713</span><span class="pi-txt">Customer SMS channel</span></div><div class="pi-row"><span class="pi-chk">\u2713</span><span class="pi-txt">Invoice and receipt generation</span></div><div class="pi-row"><span class="pi-chk">\u2713</span><span class="pi-txt">Payment reminders</span></div></div></div><div class="p-cta"><div class="pcta-main">Continue with Pro</div><div class="pcta-sub">or continue on Starter (free)</div></div>${FLOAT_BTN('plan')}</div>`;
 
-  if(id==='booking')return`<div class="scr"><div class="dst-topbar"><div class="bk-btn" onclick="navBack()">${BACK_SVG}</div><span class="dst-title">Booking page</span><div class="x-btn" onclick="navBack()">✕</div></div><div class="scr-scroll" style="display:flex;flex-direction:column;padding-bottom:80px;"><div class="bk-photo-wrap"><svg width="36" height="36" viewBox="0 0 36 36" fill="none"><path d="M5 13.5C5 11.84 6.34 10.5 8 10.5H9.5L12.5 7H23.5L26.5 10.5H28C29.66 10.5 31 11.84 31 13.5V27C31 28.66 29.66 30 28 30H8C6.34 30 5 28.66 5 27V13.5Z" stroke="#C1123F" stroke-width="1.5" opacity=".35"/><circle cx="18" cy="20" r="5" stroke="#C1123F" stroke-width="1.5" opacity=".35"/></svg><span class="bk-photo-hint">Tap to add a cover photo</span><div class="bk-photo-edit-btn"><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M8.5 1.5L10.5 3.5L4 10H2V8L8.5 1.5Z" stroke="white" stroke-width="1.3" stroke-linecap="round"/></svg>Edit photo</div></div><div style="padding:18px var(--sp) 0;"><div style="font:700 22px/1.1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);letter-spacing:-.3px;margin-bottom:6px;">Sababa</div><div style="font:var(--t-meta);color:var(--c-muted);">Shawarma plates and catering around Bondi Junction \u00b7 Mon-Fri, 11am \u2013 9pm</div></div><div class="bk-entry-wrap"><div class="bk-entry-title">How leads come in</div><div class="bk-entry-sub">Share this link and customers can request a quote directly.</div><div class="bk-link-pill"><span class="bk-link-url">agencx.app/sababa</span><span class="bk-link-copy" onclick="this.textContent='Copied \u2713'">Copy</span></div><div class="bk-platforms"><div class="bk-plat"><div class="bk-plat-ic">\u{1F310}</div><span class="bk-plat-lbl">Website button</span></div><div class="bk-plat"><div class="bk-plat-ic">\u{1F4CD}</div><span class="bk-plat-lbl">Google Business</span></div><div class="bk-plat"><div class="bk-plat-ic">\u{1F4D8}</div><span class="bk-plat-lbl">Facebook</span></div><div class="bk-plat"><div class="bk-plat-ic">\u{1F4F8}</div><span class="bk-plat-lbl">Instagram</span></div></div></div><div style="padding:16px var(--sp) 0;"><div style="font:500 10px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Services</div><div class="bk-svc-row"><div class="bk-svc-icon"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 15L9 3L15 15H3Z" stroke="#C1123F" stroke-width="1.4" stroke-linejoin="round"/></svg></div><div><div class="bk-svc-name">Shawarma plate</div><div class="bk-svc-price">$16 \u00b7 Pickup</div></div></div><div class="bk-svc-row"><div class="bk-svc-icon"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="4" width="14" height="11" rx="2" stroke="#C1123F" stroke-width="1.4"/><path d="M6 4V3M12 4V3" stroke="#C1123F" stroke-width="1.4" stroke-linecap="round"/></svg></div><div><div class="bk-svc-name">Catering box (feeds 15)</div><div class="bk-svc-price">From $285 \u00b7 Feeds 15</div></div></div><div class="bk-svc-row"><div class="bk-svc-icon"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="6" stroke="#C1123F" stroke-width="1.4"/><path d="M9 6v3l2 2" stroke="#C1123F" stroke-width="1.4" stroke-linecap="round"/></svg></div><div><div class="bk-svc-name">Mixed plate</div><div class="bk-svc-price">$19 \u00b7 Pickup</div></div></div></div><div style="flex:1;min-height:20px;"></div><div class="bk-cta-wrap"><div class="bk-cta">Get a quote</div><div class="bk-share-row"><div class="bk-share-btn" onclick="openShareOverlay()"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 3H2a1 1 0 00-1 1v8a1 1 0 001 1h10a1 1 0 001-1V4a1 1 0 00-1-1H9M7 1v8M4 4l3-3 3 3" stroke="#C1123F" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Share</div><div class="bk-share-btn" onclick="this.textContent='Copied \u2713'"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="4" y="4" width="8" height="8" rx="1.5" stroke="#C1123F" stroke-width="1.4"/><path d="M2 10V2h8" stroke="#C1123F" stroke-width="1.4" stroke-linecap="round"/></svg>Copy link</div></div></div></div>${FLOAT_BTN('booking')}</div>`;
+  if(id==='booking')return`<div class="scr"><div class="dst-topbar"><div class="bk-btn" onclick="navBack()">${BACK_SVG}</div><span class="dst-title">Booking page</span><div class="x-btn" onclick="navBack()">✕</div></div><div class="scr-scroll" style="display:flex;flex-direction:column;padding-bottom:80px;"><div class="bk-photo-wrap"><svg width="36" height="36" viewBox="0 0 36 36" fill="none"><path d="M5 13.5C5 11.84 6.34 10.5 8 10.5H9.5L12.5 7H23.5L26.5 10.5H28C29.66 10.5 31 11.84 31 13.5V27C31 28.66 29.66 30 28 30H8C6.34 30 5 28.66 5 27V13.5Z" stroke="#FF385C" stroke-width="1.5" opacity=".35"/><circle cx="18" cy="20" r="5" stroke="#FF385C" stroke-width="1.5" opacity=".35"/></svg><span class="bk-photo-hint">Tap to add a cover photo</span><div class="bk-photo-edit-btn"><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M8.5 1.5L10.5 3.5L4 10H2V8L8.5 1.5Z" stroke="white" stroke-width="1.3" stroke-linecap="round"/></svg>Edit photo</div></div><div style="padding:18px var(--sp) 0;"><div style="font:700 22px/1.1 'Plus Jakarta Sans',sans-serif;color:var(--c-ink);letter-spacing:-.3px;margin-bottom:6px;">Sababa</div><div style="font:var(--t-meta);color:var(--c-muted);">Shawarma plates and catering around Bondi Junction \u00b7 Mon-Fri, 11am \u2013 9pm</div></div><div class="bk-entry-wrap"><div class="bk-entry-title">How leads come in</div><div class="bk-entry-sub">Share this link and customers can request a quote directly.</div><div class="bk-link-pill"><span class="bk-link-url">agencx.app/sababa</span><span class="bk-link-copy" onclick="this.textContent='Copied \u2713'">Copy</span></div><div class="bk-platforms"><div class="bk-plat"><div class="bk-plat-ic">\u{1F310}</div><span class="bk-plat-lbl">Website button</span></div><div class="bk-plat"><div class="bk-plat-ic">\u{1F4CD}</div><span class="bk-plat-lbl">Google Business</span></div><div class="bk-plat"><div class="bk-plat-ic">\u{1F4D8}</div><span class="bk-plat-lbl">Facebook</span></div><div class="bk-plat"><div class="bk-plat-ic">\u{1F4F8}</div><span class="bk-plat-lbl">Instagram</span></div></div></div><div style="padding:16px var(--sp) 0;"><div style="font:500 10px/1 'Plus Jakarta Sans',sans-serif;color:var(--c-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Services</div><div class="bk-svc-row"><div class="bk-svc-icon"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 15L9 3L15 15H3Z" stroke="#FF385C" stroke-width="1.4" stroke-linejoin="round"/></svg></div><div><div class="bk-svc-name">Shawarma plate</div><div class="bk-svc-price">$16 \u00b7 Pickup</div></div></div><div class="bk-svc-row"><div class="bk-svc-icon"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="4" width="14" height="11" rx="2" stroke="#FF385C" stroke-width="1.4"/><path d="M6 4V3M12 4V3" stroke="#FF385C" stroke-width="1.4" stroke-linecap="round"/></svg></div><div><div class="bk-svc-name">Catering box (feeds 15)</div><div class="bk-svc-price">From $285 \u00b7 Feeds 15</div></div></div><div class="bk-svc-row"><div class="bk-svc-icon"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="6" stroke="#FF385C" stroke-width="1.4"/><path d="M9 6v3l2 2" stroke="#FF385C" stroke-width="1.4" stroke-linecap="round"/></svg></div><div><div class="bk-svc-name">Mixed plate</div><div class="bk-svc-price">$19 \u00b7 Pickup</div></div></div></div><div style="flex:1;min-height:20px;"></div><div class="bk-cta-wrap"><div class="bk-cta">Get a quote</div><div class="bk-share-row"><div class="bk-share-btn" onclick="openShareOverlay()"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 3H2a1 1 0 00-1 1v8a1 1 0 001 1h10a1 1 0 001-1V4a1 1 0 00-1-1H9M7 1v8M4 4l3-3 3 3" stroke="#FF385C" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Share</div><div class="bk-share-btn" onclick="this.textContent='Copied \u2713'"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="4" y="4" width="8" height="8" rx="1.5" stroke="#FF385C" stroke-width="1.4"/><path d="M2 10V2h8" stroke="#FF385C" stroke-width="1.4" stroke-linecap="round"/></svg>Copy link</div></div></div></div>${FLOAT_BTN('booking')}</div>`;
 
   if(id==='settings'){
     const lbls={pricing:'Pricing',services:'Services',paymentMode:'Payment mode',paymentTerms:'Payment terms',abn:'ABN & Tax',channels:'Channels'};
@@ -998,12 +998,12 @@ function openQuoteEdit(){
   if(scroll)scroll.style.opacity='.28';if(footer)footer.style.opacity='.28';
   // Scrim
   const scrim=document.createElement('div');scrim.id='qe-scrim';
-  scrim.style.cssText='position:absolute;inset:0;background:rgba(26,26,24,.22);z-index:36;border-radius:24px 24px 0 0;';
+  scrim.style.cssText='position:absolute;inset:0;background:rgba(34,34,34,.22);z-index:36;border-radius:24px 24px 0 0;';
   qp.appendChild(scrim);
   // Agencx drawer
   const dr=document.createElement('div');dr.id='qe-agencx-drawer';
   dr.style.cssText='position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:24px 24px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,.16);z-index:37;display:flex;flex-direction:column;transform:translateY(100%);transition:transform 300ms cubic-bezier(.25,.1,.25,1);';
-  dr.innerHTML=`<div style="display:flex;justify-content:center;padding:10px 0 2px;"><div style="width:36px;height:4px;background:rgba(26,26,24,.15);border-radius:2px;"></div></div><div style="display:flex;align-items:center;justify-content:space-between;padding:6px 20px 10px;"><div style="display:flex;align-items:center;gap:7px;font:500 15px/1 'Plus Jakarta Sans';color:var(--c-teal);">${EMB_SVG} Agencx</div><div style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;color:var(--c-muted);font:400 18px/1 'Plus Jakarta Sans';cursor:pointer;" onclick="closeQuoteEdit()">✕</div></div><div style="padding:2px 20px 20px;display:flex;flex-direction:column;gap:12px;"><div style="background:rgba(193,18,63,.07);border-radius:4px 18px 18px 18px;padding:10px 14px;font:400 15px/1.45 'Plus Jakarta Sans';color:var(--c-ink);max-width:88%;">Anything not right with Alex's quote? Tell me what to fix and I'll sort it.</div><div style="display:flex;gap:8px;"><div style="font:var(--t-chip);color:var(--c-teal);border:1.5px solid rgba(193,18,63,.28);border-radius:var(--r-chip);padding:9px 16px;cursor:pointer;" onclick="openQuoteManualEdit()">I'll edit manually</div></div><div style="display:flex;align-items:center;background:#fff;border-radius:var(--r-pill);box-shadow:0 0 0 1.5px rgba(0,0,0,.06),0 2px 12px rgba(0,0,0,.06);padding:11px 10px 11px 18px;gap:8px;"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2.5V15.5M2.5 9H15.5" stroke="#1A1A18" stroke-width="1.6" stroke-linecap="round" opacity=".4"/></svg><input style="flex:1;font:var(--t-prose);color:var(--c-ink);background:transparent;border:none;outline:none;" placeholder="Tell me what to change…"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="7.5" y="2" width="5" height="8" rx="2.5" fill="#C1123F" opacity=".55"/><path d="M4 11c0 3.3 12 3.3 12 0" stroke="#C1123F" stroke-width="1.4" stroke-linecap="round" opacity=".55"/><line x1="10" y1="14.5" x2="10" y2="17.5" stroke="#C1123F" stroke-width="1.4" stroke-linecap="round" opacity=".55"/></svg></div></div>`;
+  dr.innerHTML=`<div style="display:flex;justify-content:center;padding:10px 0 2px;"><div style="width:36px;height:4px;background:rgba(34,34,34,.15);border-radius:2px;"></div></div><div style="display:flex;align-items:center;justify-content:space-between;padding:6px 20px 10px;"><div style="display:flex;align-items:center;gap:7px;font:500 15px/1 'Plus Jakarta Sans';color:var(--c-teal-m);">${EMB_SVG} Agencx</div><div style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;color:var(--c-muted);font:400 18px/1 'Plus Jakarta Sans';cursor:pointer;" onclick="closeQuoteEdit()">✕</div></div><div style="padding:2px 20px 20px;display:flex;flex-direction:column;gap:12px;"><div style="background:rgba(255,56,92,.07);border-radius:4px 18px 18px 18px;padding:10px 14px;font:400 15px/1.45 'Plus Jakarta Sans';color:var(--c-ink);max-width:88%;">Anything not right with Alex's quote? Tell me what to fix and I'll sort it.</div><div style="display:flex;gap:8px;"><div style="font:var(--t-chip);color:var(--c-teal-m);border:1.5px solid rgba(255,56,92,.28);border-radius:var(--r-chip);padding:9px 16px;cursor:pointer;" onclick="openQuoteManualEdit()">I'll edit manually</div></div><div style="display:flex;align-items:center;background:#fff;border-radius:var(--r-pill);box-shadow:0 0 0 1.5px rgba(0,0,0,.06),0 2px 12px rgba(0,0,0,.06);padding:11px 10px 11px 18px;gap:8px;"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2.5V15.5M2.5 9H15.5" stroke="#222222" stroke-width="1.6" stroke-linecap="round" opacity=".4"/></svg><input style="flex:1;font:var(--t-prose);color:var(--c-ink);background:transparent;border:none;outline:none;" placeholder="Tell me what to change…"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="7.5" y="2" width="5" height="8" rx="2.5" fill="#FF385C" opacity=".55"/><path d="M4 11c0 3.3 12 3.3 12 0" stroke="#FF385C" stroke-width="1.4" stroke-linecap="round" opacity=".55"/><line x1="10" y1="14.5" x2="10" y2="17.5" stroke="#FF385C" stroke-width="1.4" stroke-linecap="round" opacity=".55"/></svg></div></div>`;
   qp.appendChild(dr);
   requestAnimationFrame(()=>requestAnimationFrame(()=>{dr.style.transform='translateY(0)';}));
 }
@@ -1023,7 +1023,7 @@ function openQuoteManualEdit(){
     scroll._orig=scroll.innerHTML;if(footer)footer._orig=footer.innerHTML;
     const ttl=document.querySelector('#quote-preview span[style*="500 16px"]');
     if(ttl){ttl._orig=ttl.textContent;ttl.textContent='Edit quote';}
-    scroll.innerHTML='<div id="qe-lines"><div class="qe-row"><input class="qe-label" value="Catering box (feeds 15)"><div class="qe-right"><span class="qe-sym">$</span><input class="qe-amt" value="285.00"></div><div class="qe-bin" onclick="this.closest(\'.qe-row\').remove()"><svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M3 4.5h11M6.5 4.5V3.2c0-.4.3-.7.7-.7h2.6c.4 0 .7.3.7.7v1.3M5 4.5l.6 8.4c.05.5.45.9 1 .9h3.8c.55 0 .95-.4 1-.9l.6-8.4" stroke="#6B6B6B" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div><div class="qe-row"><input class="qe-label" value="Delivery"><div class="qe-right"><span class="qe-sym">$</span><input class="qe-amt" value="35.00"></div><div class="qe-bin" onclick="this.closest(\'.qe-row\').remove()"><svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M3 4.5h11M6.5 4.5V3.2c0-.4.3-.7.7-.7h2.6c.4 0 .7.3.7.7v1.3M5 4.5l.6 8.4c.05.5.45.9 1 .9h3.8c.55 0 .95-.4 1-.9l.6-8.4" stroke="#6B6B6B" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div></div><div class="qe-add" onclick="qeAddLine()"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 2v11M2 7.5h11" stroke="#C1123F" stroke-width="1.6" stroke-linecap="round"/></svg> Add line item</div>';
+    scroll.innerHTML='<div id="qe-lines"><div class="qe-row"><input class="qe-label" value="Catering box (feeds 15)"><div class="qe-right"><span class="qe-sym">$</span><input class="qe-amt" value="285.00"></div><div class="qe-bin" onclick="this.closest(\'.qe-row\').remove()"><svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M3 4.5h11M6.5 4.5V3.2c0-.4.3-.7.7-.7h2.6c.4 0 .7.3.7.7v1.3M5 4.5l.6 8.4c.05.5.45.9 1 .9h3.8c.55 0 .95-.4 1-.9l.6-8.4" stroke="#6B6B6B" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div><div class="qe-row"><input class="qe-label" value="Delivery"><div class="qe-right"><span class="qe-sym">$</span><input class="qe-amt" value="35.00"></div><div class="qe-bin" onclick="this.closest(\'.qe-row\').remove()"><svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M3 4.5h11M6.5 4.5V3.2c0-.4.3-.7.7-.7h2.6c.4 0 .7.3.7.7v1.3M5 4.5l.6 8.4c.05.5.45.9 1 .9h3.8c.55 0 .95-.4 1-.9l.6-8.4" stroke="#6B6B6B" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div></div><div class="qe-add" onclick="qeAddLine()"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 2v11M2 7.5h11" stroke="#FF385C" stroke-width="1.6" stroke-linecap="round"/></svg> Add line item</div>';
     if(footer)footer.innerHTML='<div style="padding:0 20px 28px;display:flex;flex-direction:column;gap:8px;"><div class="se-save-btn" onclick="closeQuoteManualEdit()">Save changes</div><div style="text-align:center;font:400 13px/1 \'Plus Jakarta Sans\',sans-serif;color:var(--c-muted);cursor:pointer;padding:4px" onclick="closeQuoteManualEdit()">Cancel</div></div>';
   },340);
 }
@@ -1071,8 +1071,8 @@ let settingsData={
   abn:{abn:'51 824 753 556',gst:'yes'},
   channels:['Phone / text','Instagram (@sababa.bondi)']
 };
-const SE_PLUS_SVG='<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="#C1123F" stroke-width="1.6" stroke-linecap="round"/></svg>';
-const SRCH_SVG='<svg width="17" height="17" viewBox="0 0 17 17" fill="none"><circle cx="7" cy="7" r="4.5" stroke="#1A1A18" stroke-width="1.4" opacity=".4"/><path d="M10.5 10.5L14 14" stroke="#1A1A18" stroke-width="1.4" stroke-linecap="round" opacity=".4"/></svg>';
+const SE_PLUS_SVG='<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="#FF385C" stroke-width="1.6" stroke-linecap="round"/></svg>';
+const SRCH_SVG='<svg width="17" height="17" viewBox="0 0 17 17" fill="none"><circle cx="7" cy="7" r="4.5" stroke="#222222" stroke-width="1.4" opacity=".4"/><path d="M10.5 10.5L14 14" stroke="#222222" stroke-width="1.4" stroke-linecap="round" opacity=".4"/></svg>';
 const BIN_SVG='<svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M3 4.5h11M6.5 4.5V3.2c0-.4.3-.7.7-.7h2.6c.4 0 .7.3.7.7v1.3M5 4.5l.6 8.4c.05.5.45.9 1 .9h3.8c.55 0 .95-.4 1-.9l.6-8.4" stroke="#6B6B6B" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 function setSummary(key){const d=settingsData;

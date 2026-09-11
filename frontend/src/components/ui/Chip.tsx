@@ -22,8 +22,8 @@ const BASE = [
 ].join(" ");
 
 const VARIANT_CLASSES = {
-  solid: "text-accent px-[14px] hover:bg-accent-a07",
-  dashed: "border-dashed text-accent px-4 hover:bg-accent-a07",
+  solid: "text-accent-active px-[14px] hover:bg-accent-a07",
+  dashed: "border-dashed text-accent-active px-4 hover:bg-accent-a07",
   sent: "pointer-events-none border-accent-a16 text-ink-a40 px-[14px]",
 } as const;
 
@@ -31,7 +31,9 @@ const VARIANT_CLASSES = {
  * The enum-shaped beat widget, ported from the prototype's `.c-reply` /
  * `.c-suggest` / `.a-chip.sent`. Three variants - solid (selectable), dashed
  * (suggestion), sent (committed). 1.5px accent-a28 border via --border-chip,
- * radius --radius-chip.
+ * radius --radius-chip, accent wash on hover/press. The label uses
+ * `text-accent-active` (the deep Rausch stop) because flat `--color-accent`
+ * cannot carry text on white (3.52:1).
  *
  * The one deliberate deviation from the prototype: a 44px minimum touch target
  * (the prototype's chips are ~29px, below the accessibility floor in

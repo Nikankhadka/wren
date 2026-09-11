@@ -18,8 +18,8 @@ import type { WaitingRow } from "../lib/brief";
  * prototype - the row idiom below is the chats screen's `.chat-row`
  * (name / time / preview). The count pill is a solid `--color-highlight`
  * fill (the prototype's actual amber, `--amber-400`) with dark text, not
- * `Badge`'s pale-wash "warning" tone (`--amber-500`, the pale warning
- * yellow) - too light for text at weight or a saturated fill,
+ * `Badge`'s warning tone (`--amber-500`, now the dark ochre warning text on
+ * a pale wash) - that pair is for text-on-wash, not a solid fill,
  * where dark text on the solid `--amber-400` fill clears 8.6:1. It is also
  * the same token the Chats-list per-row attention dot already uses for
  * "wants the owner", so the notification count and the notification dot
@@ -67,7 +67,7 @@ export function WaitingPanel({ rows }: { rows: WaitingRow[] }) {
             key={row.id}
             href={`/chats/${row.id}`}
             data-testid="waiting-row"
-            className="flex items-center gap-2 border-t border-hairline px-[18px] py-3 active:bg-surface-sunken"
+            className="flex items-center gap-2 border-t border-hairline px-[18px] py-3 transition-colors duration-(--duration-fast) hover:bg-surface-container active:bg-surface-sunken"
           >
             <span className="min-w-0 flex-1">
               <span className="flex items-center justify-between gap-2">
@@ -92,7 +92,7 @@ export function WaitingPanel({ rows }: { rows: WaitingRow[] }) {
           type="button"
           data-testid="waiting-panel-toggle"
           onClick={() => setExpanded((value) => !value)}
-          className={`block w-full border-t border-hairline px-[18px] py-2.5 text-center text-chip text-accent active:bg-surface-sunken${fitsAtLarge ? " lg:hidden" : ""}`}
+            className={`block w-full border-t border-hairline px-[18px] py-2.5 text-center text-chip text-accent-active transition-colors duration-(--duration-fast) hover:underline active:opacity-60${fitsAtLarge ? " lg:hidden" : ""}`}
         >
           {expanded ? "Show fewer" : `Show all ${rows.length}`}
         </button>

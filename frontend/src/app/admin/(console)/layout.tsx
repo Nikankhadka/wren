@@ -4,6 +4,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { navTone } from "@/components/ui/TabBar";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { Drawer } from "@/components/ui/Drawer";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
@@ -11,7 +13,7 @@ import { useAuth } from "@/components/AuthProvider";
 /**
  * T-033: auth guard + shell for the platform surface (frontend.md 7.3).
  * Anything other than a platform admin (401/403/network) bounces to /login.
- * The shell shares the tenant console's sidebar idiom (accent-container active
+ * The shell shares the tenant console's sidebar idiom (accent wash active
  * pill, filled glyph) for a single Tenants item; Dashboards/Settings sit in
  * the disabled "soon" group to match. Login stays outside this (console) group
  * with its own centered-card layout, same structure as the tenant-admin
@@ -30,6 +32,7 @@ export default function PlatformConsoleLayout({ children }: { children: ReactNod
   const [platformAuthed, setPlatformAuthed] = useState(false);
   const [platformChecking, setPlatformChecking] = useState(true);
   const [navOpen, setNavOpen] = useState(false);
+  const { confirm: confirmSignOut, dialog: signOutDialog } = useConfirm();
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- deliberate drawer reset on navigation */
@@ -78,9 +81,7 @@ export default function PlatformConsoleLayout({ children }: { children: ReactNod
                 aria-current={active ? "page" : undefined}
                 className={[
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-body-sm font-medium transition-colors duration-(--duration-fast)",
-                  active
-                    ? "bg-accent-container text-text-inverse"
-                    : "text-text-secondary hover:bg-surface-container hover:text-text",
+                  navTone(active, "text-text-secondary"),
                 ].join(" ")}
               >
                 <Icon name={item.icon} filled={active} size={20} />
@@ -93,7 +94,7 @@ export default function PlatformConsoleLayout({ children }: { children: ReactNod
           <li key={label}>
             <span
               aria-disabled="true"
-              className="flex items-center justify-between rounded-md px-3 py-2 text-body-sm font-medium text-text-tertiary"
+              className="flex items-center justify-between rounded-md px-3 py-2 text-body-sm font-medium text-text-secondary"
             >
               {label}
               <span className="rounded-full bg-surface px-2 py-0.5 text-caption font-medium text-text-tertiary">
@@ -105,7 +106,14 @@ export default function PlatformConsoleLayout({ children }: { children: ReactNod
       </ul>
       <div className="mt-auto pt-4">
         <button
-          onClick={() => signOut()}
+          onClick={() =>
+            void confirmSignOut({
+              title: "Sign out?",
+              description: "You will need your email code to sign back in.",
+              confirmLabel: "Sign out",
+              onConfirm: () => signOut(),
+            })
+          }
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-body-sm font-medium text-text-secondary hover:bg-surface-container hover:text-text transition-colors duration-(--duration-fast)"
         >
           <Icon name="logout" filled={false} size={20} />
@@ -124,19 +132,27 @@ export default function PlatformConsoleLayout({ children }: { children: ReactNod
         {navContent}
       </nav>
 
-      <Drawer open={navOpen} onClose={() => setNavOpen(false)}>
+      <Drawer open={navOpen} onClose={() => setNavOpen(false)} id="platform-nav">
         {navContent}
       </Drawer>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-bg">
         <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-surface px-4 lg:hidden">
-          <button type="button" onClick={() => setNavOpen(true)} aria-label="Menu">
+          <button
+            type="button"
+            onClick={() => setNavOpen(true)}
+            aria-label="Menu"
+            aria-expanded={navOpen}
+            aria-controls="platform-nav"
+            className="-ml-2 flex size-icon-btn-hit shrink-0 items-center justify-center rounded-full text-text transition-colors duration-(--duration-fast) hover:bg-surface-container hover:text-text active:bg-surface-container-high"
+          >
             <Icon name="menu" size={24} />
           </button>
           <span className="truncate text-title-3 font-semibold text-text">Agencx</span>
         </header>
         <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-8 sm:py-8">{children}</main>
       </div>
+      {signOutDialog}
     </div>
   );
 }

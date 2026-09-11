@@ -118,9 +118,9 @@ export function FieldPill({
           aria-label="Send"
           className={[
             "m-[9px] flex size-send shrink-0 items-center justify-center rounded-full",
-            "transition-colors duration-(--duration-fast) ease-out active:opacity-85",
+            "transition-colors duration-(--duration-fast) ease-out",
             canSubmit
-              ? "bg-accent text-text-inverse"
+              ? "bg-accent text-text-inverse hover:bg-accent-hover active:bg-accent-active"
               : "bg-accent-a12 text-accent-a50",
           ].join(" ")}
         >

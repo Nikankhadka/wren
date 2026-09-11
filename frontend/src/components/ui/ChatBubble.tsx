@@ -68,8 +68,8 @@ const RADIUS_CLASSES: Record<ChatPerspective, Record<ChatRole, string>> = {
 /**
  * docs/agencx/design/frontend.md section 6: owner/customer bubbles (filled, right)
  * (filled, right) with a top-right tip, assistant bubbles (light, left) with a
- * top-left tip, human_agent (light crimson, labeled with senderLabel), system (centered
- * caption). Streaming arrives with StreamingText.
+ * top-left tip, human_agent (soft pink, labeled with senderLabel), system
+ * (centered caption). Streaming arrives with StreamingText.
  */
 export function ChatBubble({
   role,
@@ -88,7 +88,7 @@ export function ChatBubble({
       className={`max-w-[85%] px-4 py-2.5 text-body-sm leading-relaxed ${RADIUS_CLASSES[perspective][role]} ${ROLE_CLASSES[perspective][role]}`}
     >
       {role === "human_agent" && perspective === "customer" ? (
-        <p className="mb-1 text-footnote font-medium text-text-secondary">{senderLabel}</p>
+        <p className="mb-1 text-footnote font-medium text-accent-active">{senderLabel}</p>
       ) : null}
       {children}
     </div>

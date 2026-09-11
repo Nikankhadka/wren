@@ -33,7 +33,7 @@ Active phase files contain unresolved tickets only:
 |---|---|
 | [`active/08-deferred.md`](active/08-deferred.md) | B-2, D-1, D-3 |
 | [`active/12-refinement.md`](active/12-refinement.md) | R-3, R-4, R-5 |
-| [`active/13-walkthrough.md`](active/13-walkthrough.md) | W-1 through W-9 |
+| [`active/14-schema-drop.md`](active/14-schema-drop.md) | W-10 |
 
 Completed phase files preserve the detailed records for shipped work:
 
@@ -49,6 +49,9 @@ Completed phase files preserve the detailed records for shipped work:
 | [`completed/09-devex.md`](completed/09-devex.md) | Developer experience |
 | [`completed/10-deploy.md`](completed/10-deploy.md) | Deployment |
 | [`completed/11-offerings-media.md`](completed/11-offerings-media.md) | Offerings and media |
+| [`completed/13-walkthrough.md`](completed/13-walkthrough.md) | Walkthrough fixes |
+| [`completed/15-document-review.md`](completed/15-document-review.md) | Document review and privacy workflow |
+| [`completed/16-auth-otp-reliability.md`](completed/16-auth-otp-reliability.md) | Authentication OTP reliability |
 
 Completed R-1 and R-2 refinement records are preserved in
 [`docs/archive/phase1-complete/12-refinement-r1-r2.md`](../../archive/phase1-complete/12-refinement-r1-r2.md).
@@ -81,6 +84,8 @@ supporting phases landed in this order:
 6. Offerings and media
 7. Phase 1 refinement
 8. Walkthrough fixes
+9. Document review and privacy workflow
+10. Authentication OTP reliability
 
 The active refinement phase is hardening, not new product scope. B-2, D-1, and
 D-3 remain deferred to Phase 2. Payments, scheduling, invoicing, leads, and
@@ -90,12 +95,10 @@ The walkthrough phase (`W-1` through `W-9`) closes defects a founder
 walkthrough found in already-shipped work: the home escalation queue, the
 onboarding interview, customer chat grounding, the review sheet, and
 conversational correction. It is a second bug-fix pass on Phase 1 surfaces,
-not new product scope. W-1, W-2, and W-7 are delivered; W-3 through W-6, W-8,
-and W-9 were refined and added by the 2026-09-05 amendment and remain open
-specifications.
+not new product scope. W-1 through W-9 are delivered; the file is complete.
 
 The walkthrough spec file also carries the amendment record for the second
-round ([`13-walkthrough.md`](active/13-walkthrough.md)), which keeps the
+round ([`completed/13-walkthrough.md`](completed/13-walkthrough.md)), which keeps the
 reported observations, the found clarified preferences, the implementation
 evidence, and the boundary between symptoms, confirmed code behavior,
 suspected causes, and outstanding browser verification beside the tickets it

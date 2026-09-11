@@ -30,7 +30,7 @@ uploaded knowledge - never in code.
          \________________________|_________________________/
                                   |
                     Next.js frontend (Vercel container service)
-                    tokens-only theming, per-tenant branding
+                    tokens-only theming, per-tenant name/logo
                                   |
                         same-origin /api/* rewrite
                                   |

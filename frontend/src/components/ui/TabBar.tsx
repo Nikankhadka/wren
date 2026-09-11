@@ -33,6 +33,19 @@ export function isTabActive(item: TabItem, pathname: string): boolean {
 }
 
 /**
+ * One nav idiom for every surface. Active is accent text on a 9% accent wash;
+ * inactive is the surface's own muted text with an accent wash on hover. The
+ * inactive text is the only per-surface choice, and it is a contrast choice:
+ * `text-text-secondary` on the light sidebars (AA on `bg-surface-sunken`),
+ * `text-ink-a40` on the mobile bar (the prototype's `--c-muted`).
+ */
+export function navTone(active: boolean, inactiveText: string): string {
+  return active
+    ? "bg-accent-a09 text-accent-active"
+    : `${inactiveText} hover:bg-accent-a07 hover:text-accent-active`;
+}
+
+/**
  * E-1 / D21: the tenant app's mobile nav. Three destinations - Home, Chats,
  * Business - as a persistent bottom bar below `lg`; at `lg+` the same items
  * render as the console sidebar and this is hidden.
@@ -44,11 +57,13 @@ export function isTabActive(item: TabItem, pathname: string): boolean {
  * area is padding on the bar, not margin under it, so the bar's own surface
  * still reaches the bottom of the screen on a home-indicator device.
  *
- * The active idiom is the prototype's - accent text on a 9% accent wash - not
- * the sidebar's saturated accent-container pill. Three of these sit side by
- * side on a small surface and a saturated fill repeated three times reads as
- * loud; the sidebar has room the bar does not. frontend.md section 7 records
- * the divergence.
+ * The active idiom is the prototype's - accent text on a 9% accent wash - and
+ * every other nav in the app wears the same one through `navTone` (tenant and
+ * platform sidebars, storefront categories). Three tabs sit side by side on a
+ * small surface and a solid fill repeated three times reads as loud; the wash
+ * is why the active state reads as a pill rather than a block. The bar's
+ * inactive text stays the prototype's muted tone; the light sidebars use
+ * `text-text-secondary` instead, which is the AA choice on their background.
  */
 export function TabBar({ items, pathname }: { items: TabItem[]; pathname: string }) {
   return (
@@ -66,7 +81,7 @@ export function TabBar({ items, pathname }: { items: TabItem[]; pathname: string
             aria-label={item.count ? `${item.label}, ${item.count} waiting` : undefined}
             className={[
               "mx-tab-inset-x my-tab-inset flex h-tab flex-1 flex-col items-center justify-center gap-[3px] rounded-tab transition-colors duration-(--duration-fast)",
-              active ? "bg-accent-a09 text-accent" : "text-ink-a40",
+              navTone(active, "text-ink-a40"),
             ].join(" ")}
           >
             <span className="relative">

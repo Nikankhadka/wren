@@ -7,7 +7,7 @@ type Size = "sm" | "md";
 
 const VARIANT_CLASSES: Record<Variant, string> = {
   primary:
-    "bg-accent text-text-inverse hover:bg-accent-hover active:bg-accent-active border border-transparent",
+    "bg-brand text-text-inverse hover:brightness-95 active:brightness-90 border border-transparent",
   secondary:
     "bg-surface text-text border border-border hover:bg-surface-sunken active:bg-surface-sunken",
   ghost:
@@ -30,6 +30,9 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 /**
  * docs/agencx/design/frontend.md section 6: primary/secondary/ghost/destructive, sm/md.
+ * The primary variant rides the Airbnb CTA gradient (`bg-brand`, a
+ * background-image), so hover/active darken with a brightness filter, never a
+ * background-color swap or opacity (opacity would lighten the gradient).
  * Loading replaces the label with a spinner while keeping the width stable
  * (label goes invisible instead of unmounting).
  */
@@ -48,7 +51,7 @@ export function Button({
       aria-busy={loading || undefined}
       className={[
         "relative inline-flex items-center justify-center font-medium rounded-md",
-        "transition-colors duration-(--duration-fast) select-none active:opacity-85",
+        "transition-[background-color,filter,opacity] duration-(--duration-fast) select-none",
         "disabled:opacity-50 disabled:pointer-events-none",
         VARIANT_CLASSES[variant],
         SIZE_CLASSES[size],

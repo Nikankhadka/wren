@@ -1,6 +1,6 @@
 > **NAVIGATION:** Evidence record for W-9. Read it with the ticket in
-> [13-walkthrough.md](../active/13-walkthrough.md) and its
-> [Amendment 3](../active/13-walkthrough.md#amendment-3-the-agent-contract-2026-09-06).
+> [13-walkthrough.md](../completed/13-walkthrough.md) and its
+> [Amendment 3](../completed/13-walkthrough.md#amendment-3-the-agent-contract-2026-09-06).
 
 # W-9 reproduction record
 

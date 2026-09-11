@@ -73,7 +73,7 @@ function AbnEditor({
           placeholder="XX XXX XXX XXX"
           autoFocus
           data-testid="abn-input"
-          className="w-full rounded-field border-[length:var(--border-chip)] border-transparent bg-surface-container px-[18px] py-3.5 text-field text-text outline-none transition-colors duration-(--duration-fast) placeholder:text-ink-a40 focus:border-accent-a35 focus:bg-accent-a06"
+          className="w-full rounded-field border-[length:var(--border-chip)] border-border bg-surface px-[18px] py-3.5 text-field text-text outline-none transition-colors duration-(--duration-fast) placeholder:text-ink-a40 focus:border-text"
         />
       </label>
 

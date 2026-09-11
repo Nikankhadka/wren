@@ -1,10 +1,9 @@
 /**
  * Tenant brand mark: the tenant's logo when set, otherwise a monogram avatar
- * (first letter of the display name on the accent color). Used by the customer
- * chat header and the tenant-admin console sidebar. bg-accent is AA-safe in
- * both places: the customer surface only injects a tenant accent when it
- * passes WCAG AA against the light surface (brand.ts), and the console falls
- * back to the default accent ramp which passes too.
+ * (first letter of the display name on the Airbnb CTA gradient in inverse
+ * text). Used by the customer chat header and the tenant-admin console
+ * sidebar. The gradient is fixed - the tenant's stored accent is no longer
+ * injected (D25); the white initial passes AA on every gradient stop (D26).
  */
 export function BrandMark({ logoUrl, name }: { logoUrl?: string | null; name: string }) {
   if (logoUrl) {
@@ -17,7 +16,7 @@ export function BrandMark({ logoUrl, name }: { logoUrl?: string | null; name: st
   return (
     <span
       aria-hidden
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-body-sm font-semibold text-text-inverse"
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-body-sm font-semibold text-text-inverse"
     >
       {initial}
     </span>

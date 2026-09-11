@@ -8,7 +8,7 @@ The immediate deliverables are **a new prototype version and implementation-read
 
 ## Prototype and documentation
 
-Create `agencx-prototype-v7.html` beside the existing v6 prototype. Preserve v6 unchanged.
+Create `agencx-prototype-v7.html` beside the existing v6 prototype. Preserve v6 unchanged apart from the D25 color-only recolor (no layout, copy, interaction, or state changes).
 
 Reuse its useful navigation, screen, and sheet patterns, but reconcile obsolete prototype behavior with the running application first. Keep the current email login and onboarding flow. Exclude old payment, scheduling, and Copilot screens from the Phase 1 experience.
 

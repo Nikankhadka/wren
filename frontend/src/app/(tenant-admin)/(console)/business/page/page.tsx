@@ -107,7 +107,7 @@ export default function BusinessPageScreen() {
                 </h3>
                 <Link
                   href="/business/offerings"
-                  className="whitespace-nowrap text-chip font-medium text-accent"
+                  className="whitespace-nowrap text-chip font-medium text-accent-active transition-colors duration-(--duration-fast) hover:underline active:opacity-60"
                 >
                   Manage
                 </Link>
@@ -118,7 +118,7 @@ export default function BusinessPageScreen() {
                     key={offering.name}
                     className="flex items-center gap-2.5 py-2.5 first:pt-0 last:pb-0"
                   >
-                    <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-accent-a09 text-accent">
+                    <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-accent-a09 text-accent-active">
                       {offering.media?.type === "image" ? (
                         <img
                           src={offering.media.url}
@@ -160,7 +160,7 @@ export default function BusinessPageScreen() {
               href={publicUrl}
               target="_blank"
               rel="noreferrer"
-              className="mt-4 inline-flex items-center gap-1.5 rounded-field border border-accent-a28 px-3 py-2 text-chip font-medium text-accent"
+              className="mt-4 inline-flex items-center gap-1.5 rounded-field border border-accent-a28 px-3 py-2 text-chip font-medium text-accent-active transition-colors duration-(--duration-fast) hover:bg-accent-a07 active:bg-accent-a09"
             >
               Preview your business page
               <Icon name="open_in_new" size={14} />
@@ -173,7 +173,7 @@ export default function BusinessPageScreen() {
           data-testid="booking-links"
           className="mx-gutter mt-3.5 rounded-card bg-accent-a06 p-4"
         >
-          <h3 className="mb-1 text-chip font-medium text-accent">
+          <h3 className="mb-1 text-chip font-medium text-accent-active">
             How customers reach you
           </h3>
           <p className="mb-3.5 text-meta text-ink-a40">
@@ -192,7 +192,7 @@ export default function BusinessPageScreen() {
                 type="button"
                 onClick={copy}
                 data-testid="booking-copy"
-                className="shrink-0 whitespace-nowrap text-chip font-medium text-accent"
+                className="shrink-0 whitespace-nowrap text-chip font-medium text-accent-active transition-colors duration-(--duration-fast) hover:underline active:opacity-60"
               >
                 {copied ? "Copied ✓" : "Copy link"}
               </button>
@@ -217,7 +217,7 @@ export default function BusinessPageScreen() {
             type="button"
             onClick={share}
             data-testid="booking-share"
-            className="flex w-full items-center justify-center gap-1.5 rounded-field border-[1.5px] border-accent-a28 py-3 text-chip font-medium text-accent active:bg-accent-a07"
+            className="flex w-full items-center justify-center gap-1.5 rounded-field border-[1.5px] border-accent-a28 py-3 text-chip font-medium text-accent-active transition-colors duration-(--duration-fast) hover:bg-accent-a07 active:bg-accent-a07"
           >
             <Icon name="share" size={14} />
             Share

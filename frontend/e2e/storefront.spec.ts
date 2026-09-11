@@ -51,6 +51,21 @@ test.describe("the public storefront", () => {
     await expect(page.getByRole("button", { name: "Ask a question" })).toHaveCount(0);
   });
 
+  // D26: the stored tenant accent is accepted but no longer rendered. Both demo
+  // tenants have one, so a re-injected override would show as a non-Rausch fill.
+  test("the stored tenant accent does not recolor the chat entry", async ({ page }) => {
+    for (const tenant of [
+      { slug: "bytefix", name: "Bytefix Repairs" },
+      { slug: "lumident", name: "Lumident Dental" },
+    ]) {
+      await page.goto(`/${tenant.slug}`);
+      const cta = page.getByRole("button", { name: `Chat with ${tenant.name}` });
+      await expect(cta).toBeVisible();
+      const background = await cta.evaluate((el) => getComputedStyle(el).backgroundColor);
+      expect(background).toBe("rgb(255, 56, 92)");
+    }
+  });
+
   /**
    * W-9 US-8: the assistant says what it is before anything else, and a tenant
    * that configured its own welcome is not greeted a second time. Both demo

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
 import { BrandMark } from "@/components/ui/BrandMark";
-import { TabBar, isTabActive, type TabItem } from "@/components/ui/TabBar";
+import { TabBar, isTabActive, navTone, type TabItem } from "@/components/ui/TabBar";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useAuth } from "@/components/AuthProvider";
 import { apiFetch } from "@/lib/api";
 import { useApiQuery } from "@/lib/useApiQuery";
@@ -64,6 +65,8 @@ export default function ConsoleLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { session, isLoading, signOut } = useAuth();
   const [tenant, setTenant] = useState<TenantMe | null>(null);
+  // Signing out ends the session on this device - that asks first.
+  const { confirm: confirmSignOut, dialog: signOutDialog } = useConfirm();
 
   useEffect(() => {
     if (!isLoading && !session) {
@@ -124,9 +127,7 @@ export default function ConsoleLayout({ children }: { children: ReactNode }) {
                   aria-label={item.count ? `${item.label}, ${item.count} waiting` : undefined}
                   className={[
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-body-sm font-medium transition-colors duration-(--duration-fast)",
-                    active
-                      ? "bg-accent-container text-text-inverse"
-                      : "text-text-secondary hover:bg-surface-container hover:text-text",
+                    navTone(active, "text-text-secondary"),
                   ].join(" ")}
                 >
                   <Icon name={item.icon} filled={active} size={20} />
@@ -146,7 +147,14 @@ export default function ConsoleLayout({ children }: { children: ReactNode }) {
         </ul>
         <div className="mt-auto pt-4">
           <button
-            onClick={() => signOut()}
+            onClick={() =>
+              void confirmSignOut({
+                title: "Sign out?",
+                description: "You will need your email code to sign back in.",
+                confirmLabel: "Sign out",
+                onConfirm: () => signOut(),
+              })
+            }
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-body-sm font-medium text-text-secondary hover:bg-surface-container hover:text-text transition-colors duration-(--duration-fast)"
           >
             <Icon name="logout" filled={false} size={20} />
@@ -159,6 +167,7 @@ export default function ConsoleLayout({ children }: { children: ReactNode }) {
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
         <TabBar items={items} pathname={pathname} />
       </div>
+      {signOutDialog}
     </div>
   );
 }

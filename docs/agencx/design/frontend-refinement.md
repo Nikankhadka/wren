@@ -34,10 +34,12 @@ build.
 
 ## 2. Shared presentation layer (RF-1)
 
-The refinement keeps the shipped design language: Material 3 tonal clarity,
-white surfaces, crimson primary (`#C1123F` family), cyan and green functional
-accents, Plus Jakarta Sans, generous whitespace. RF-1 refines, it does not
-rebrand. Changes must preserve routes and flow order.
+The refinement keeps the shipped design language: Airbnb colour discipline,
+white surfaces and cool greys, the Rausch action red (`#FF385C`) with the deep
+red text stop and soft red washes, amber/green/teal/red functional statuses,
+Plus Jakarta Sans, generous whitespace. D26 superseded D25's Soft Sakura
+palette, so the color system follows D26; RF-1 refines structure and does not
+rebrand it. Changes must preserve routes and flow order.
 
 - **Typography.** The shipped scale (caption through display, `text-*`
   utilities) stays. Refinement covers hierarchy and rhythm only: consistent
@@ -202,7 +204,8 @@ consistency across all of these and refresh is an RF-17 check.
 
 ## 6. Prototype rules and verification
 
-- v7 sits beside v6 in `prototypes/`; v6 is preserved unchanged.
+- v7 sits beside v6 in `prototypes/`; v6 is preserved unchanged apart from the
+  D25 color-only recolor (no layout, copy, interaction, or state changes).
 - The prototype owns shared simulated state: offering edits affect the
   Business page; customer handoffs appear in the owner queue; owner replies
   appear in the customer conversation; all of it survives same-tab refresh

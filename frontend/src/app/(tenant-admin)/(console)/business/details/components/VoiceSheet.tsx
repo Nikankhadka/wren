@@ -122,7 +122,7 @@ function VoiceEditor({
             placeholder="Calm and reassuring, never pushy."
             autoFocus
             data-testid="voice-style"
-            className="w-full resize-none rounded-field border-[length:var(--border-chip)] border-transparent bg-surface-container px-[18px] py-3.5 text-field text-text outline-none transition-colors duration-(--duration-fast) placeholder:text-ink-a40 focus:border-accent-a35 focus:bg-accent-a06"
+            className="w-full resize-none rounded-field border-[length:var(--border-chip)] border-border bg-surface px-[18px] py-3.5 text-field text-text outline-none transition-colors duration-(--duration-fast) placeholder:text-ink-a40 focus:border-text"
           />
           <span className="mt-2 block text-meta text-ink-a40">
             {style.length}/{CUSTOM_VOICE_MAX} characters. It changes wording only, never a price, a

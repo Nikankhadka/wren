@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { toast } from "react-hot-toast";
 import { Icon } from "@/components/ui/Icon";
 import { apiFetch, apiFetchStream } from "@/lib/api";
 
@@ -55,7 +56,6 @@ export interface CoverPhotoProps {
 export function CoverPhoto({ hasCover, onChanged }: CoverPhotoProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [src, setSrc] = useState<string | null>(null);
   // Bumped on every save so the photo is refetched: the URL never changes, and
   // the browser would otherwise keep showing the one that was just replaced.
@@ -93,7 +93,6 @@ export function CoverPhoto({ hasCover, onChanged }: CoverPhotoProps) {
 
   async function upload(file: File) {
     setBusy(true);
-    setError(null);
     try {
       const body = new FormData();
       const resized = await downscale(file);
@@ -101,8 +100,9 @@ export function CoverPhoto({ hasCover, onChanged }: CoverPhotoProps) {
       await apiFetch("/api/business/cover", { method: "PUT", body });
       setVersion((n) => n + 1);
       onChanged();
+      toast.success("Cover photo updated");
     } catch {
-      setError("That image could not be saved. Try a JPEG or PNG under 2MB.");
+      toast.error("That image could not be saved. Try a JPEG or PNG under 2MB.");
     } finally {
       setBusy(false);
     }
@@ -116,7 +116,7 @@ export function CoverPhoto({ hasCover, onChanged }: CoverPhotoProps) {
         disabled={busy}
         aria-label={hasCover ? "Change cover photo" : "Add a cover photo"}
         data-testid="booking-cover"
-        className="flex h-[200px] w-full flex-col items-center justify-center gap-2.5 overflow-hidden bg-accent-a09"
+        className="flex h-[200px] w-full flex-col items-center justify-center gap-2.5 overflow-hidden bg-accent-a09 transition-[filter] duration-(--duration-fast) hover:brightness-95 active:brightness-90"
       >
         {hasCover && src ? (
           /* eslint-disable-next-line @next/next/no-img-element --
@@ -144,7 +144,7 @@ export function CoverPhoto({ hasCover, onChanged }: CoverPhotoProps) {
           type="button"
           onClick={() => fileRef.current?.click()}
           disabled={busy}
-          className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-chip bg-scrim px-3 py-1.5 text-badge font-medium text-text-inverse"
+          className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-chip bg-scrim px-3 py-1.5 text-badge font-medium text-text-inverse transition-[filter] duration-(--duration-fast) hover:brightness-110 active:brightness-95"
         >
           <Icon name="edit" size={11} />
           {busy ? "Saving…" : "Edit photo"}
@@ -163,11 +163,6 @@ export function CoverPhoto({ hasCover, onChanged }: CoverPhotoProps) {
           if (file) void upload(file);
         }}
       />
-      {error ? (
-        <p role="alert" className="px-gutter pt-2 text-meta text-danger">
-          {error}
-        </p>
-      ) : null}
     </div>
   );
 }
