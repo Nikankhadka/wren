@@ -16,6 +16,12 @@ import {
   type ReviewWorkspace,
 } from "./lib/types";
 
+/** W-11c: the Business > Knowledge half of the ticket's privacy disclosure
+ *  (15-document-review.md, "Privacy disclosure") - verbatim ticket copy, no
+ *  vendor name. */
+const PRIVACY_DISCLOSURE =
+  "Original files are kept in your business's tenant-isolated Agencx file storage, and extracted sections and offerings are saved in its business database. A configured AI provider processes document text to organize it. Only content you approve can be used in customer answers. Files retained after a processing failure are kept so you can retry them. Replacing or removing a document removes the old source and its derived knowledge.";
+
 /**
  * Settings > Knowledge: what the assistant answers from, as one readable text.
  *
@@ -38,6 +44,10 @@ export default function KnowledgePage() {
   const [workspace, setWorkspace] = useState<ReviewWorkspace | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [priceConflict, setPriceConflict] = useState<string | null>(null);
+  /** W-11c: the failed record a Replace is running for - set by the Replace
+   *  button, consumed by the shared file input, so a picked file replaces
+   *  that record instead of being added as a new one. */
+  const [replaceTarget, setReplaceTarget] = useState<KnowledgeRecord | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function refresh() {
@@ -79,6 +89,18 @@ export default function KnowledgePage() {
     }
   }
 
+  /** Upload one file as a draft (the backend fixes doc_type to "other"). Shared
+   *  by add and replace - replace only deletes the old record after this
+   *  succeeds, so a failed upload leaves the old source untouched. */
+  async function uploadDraft(file: File): Promise<KnowledgeRecord> {
+    const form = new FormData();
+    form.append("file", file);
+    return apiFetch<KnowledgeRecord>("/api/knowledge/drafts/upload", {
+      method: "POST",
+      body: form,
+    });
+  }
+
   async function addFile(file: File) {
     const verdict = describeUpload(file.name);
     if (!verdict.accepted) {
@@ -88,12 +110,7 @@ export default function KnowledgePage() {
     setError(null);
     setWorking(`Reading ${file.name}…`);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const draft = await apiFetch<KnowledgeRecord>("/api/knowledge/drafts/upload", {
-        method: "POST",
-        body: form,
-      });
+      const draft = await uploadDraft(file);
       await refresh();
       setPriceConflict(null);
       setWorkspace(buildWorkspace([draft], draft.offering_candidates ?? [], draft.id));
@@ -140,18 +157,48 @@ export default function KnowledgePage() {
     }
   }
 
-  /** Re-run the ingest over what is already stored - the retry on a failed row. */
+  /** Re-run the ingest over what is already stored - the retry on a failed
+   *  row. The backend re-reads the stored file and lands the row back on
+   *  status "draft", never publishing anything - saving stays the owner's
+   *  action, and the row just moves to the drafts group above. */
   async function retry(record: KnowledgeRecord) {
     setError(null);
     setWorking("Trying again\u2026");
     try {
-      await apiFetch<KnowledgeRecord>(`/api/knowledge/records/${record.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ sections: record.sections }),
+      await apiFetch<KnowledgeRecord>(`/api/knowledge/${record.id}/retry-draft`, {
+        method: "POST",
       });
       await refresh();
+    } catch {
+      setError("That one can't be retried. Try replacing it.");
+    } finally {
+      setWorking(null);
+    }
+  }
+
+  /** W-11c: process a replacement before deleting the failed record. Upload
+   *  failure (or a rejected file) returns early with the old record untouched
+   *  - the DELETE below never fires unless the new draft actually landed. */
+  async function replace(record: KnowledgeRecord, file: File) {
+    const verdict = describeUpload(file.name);
+    if (!verdict.accepted) {
+      setError(verdict.message);
+      return;
+    }
+    setError(null);
+    setWorking(`Replacing ${sourceLabel(record)}\u2026`);
+    try {
+      await uploadDraft(file);
     } catch (err) {
-      fail(err, "That didn't work either. Try removing it and adding it again.");
+      fail(err, "I couldn't read that file.");
+      setWorking(null);
+      return;
+    }
+    try {
+      await apiFetch(`/api/knowledge/records/${record.id}`, { method: "DELETE" });
+      await refresh();
+    } catch (err) {
+      fail(err, "I couldn't replace that file.");
     } finally {
       setWorking(null);
     }
@@ -260,7 +307,16 @@ export default function KnowledgePage() {
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 event.target.value = "";
-                if (file) void addFile(file);
+                if (!file) return;
+                // W-11c: with a Replace armed, a picked file replaces that
+                // failed record instead of being added as a new one.
+                const target = replaceTarget;
+                if (target) {
+                  setReplaceTarget(null);
+                  void replace(target, file);
+                } else {
+                  void addFile(file);
+                }
               }}
             />
           </div>
@@ -340,6 +396,21 @@ export default function KnowledgePage() {
                           <Icon name="refresh" size={18} />
                         </button>
                       ) : null}
+                      {record.status === "failed" ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReplaceTarget(record);
+                            fileRef.current?.click();
+                          }}
+                          disabled={working !== null}
+                          aria-label={`Replace ${sourceLabel(record)}`}
+                          data-testid="knowledge-replace"
+                          className="flex size-icon-btn items-center justify-center rounded-full text-accent active:opacity-60"
+                        >
+                          <Icon name="swap_horiz" size={18} />
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => void open(record)}
@@ -373,6 +444,19 @@ export default function KnowledgePage() {
               ))}
             </div>
           )}
+
+          {/* W-11c: the Business > Knowledge half of the ticket's privacy
+              disclosure (15-document-review.md, "Privacy disclosure") -
+              verbatim ticket copy, no vendor name. */}
+          <section
+            data-testid="knowledge-privacy-disclosure"
+            className="mt-8 border-t border-hairline pt-6"
+          >
+            <h2 className="text-field-label font-medium uppercase text-ink-a40">
+              How your documents are used
+            </h2>
+            <p className="mt-3 text-prose text-text">{PRIVACY_DISCLOSURE}</p>
+          </section>
         </div>
       </div>
 

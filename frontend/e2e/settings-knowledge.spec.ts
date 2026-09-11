@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { DEMO_USERS, loginAsTenantAdmin } from "./auth-helpers";
+import { draftRecord, recordsStore, stubRecords } from "./knowledge-review-mocks";
 
 // In the containerized e2e runner the backend itself fetches this URL, and
 // localhost:3000 inside that container is not the frontend (F-3) - compose
@@ -7,6 +8,26 @@ import { DEMO_USERS, loginAsTenantAdmin } from "./auth-helpers";
 const SITE_URL =
   process.env.E2E_SITE_URL ?? "http://localhost:3000/fixtures/example-business.html";
 const EDITED = "We fix phones and laptops on the north side, e2e.";
+
+/** W-11c: the Business > Knowledge half of the ticket's privacy disclosure
+ *  (15-document-review.md lines 180-187) - verbatim, no vendor name. */
+const KNOWLEDGE_DISCLOSURE =
+  "Original files are kept in your business's tenant-isolated Agencx file storage, and extracted sections and offerings are saved in its business database. A configured AI provider processes document text to organize it. Only content you approve can be used in customer answers. Files retained after a processing failure are kept so you can retry them. Replacing or removing a document removes the old source and its derived knowledge.";
+
+/** A stored, retryable processing failure - the W-11a shape the page renders
+ *  Retry and Replace for. */
+function failedRecord(overrides: Parameters<typeof draftRecord>[0] = {}): ReturnType<typeof draftRecord> {
+  return draftRecord({
+    id: "failed-1",
+    filename: "menu.txt",
+    status: "failed",
+    error: "Extraction failed",
+    failure_stage: "extract",
+    failure_retryable: true,
+    failed_at: "2026-09-11T00:00:00Z",
+    ...overrides,
+  });
+}
 
 /**
  * O-3 Settings > Knowledge: an owner adds a source, reads back what we made of
@@ -69,4 +90,131 @@ test("a pasted link is read back as sections, then saved", async ({
       timeout: 30_000,
     },
   );
+});
+
+/**
+ * W-11c: failed-source recovery on Business > Knowledge, fully mocked - no
+ * LLM needed. The retry-draft stub flips the store's failed row to a draft,
+ * exactly what the backend does (re-read the stored file, land on
+ * status "draft", never publish).
+ */
+test("a failed source retries into a draft", async ({ page, request }) => {
+  const store = recordsStore([failedRecord()]);
+  await stubRecords(page, store);
+  await page.route("**/api/knowledge/*/retry-draft", (route) => {
+    store.records = store.records.map((record) =>
+      record.id === "failed-1"
+        ? {
+            ...record,
+            status: "draft",
+            error: null,
+            extraction_status: "full",
+            sections: [
+              { heading: "Hours", body: "9 to 5, Monday to Friday", kind: "hours" },
+            ],
+          }
+        : record,
+    );
+    return route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(store.records[0]),
+    });
+  });
+
+  await loginAsTenantAdmin(page, request, DEMO_USERS[0]);
+  await page.goto("/business/details/knowledge");
+
+  const failed = page.locator("article").filter({ hasText: "menu.txt" });
+  await expect(failed).toBeVisible();
+  await expect(failed.getByTestId("knowledge-retry")).toBeVisible();
+
+  await failed.getByTestId("knowledge-retry").click();
+
+  // The row leaves "What your assistant knows" and joins the drafts group -
+  // reviewable, but the retry never auto-opens the sheet and never publishes.
+  const draft = page.getByTestId("knowledge-draft").filter({ hasText: "menu.txt" });
+  await expect(draft).toBeVisible();
+  await expect(draft.getByText("Read it back before it answers anything")).toBeVisible();
+  await expect(failed).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  // The privacy disclosure sits under the lists, verbatim and vendor-free.
+  const disclosure = page.getByTestId("knowledge-privacy-disclosure");
+  await expect(disclosure).toBeVisible();
+  await expect(
+    disclosure.getByRole("heading", { name: "How your documents are used" }),
+  ).toBeVisible();
+  await expect(disclosure.getByText(KNOWLEDGE_DISCLOSURE)).toBeVisible();
+  await expect(disclosure).not.toContainText(/Google|OpenAI|Anthropic|Groq|OpenRouter|Z\.ai/);
+});
+
+/**
+ * W-11c: replace on a failed source, fully mocked - no LLM needed. The
+ * replacement is processed before the old record is deleted: a failed upload
+ * leaves the old source untouched and the DELETE never fires.
+ */
+test("replace succeeds and is safe on failure", async ({ page, request }) => {
+  const store = recordsStore([failedRecord()]);
+  const records = await stubRecords(page, store);
+  let failUpload = true;
+  await page.route("**/api/knowledge/drafts/upload", (route) => {
+    if (failUpload) {
+      return route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({
+          type: "about:blank",
+          title: "Internal Server Error",
+          status: 500,
+          detail: "Upload failed",
+          code: "upstream_error",
+        }),
+      });
+    }
+    const filename =
+      route.request().postData()?.match(/filename="([^"]+)"/)?.[1] ?? "replacement.txt";
+    const record = draftRecord({ id: "replacement-1", filename });
+    store.records = [...store.records, record];
+    return route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify(record),
+    });
+  });
+
+  await loginAsTenantAdmin(page, request, DEMO_USERS[0]);
+  await page.goto("/business/details/knowledge");
+
+  const failed = page.locator("article").filter({ hasText: "menu.txt" });
+  await expect(failed).toBeVisible();
+  await expect(failed.getByTestId("knowledge-replace")).toBeVisible();
+
+  // Failure path: the upload 500s, so the DELETE never fires and the old
+  // failed source stays exactly as it was, with the error surfaced.
+  await failed.getByTestId("knowledge-replace").click();
+  await page.getByTestId("knowledge-file-input").setInputFiles({
+    name: "new-menu.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("New contents"),
+  });
+  await expect(page.getByTestId("knowledge-error")).toHaveText("Upload failed");
+  expect(records.deleteCount()).toBe(0);
+  await expect(failed).toBeVisible();
+
+  // Success path: the new draft lands first, then the old record is deleted
+  // exactly once and the list refetches - the replacement is in the drafts
+  // group and the failed row is gone.
+  failUpload = false;
+  await failed.getByTestId("knowledge-replace").click();
+  await page.getByTestId("knowledge-file-input").setInputFiles({
+    name: "new-menu.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("New contents"),
+  });
+  await expect.poll(() => records.deleteCount()).toBe(1);
+  expect(records.deletedIds()).toEqual(["failed-1"]);
+  await expect(
+    page.getByTestId("knowledge-draft").filter({ hasText: "new-menu.txt" }),
+  ).toBeVisible();
+  await expect(page.locator("article").filter({ hasText: "menu.txt" })).toHaveCount(0);
 });
