@@ -1050,21 +1050,31 @@ export default function OnboardingPage() {
 
       <div className="relative z-[1] shrink-0 px-gutter pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
         <div className="mx-auto w-full max-w-thread">
-          {/* W-11b: a minimal stopgap so a closed-but-unfinished draft has any
-              way back at all - onboarding had none before this ticket. The
-              recorded story (15-document-review.md) asks for a persistent
-              "Documents ready to review" card with a source count; W-11c
-              ships that, matched against the shipped-component reference
-              per convention 6, and replaces this bare button. */}
+          {/* W-11c: the persistent "Documents ready to review" card from
+              15-document-review.md - a closed-but-unfinished draft always has
+              a way back. Replaces the W-11b bare button; the button keeps the
+              W-11b testid so onboarding-url.spec.ts still finds it. Styled
+              after the home screen's BriefCard (same surface). */}
           {!open && drafts.length > 0 ? (
-            <Button
-              variant="secondary"
-              onClick={() => setOpen(true)}
-              className="mb-3"
-              data-testid="onboarding-reopen-review"
+            <div
+              data-testid="onboarding-ready-card"
+              className="mt-4 animate-rise rounded-card border border-hairline bg-surface px-[18px] py-4 shadow-card"
             >
-              Review documents
-            </Button>
+              <p className="text-card-hl font-medium text-text">Documents ready to review</p>
+              <p className="mt-1 text-meta text-ink-a40">
+                {drafts.length === 1
+                  ? "1 source is read and waiting"
+                  : `${drafts.length} sources are read and waiting`}
+              </p>
+              <Button
+                variant="secondary"
+                onClick={() => setOpen(true)}
+                className="mt-3 w-full sm:w-auto"
+                data-testid="onboarding-reopen-review"
+              >
+                Review documents
+              </Button>
+            </div>
           ) : null}
           {!completed && canConfirm && !workspace ? (
             <div className="flex flex-col gap-3">
@@ -1131,6 +1141,15 @@ export default function OnboardingPage() {
             className={`mt-2 h-4 text-meta ${error ? "text-danger" : "text-text-secondary"}`}
           >
             {error ?? ""}
+          </p>
+          {/* W-11c: the onboarding half of the ticket's privacy disclosure
+              (15-document-review.md, "Privacy disclosure") - unconditional,
+              verbatim ticket copy, no vendor name. */}
+          <p
+            data-testid="onboarding-privacy-disclosure"
+            className="mt-2 text-meta text-ink-a40"
+          >
+            {"Your documents are stored in your business's tenant-isolated Agencx storage. A configured AI provider processes the text to organize facts and offerings. Documents cannot be used in customer answers until you review and save them."}
           </p>
         </div>
       </div>
