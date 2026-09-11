@@ -367,7 +367,7 @@ export function CustomerChat({
                 Stop
               </Button>
             ) : (
-              <Button type="submit" loading={busy} aria-label="Send message">
+              <Button type="submit" loading={busy} aria-label="Send">
                 <Icon name="send" size={20} />
               </Button>
             )}

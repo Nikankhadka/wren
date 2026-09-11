@@ -48,7 +48,7 @@ async function ask(page: Page, question = "What do you charge for a screen?") {
     await expect(box).toHaveCount(1);
     await box.fill(question);
   }).toPass({ timeout: 15_000 });
-  await page.getByRole("button", { name: "Send message" }).click();
+  await page.getByRole("button", { name: "Send" }).click();
 }
 
 test.describe("the typing indicator spans the turn", () => {
