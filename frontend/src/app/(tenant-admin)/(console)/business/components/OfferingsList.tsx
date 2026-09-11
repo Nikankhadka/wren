@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
+import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
+import { Modal } from "@/components/ui/Modal";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { ApiError, apiFetch } from "@/lib/api";
 
@@ -252,28 +254,19 @@ export function OfferingsList() {
         <p className="mt-3 text-prose text-ink-a40">Nothing added yet.</p>
       ) : null}
 
-      {editing !== null ? (
+      <Modal
+        open={editing !== null}
+        onClose={close}
+        title={editing === "new" ? "New offering" : "Edit offering"}
+      >
+        {editing !== null ? (
         <form
-          className="mt-4 rounded-card border border-border bg-surface p-3"
           onSubmit={(event) => {
             event.preventDefault();
             void save();
           }}
         >
-          <div className="flex items-start justify-between gap-2">
-            <span className="text-meta text-ink-a40">
-              {editing === "new" ? "New offering" : "Edit offering"}
-            </span>
-            <button
-              type="button"
-              onClick={close}
-              disabled={working}
-              className="text-action text-ink-a40 transition-colors duration-(--duration-fast) hover:underline active:opacity-60 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-          </div>
-          <div className="mt-2 flex gap-2">
+          <div className="flex gap-2">
             <input
               autoFocus
               required
@@ -306,9 +299,9 @@ export function OfferingsList() {
           <details
             open={detailsOpen}
             onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
-            className="mt-2 rounded-field border border-border bg-surface px-3 py-2"
+            className="mt-2"
           >
-            <summary className="cursor-pointer text-field-label font-medium uppercase text-ink-a40">
+            <summary className="cursor-pointer text-field-label font-medium uppercase text-ink-a40 transition-colors duration-(--duration-fast) hover:text-text active:opacity-60">
               Add details
             </summary>
             <label className="mt-3 block text-field-label font-medium uppercase text-ink-a40">
@@ -337,20 +330,23 @@ export function OfferingsList() {
               </button>
             ) : null}
           </details>
-          <div className="mt-3 flex justify-end">
-            <button
+          <div className="mt-4 flex justify-end gap-2">
+            <Button
               type="submit"
-              disabled={working || !form.name.trim()}
+              loading={working}
+              disabled={!form.name.trim()}
               data-testid="offering-save"
-              className="rounded-field bg-brand px-4 py-2 text-action font-medium text-text-inverse hover:brightness-95 active:brightness-90 disabled:opacity-50"
             >
               Save
-            </button>
+            </Button>
+            <Button type="button" variant="secondary" onClick={close} disabled={working}>
+              Cancel
+            </Button>
           </div>
         </form>
-      ) : loadError ? (
-        <p className="mt-3 text-meta text-danger">{loadError}</p>
-      ) : null}
+        ) : null}
+      </Modal>
+      {loadError ? <p className="mt-3 text-meta text-danger">{loadError}</p> : null}
       {confirmDialog}
     </section>
   );

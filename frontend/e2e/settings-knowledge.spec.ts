@@ -224,6 +224,33 @@ test("replace succeeds and is safe on failure", async ({ page, request }) => {
 });
 
 /**
+ * The review sheet is always mounted so its slide transition has something to
+ * animate between; while closed it must sit entirely outside the viewport. On
+ * mobile it is anchored to the viewport bottom, so `translate-y-full` clears
+ * it. On desktop it is inset 2rem from the top as well as the bottom
+ * (`sm:inset-y-8`) and capped at max-h-85%, so translating by its own height
+ * stopped short - 712px on an 800px viewport - and left its header as a strip
+ * over the page beneath it.
+ */
+test("the closed review sheet stays fully off-screen on desktop", async ({
+  page,
+  request,
+}) => {
+  await loginAsTenantAdmin(page, request, DEMO_USERS[0]);
+  await page.goto("/business/details/knowledge");
+  await expect(page.getByTestId("knowledge-url-input")).toBeVisible();
+
+  // Not getByRole's accessible name: the closed sheet is `inert`, so its
+  // `aria-labelledby` title contributes no name while it is hidden.
+  const sheet = page.locator('[role="dialog"]', { hasText: "Edit what I know" });
+  const box = await sheet.boundingBox();
+  const viewport = page.viewportSize();
+  expect(box).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(box!.y).toBeGreaterThanOrEqual(viewport!.height);
+});
+
+/**
  * Discarding from the review sheet asks first for a document that already
  * has a saved version - a draft never answered anything and skips the
  * question. Fully mocked: the saved record carries sections, so opening it

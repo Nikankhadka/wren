@@ -93,7 +93,17 @@ export function Sheet({ open, onClose, title, children, desktop = false }: Sheet
           "absolute inset-x-0 bottom-0 flex max-h-[85%] flex-col rounded-t-[28px] bg-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-sheet",
           desktop ? "sm:inset-y-8 sm:mx-auto sm:max-w-[48rem] sm:rounded-card" : "",
           "transition-transform duration-(--duration-push) ease-push",
-          open ? "translate-y-0" : "translate-y-full",
+          open
+            ? "translate-y-0"
+            : desktop
+              ? // The desktop variant is inset from the top as well as the bottom
+                // (`sm:inset-y-8`) and capped at max-h-85%, so translating by its
+                // own height - the mobile behavior - stops its top short of the
+                // viewport (e.g. 712px on an 800px screen) and leaves its header
+                // peeking above the fold. A full viewport minus the 2rem top
+                // inset clears it at any panel height.
+                "translate-y-full sm:translate-y-[calc(100vh_-_2rem)]"
+              : "translate-y-full",
         ].join(" ")}
       >
         <div className="mx-auto mb-3 h-1 w-[42px] shrink-0 rounded-full bg-surface-container-high" />
