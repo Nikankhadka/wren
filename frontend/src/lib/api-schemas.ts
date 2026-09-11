@@ -25,3 +25,10 @@ export type BookingPage = Schemas["BookingPageResponse"];
 // business details screen and both of its edit sheets.
 export type BusinessProfile = Schemas["BusinessProfile"];
 export type ProfileUpdate = Schemas["ProfileUpdate"];
+// W-11c: the onboarding batch save answers with every published/failed
+// document id plus the surviving candidates. The candidates come back in the
+// Output shape (fields optional, pydantic defaults omitted) - pages normalize
+// to the local PendingOffering shape at the API boundary.
+export type OnboardingKnowledgeBatchResponse =
+  Schemas["OnboardingKnowledgeBatchResponse"];
+export type PendingOfferingOutput = Schemas["PendingOffering-Output"];

@@ -126,6 +126,51 @@ export function reconcileOfferings(
   return survivors;
 }
 
+/** W-11c: adopt the server's candidates after a batch save. Every submitted
+ *  document counts as replaced - the ones that published left the review, and
+ *  the ones that hard-failed lost their candidates server-side - so one
+ *  reconcileOfferings pass runs per submitted document. Rows the server kept
+ *  merge by name; rows it withheld (support confined to a hard-failed
+ *  document) drop unless the owner edited them, in which case they orphan so
+ *  the edit survives. Mirrors the candidate filter in flow.py
+ *  save_onboarding_knowledge_batch plus the client-side edit protection. */
+export function reconcileAfterSave(
+  existing: ReviewOffering[],
+  incoming: ReviewOffering[],
+  submittedDocuments: KnowledgeRecord[],
+  editedCandidateIds: Set<string>,
+): ReviewOffering[] {
+  let next = existing;
+  for (const document of submittedDocuments) {
+    next = reconcileOfferings(next, incoming, document.id, editedCandidateIds);
+  }
+  return next;
+}
+
+/** W-11c: fold newly added documents' candidates into the live review list
+ *  without disturbing it. Name-matched rows merge in place (the same
+ *  mergeOffering policy as the workspace build - document content wins,
+ *  sources and supporting ids union), unmatched rows append in record order.
+ *  Position is preserved for matched rows, which lets the sheet keep its
+ *  dirty marks by index. */
+export function mergeIncomingCandidates(
+  existing: ReviewOffering[],
+  records: KnowledgeRecord[],
+): ReviewOffering[] {
+  const next = [...existing];
+  for (const record of records) {
+    for (const item of record.offering_candidates ?? []) {
+      const key = normalizeOfferingName(item.name);
+      const index = next.findIndex(
+        (candidate) => normalizeOfferingName(candidate.name) === key,
+      );
+      if (index >= 0) next[index] = mergeOffering(next[index], item);
+      else next.push(item);
+    }
+  }
+  return next;
+}
+
 /** The source line on an offering card: orphaned rows explain themselves,
  *  owner rows are the owner's own words, document rows name their files. */
 export function offeringLabel(offering: PendingOffering, documents: KnowledgeRecord[]): string {

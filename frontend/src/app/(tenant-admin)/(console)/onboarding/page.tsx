@@ -19,6 +19,10 @@ import { ThinkingDots } from "@/components/ui/ThinkingDots";
 import { useAuth } from "@/components/AuthProvider";
 import { apiFetch, apiFetchStream, ApiError } from "@/lib/api";
 import {
+  type OnboardingKnowledgeBatchResponse,
+  type PendingOfferingOutput,
+} from "@/lib/api-schemas";
+import {
   describeUpload,
   foldReply,
   parseOnboardingEvent,
@@ -156,6 +160,34 @@ function confirmFailureDetail(err: ApiError): string {
 }
 
 /**
+ * W-11c: the batch endpoint answers with the generated PendingOffering-Output
+ * shape (every field optional - pydantic omits defaults); the review stack
+ * works in the local PendingOffering shape (price_cents and sources
+ * guaranteed). Normalize once at the API boundary.
+ */
+function toPendingOfferings(
+  candidates: PendingOfferingOutput[],
+): PendingOffering[] {
+  return candidates.map((candidate) => ({
+    name: candidate.name,
+    candidate_id: candidate.candidate_id,
+    description: candidate.description,
+    price_cents: candidate.price_cents ?? null,
+    sources: candidate.sources ?? ["document"],
+    source_references: candidate.source_references?.map((reference) => ({
+      ...reference,
+      supported_fields: reference.supported_fields ?? [],
+    })),
+    supporting_document_ids: candidate.supporting_document_ids,
+    support_state: candidate.support_state ?? "supported",
+    price_note: candidate.price_note,
+    needs_review: candidate.needs_review,
+    possible_matches: candidate.possible_matches,
+    price_options: candidate.price_options,
+  }));
+}
+
+/**
  * The onboarding interview. Ported from the ONBOARDING section of
  * docs/agencx/design/prototypes/agencx-prototype-v6.html: a full-bleed thread
  * that IS the screen - no title, no nav, and no progress surface of any kind
@@ -249,7 +281,9 @@ export default function OnboardingPage() {
         setDrafts(pending);
         if (pending[0]) {
           setCanConfirm(false);
-          setWorkspace(buildWorkspace([pending[0]], state.offering_candidates ?? [], pending[0].id));
+          // W-11c: the combined review opens over every pending draft, not the
+          // first one - the sheet's Sources panel reviews them together.
+          setWorkspace(buildWorkspace(pending, state.offering_candidates ?? [], pending[0].id));
           setOpen(true);
         }
         const restored = historyToMessages(state.history);
@@ -383,7 +417,9 @@ export default function OnboardingPage() {
       setDrafts(pending);
       if (pending[0]) {
         setCanConfirm(false);
-        setWorkspace(buildWorkspace([pending[0]], ownerOfferings, pending[0].id));
+        // W-11b/W-11c: keep the workspace id across rebuilds so the sheet
+        // never remounts mid-session, and review every pending draft together.
+        setWorkspace(buildWorkspace(pending, ownerOfferings, workspace?.id ?? pending[0].id));
         setOpen(true);
       }
     } catch (err) {
@@ -493,100 +529,78 @@ export default function OnboardingPage() {
   }
 
   /**
-   * Files attached through the pill's "+". Each file gets its own stamp and its
-   * own line, uploaded three at a time (W-11c) so the thread reads in order.
-   * Knowledge is never a blocking beat: a refused or failed file leaves one calm
-   * line and the interview carries on. The review sheet opens only once every
-   * file has settled - never on the first accepted draft.
-   *
-   * ponytail: the stamps are client-side only - the ingested document is
-   * persisted, its stamp is not, so a reload shows the thread without them.
-   * Persisting them needs an onboarding-side record of the attachment.
+   * W-11c: the shared upload core behind the composer's "+" and the review
+   * sheet's Add source and Replace paths. A batch caps at five files, uploaded
+   * three at a time; every file gets its own stamp up front and settles to
+   * "· ready" or "· failed". Returns the accepted draft records in input order.
+   * A stored failure (a 201 with status "failed") is never returned - the file
+   * is kept in Knowledge for retry, and never joins drafts or the workspace.
+   * Callers own the busy state and the follow-up drafts/workspace surgery.
    */
-  async function uploadFiles(files: File[]) {
-    if (busy) return;
-    setError(null);
-    setBusy(true);
-    const accepted: KnowledgeRecord[] = [];
-    try {
-      // W-11c: a batch caps at five files - the first five are processed, the
-      // rest are turned away in one line.
-      const batch = files.slice(0, MAX_BATCH_FILES);
-      if (files.length > MAX_BATCH_FILES) {
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", text: "I can take up to 5 files at once..." },
-        ]);
-      }
-      // describeUpload rejections (an image, an unknown extension) answer at
-      // once with no stamp; accepted files get their pending stamp up front,
-      // in input order, before any upload starts.
-      const queue: { file: File; stampId: string }[] = [];
-      for (const file of batch) {
-        const verdict = describeUpload(file.name);
-        if (!verdict.accepted) {
-          setMessages((prev) => [
-            ...prev,
-            { role: "assistant", text: verdict.message },
-          ]);
-          continue;
-        }
-        const stampId = crypto.randomUUID();
-        queue.push({ file, stampId });
-        // W-3: the stamp itself carries the animated processing state
-        // (ThinkingDots, rendered beside `message.text` in the thread) instead
-        // of a frozen "adding\u2026" suffix - reading and scrolling stay available
-        // while extraction runs, and `pending` is always resolved explicitly
-        // below, on both the success and the failure path.
-        setMessages((prev) => [
-          ...prev,
-          { id: stampId, role: "stamp", text: file.name, pending: true },
-        ]);
-      }
-      const results = await runBounded(
-        queue.map((entry) => () => uploadOne(entry)),
-        MAX_CONCURRENT_UPLOADS,
-      );
-      for (let index = 0; index < results.length; index += 1) {
-        const result = results[index];
-        if (result.status === "fulfilled" && result.value) {
-          accepted.push(result.value);
-        } else if (result.status === "rejected") {
-          const { file, stampId } = queue[index];
-          const err = result.reason;
-          updateById(stampId, {
-            text: `${file.name} \u00b7 failed`,
-            pending: false,
-          });
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              text:
-                err instanceof ApiError && err.detail
-                  ? `I couldn't read that one. ${err.detail} ${UPLOAD_RECOVERY}`
-                  : `I couldn't read that one. ${UPLOAD_RECOVERY}`,
-            },
-          ]);
-        }
-      }
-      if (accepted.length > 0) {
-        setCanConfirm(false);
-        // W-11c: one rebuild after everything settles - never per draft. The
-        // workspace id carries over so the sheet does not remount mid-flight.
-        setDrafts((previous) => [...previous, ...accepted]);
-        setWorkspace(
-          buildWorkspace(
-            [...(workspace?.documents ?? []), ...accepted],
-            ownerOfferings,
-            workspace?.id,
-          ),
-        );
-        setOpen(true);
-      }
-    } finally {
-      setBusy(false);
+  async function uploadDrafts(files: File[]): Promise<KnowledgeRecord[]> {
+    // W-11c: a batch caps at five files - the first five are processed, the
+    // rest are turned away in one line.
+    const batch = files.slice(0, MAX_BATCH_FILES);
+    if (files.length > MAX_BATCH_FILES) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", text: "I can take up to 5 files at once..." },
+      ]);
     }
+    // describeUpload rejections (an image, an unknown extension) answer at
+    // once with no stamp; accepted files get their pending stamp up front,
+    // in input order, before any upload starts.
+    const queue: { file: File; stampId: string }[] = [];
+    for (const file of batch) {
+      const verdict = describeUpload(file.name);
+      if (!verdict.accepted) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", text: verdict.message },
+        ]);
+        continue;
+      }
+      const stampId = crypto.randomUUID();
+      queue.push({ file, stampId });
+      // W-3: the stamp itself carries the animated processing state
+      // (ThinkingDots, rendered beside `message.text` in the thread) instead
+      // of a frozen "adding\u2026" suffix - reading and scrolling stay available
+      // while extraction runs, and `pending` is always resolved explicitly
+      // below, on both the success and the failure path.
+      setMessages((prev) => [
+        ...prev,
+        { id: stampId, role: "stamp", text: file.name, pending: true },
+      ]);
+    }
+    const accepted: KnowledgeRecord[] = [];
+    const results = await runBounded(
+      queue.map((entry) => () => uploadOne(entry)),
+      MAX_CONCURRENT_UPLOADS,
+    );
+    for (let index = 0; index < results.length; index += 1) {
+      const result = results[index];
+      const { file, stampId } = queue[index];
+      if (result.status === "fulfilled" && result.value) {
+        accepted.push(result.value);
+      } else if (result.status === "rejected") {
+        const err = result.reason;
+        updateById(stampId, {
+          text: `${file.name} \u00b7 failed`,
+          pending: false,
+        });
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            text:
+              err instanceof ApiError && err.detail
+                ? `I couldn't read that one. ${err.detail} ${UPLOAD_RECOVERY}`
+                : `I couldn't read that one. ${UPLOAD_RECOVERY}`,
+          },
+        ]);
+      }
+    }
+    return accepted;
 
     async function uploadOne(entry: {
       file: File;
@@ -634,55 +648,282 @@ export default function OnboardingPage() {
     }
   }
 
-  function nextDraft(excluding: string): KnowledgeRecord | null {
-    return drafts.find((draft) => draft.id !== excluding) ?? null;
+  /**
+   * Files attached through the pill's "+". Knowledge is never a blocking beat:
+   * a refused or failed file leaves one calm line and the interview carries
+   * on. The review sheet opens only once every file has settled - never on the
+   * first accepted draft.
+   *
+   * ponytail: the stamps are client-side only - the ingested document is
+   * persisted, its stamp is not, so a reload shows the thread without them.
+   * Persisting them needs an onboarding-side record of the attachment.
+   */
+  async function uploadFiles(files: File[]) {
+    if (busy) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const accepted = await uploadDrafts(files);
+      if (accepted.length > 0) {
+        setCanConfirm(false);
+        // W-11c: one rebuild after everything settles - never per draft. The
+        // workspace id carries over so the sheet does not remount mid-flight.
+        setDrafts((previous) => [...previous, ...accepted]);
+        setWorkspace(
+          buildWorkspace(
+            [...(workspace?.documents ?? []), ...accepted],
+            ownerOfferings,
+            workspace?.id,
+          ),
+        );
+        setOpen(true);
+      }
+    } finally {
+      setBusy(false);
+    }
   }
 
-  async function saveKnowledge(
-    documents: { document_id: string; sections: KnowledgeSection[] }[],
-    offerings: PendingOffering[],
-  ): Promise<PendingOffering[] | null> {
-    if (!workspace) return null;
-    const documentId = workspace.documents[0].id;
+  /**
+   * W-11c: Add source from inside the review sheet. Same upload core as the
+   * composer, then the workspace grows by the accepted records (id stable -
+   * W-11b) and the sheet merges their candidates into its own list.
+   */
+  async function addSources(files: File[]): Promise<KnowledgeRecord[]> {
+    if (busy) return [];
+    setError(null);
     setReviewError(null);
     setBusy(true);
     try {
-      const response = await apiFetch<{
-        record: KnowledgeRecord;
-        offering_candidates: PendingOffering[];
-      }>(`/api/onboarding/knowledge/${documentId}`, {
-        method: "PUT",
-        body: JSON.stringify({ sections: documents[0]?.sections ?? [], offerings }),
-      });
-      const remaining = nextDraft(documentId);
-      setOwnerOfferings(response.offering_candidates);
-      setDrafts((previous) => previous.filter((draft) => draft.id !== documentId));
-      setWorkspace(remaining ? buildWorkspace([remaining], response.offering_candidates, remaining.id) : null);
-      setOpen(remaining !== null);
-      setCanConfirm(!remaining);
-      return response.offering_candidates;
+      const accepted = await uploadDrafts(files);
+      if (accepted.length > 0) {
+        setCanConfirm(false);
+        setDrafts((previous) => [...previous, ...accepted]);
+        setWorkspace(
+          buildWorkspace(
+            [...(workspace?.documents ?? []), ...accepted],
+            ownerOfferings,
+            workspace?.id,
+          ),
+        );
+      }
+      return accepted;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * W-11c: replace one source from the review sheet. Upload first, then delete
+   * the old record only once the new one is a reviewable draft - an upload
+   * failure returns null with the old document untouched and the DELETE never
+   * fired. A delete failure after a successful upload surfaces the error and
+   * refreshes the record list (the orphaned new draft is then visible and
+   * recoverable); the old document is still there.
+   */
+  async function replaceSource(
+    documentId: string,
+    file: File,
+  ): Promise<KnowledgeRecord | null> {
+    if (busy) return null;
+    setError(null);
+    setReviewError(null);
+    setBusy(true);
+    try {
+      const accepted = await uploadDrafts([file]);
+      const uploaded = accepted[0];
+      if (!uploaded) return null;
+      try {
+        await apiFetch(`/api/knowledge/records/${documentId}`, {
+          method: "DELETE",
+        });
+      } catch (err) {
+        setReviewError(
+          err instanceof ApiError
+            ? err.detail
+            : "I couldn't replace that source. Your old one is still there - try again.",
+        );
+        const records = await apiFetch<KnowledgeRecord[]>(
+          "/api/knowledge/records",
+        ).catch(() => null);
+        if (records) setDrafts(records.filter((record) => record.status === "draft"));
+        return null;
+      }
+      const records = await apiFetch<KnowledgeRecord[]>("/api/knowledge/records");
+      const next = records.find((record) => record.id === uploaded.id) ?? uploaded;
+      setDrafts(records.filter((record) => record.status === "draft"));
+      // Old position replaced with the new record; workspace id stays put.
+      setWorkspace((previous) =>
+        previous
+          ? {
+              ...previous,
+              documents: previous.documents.map((doc) =>
+                doc.id === documentId ? next : doc,
+              ),
+            }
+          : previous,
+      );
+      return next;
     } catch (err) {
-      setReviewError(err instanceof ApiError ? err.detail : "I couldn't save that information.");
+      setReviewError(
+        err instanceof ApiError ? err.detail : "I couldn't replace that source.",
+      );
       return null;
     } finally {
       setBusy(false);
     }
   }
 
-  async function discardKnowledge() {
-    if (!workspace) return;
-    const documentId = workspace.documents[0].id;
+  /**
+   * W-11c: remove one source from the review sheet. Deletes the record, then
+   * refreshes the list. Removing the last document clears the workspace and
+   * unblocks confirm.
+   */
+  async function removeSource(documentId: string): Promise<void> {
+    if (!workspace || busy) return;
+    setError(null);
     setReviewError(null);
     setBusy(true);
     try {
-      await apiFetch(`/api/knowledge/records/${documentId}`, { method: "DELETE" });
-      const remaining = nextDraft(documentId);
-      setDrafts((previous) => previous.filter((draft) => draft.id !== documentId));
-      setWorkspace(remaining ? buildWorkspace([remaining], ownerOfferings, remaining.id) : null);
-      setOpen(remaining !== null);
-      setCanConfirm(!remaining);
+      await apiFetch(`/api/knowledge/records/${documentId}`, {
+        method: "DELETE",
+      });
+      const records = await apiFetch<KnowledgeRecord[]>("/api/knowledge/records");
+      const remaining = workspace.documents.filter((doc) => doc.id !== documentId);
+      setDrafts(records.filter((record) => record.status === "draft"));
+      if (remaining.length === 0) {
+        setWorkspace(null);
+        setOpen(false);
+        setCanConfirm(true);
+      } else {
+        setWorkspace({ ...workspace, documents: remaining });
+      }
     } catch (err) {
-      setReviewError(err instanceof ApiError ? err.detail : "I couldn't discard that draft.");
+      setReviewError(
+        err instanceof ApiError ? err.detail : "I couldn't remove that source.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * W-11c: the review save publishes every workspace document in one batch
+   * call. The endpoint always answers 200 - a document's own failure (price
+   * conflict, or a hard failure at publish time) lands in `failed`, never as a
+   * network error, and never aborts the documents that did publish.
+   *
+   * On any failure the workspace is rebuilt over the remaining documents
+   * (refetch /api/knowledge/records, keep the workspace id so the sheet stays
+   * mounted, keep the previous document order) with a per-document `errors`
+   * map and a summary line; the sheet shows the per-doc messages under each
+   * source. On full success the workspace dies, the confirm step unblocks, and
+   * the resolved candidates are returned for the sheet to adopt.
+   */
+  async function saveKnowledge(
+    documents: { document_id: string; sections: KnowledgeSection[] }[],
+    offerings: PendingOffering[],
+    acceptPriceChanges = false,
+  ): Promise<PendingOffering[] | null> {
+    if (!workspace) return null;
+    setReviewError(null);
+    setBusy(true);
+    try {
+      const response = await apiFetch<OnboardingKnowledgeBatchResponse>(
+        "/api/onboarding/knowledge/batch",
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            documents,
+            offerings,
+            accept_price_changes: acceptPriceChanges,
+          }),
+        },
+      );
+      const candidates = toPendingOfferings(response.offering_candidates);
+      const failedIds = new Set(
+        response.failed.map((failure) => failure.document_id),
+      );
+      if (failedIds.size > 0) {
+        const records = await apiFetch<KnowledgeRecord[]>("/api/knowledge/records");
+        // Keep the previous document order; a failure whose document is
+        // already gone (a "document not found" ghost) simply drops out.
+        const remaining: KnowledgeRecord[] = [];
+        for (const doc of workspace.documents) {
+          const record = records.find((candidate) => candidate.id === doc.id);
+          if (record && failedIds.has(record.id)) remaining.push(record);
+        }
+        setOwnerOfferings(candidates);
+        setDrafts(records.filter((record) => record.status === "draft"));
+        if (remaining.length === 0) {
+          // Every failure was a ghost (document already gone) - treat the
+          // batch as done rather than leaving an empty sheet behind.
+          setWorkspace(null);
+          setOpen(false);
+          setCanConfirm(true);
+          return candidates;
+        }
+        const errors: Record<string, string> = {};
+        for (const failure of response.failed) {
+          errors[failure.document_id] = failure.error;
+        }
+        setWorkspace({
+          ...buildWorkspace(remaining, candidates, workspace.id),
+          errors,
+        });
+        setOpen(true);
+        setCanConfirm(false);
+        setReviewError(
+          "Some documents couldn't be saved. See the message under each source, then save again.",
+        );
+        return candidates;
+      }
+      setOwnerOfferings(candidates);
+      setDrafts([]);
+      setWorkspace(null);
+      setOpen(false);
+      setCanConfirm(true);
+      return candidates;
+    } catch (err) {
+      // A network-level failure - the batch never ran, nothing published.
+      setReviewError(
+        err instanceof ApiError
+          ? err.detail
+          : "I couldn't save that information.",
+      );
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * W-11c: discard deletes every document still in the review, not just the
+   * first - per-source Remove covers individuals. All published-side drafts go
+   * with the workspace, and confirm unblocks.
+   */
+  async function discardKnowledge() {
+    if (!workspace) return;
+    setReviewError(null);
+    setBusy(true);
+    try {
+      await Promise.all(
+        workspace.documents.map((doc) =>
+          apiFetch(`/api/knowledge/records/${doc.id}`, { method: "DELETE" }),
+        ),
+      );
+      const discarded = new Set(workspace.documents.map((doc) => doc.id));
+      setDrafts((previous) =>
+        previous.filter((draft) => !discarded.has(draft.id)),
+      );
+      setWorkspace(null);
+      setOpen(false);
+      setCanConfirm(true);
+    } catch (err) {
+      setReviewError(
+        err instanceof ApiError
+          ? err.detail
+          : "I couldn't discard those drafts.",
+      );
     } finally {
       setBusy(false);
     }
@@ -903,8 +1144,13 @@ export default function OnboardingPage() {
           setReviewError(null);
           setOpen(false);
         }}
-        onSave={(documents, offerings) => saveKnowledge(documents, offerings)}
+        onSave={(documents, offerings, acceptPriceChanges) =>
+          saveKnowledge(documents, offerings, acceptPriceChanges)
+        }
         onDiscard={() => void discardKnowledge()}
+        onAddSource={(files) => addSources(files)}
+        onReplaceSource={(documentId, file) => replaceSource(documentId, file)}
+        onRemoveSource={(documentId) => removeSource(documentId)}
       />
     </main>
   );

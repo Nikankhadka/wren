@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   buildWorkspace,
+  mergeIncomingCandidates,
   mergeOffering,
   offeringLabel,
+  reconcileAfterSave,
   reconcileOfferings,
   withCombinedOfferings,
 } from "./offerings";
@@ -239,6 +241,121 @@ describe("reconcileOfferings", () => {
     const result = reconcileOfferings(existing, incoming, doc1, new Set());
     expect(result.map((item) => item.name)).toEqual(["Tea", "Bowl"]);
     expect(result[1].supporting_document_ids).toEqual([doc2]);
+  });
+});
+
+describe("reconcileAfterSave", () => {
+  const docA = "doc-a";
+  const docB = "doc-b";
+
+  it("keeps rows the server returned, merged by name, across every submitted document", () => {
+    const existing = [
+      offering({
+        name: "Bowl",
+        supporting_document_ids: [docA],
+        candidate_id: "c1",
+      }),
+      offering({ name: "Tea", sources: ["owner"], candidate_id: "c2" }),
+    ];
+    const incoming = [
+      offering({ name: "Bowl", supporting_document_ids: [docA], candidate_id: "c1" }),
+    ];
+    const result = reconcileAfterSave(
+      existing,
+      incoming,
+      [record({ id: docA }), record({ id: docB })],
+      new Set(),
+    );
+    expect(result.map((item) => item.name)).toEqual(["Bowl", "Tea"]);
+    expect(result[0].supporting_document_ids).toEqual([docA]);
+  });
+
+  it("drops an unedited candidate the server withheld because its only document failed", () => {
+    const existing = [
+      offering({ name: "Bowl", supporting_document_ids: [docA], candidate_id: "c1" }),
+    ];
+    const result = reconcileAfterSave(existing, [], [record({ id: docA })], new Set());
+    expect(result).toEqual([]);
+  });
+
+  it("orphans an edited candidate the server withheld, keeping the owner's work", () => {
+    const existing = [
+      offering({ name: "Bowl", supporting_document_ids: [docA], candidate_id: "c1" }),
+    ];
+    const result = reconcileAfterSave(existing, [], [record({ id: docA })], new Set(["c1"]));
+    expect(result).toHaveLength(1);
+    expect(result[0].support_state).toBe("orphaned");
+    expect(result[0].supporting_document_ids).toEqual([]);
+  });
+
+  it("keeps an owner row untouched when no document supported it", () => {
+    const existing = [offering({ name: "Tea", sources: ["owner"], candidate_id: "c1" })];
+    const result = reconcileAfterSave(existing, [], [record({ id: docA })], new Set());
+    expect(result).toEqual([existing[0]]);
+  });
+
+  it("keeps a row still backed by a surviving document when its other document publishes", () => {
+    const existing = [
+      offering({
+        name: "Bowl",
+        supporting_document_ids: [docA, docB],
+        candidate_id: "c1",
+      }),
+    ];
+    const result = reconcileAfterSave(existing, [], [record({ id: docA })], new Set());
+    expect(result).toHaveLength(1);
+    expect(result[0].supporting_document_ids).toEqual([docB]);
+    expect(result[0].support_state).toBe("supported");
+  });
+});
+
+describe("mergeIncomingCandidates", () => {
+  it("appends new rows in record order after the existing list", () => {
+    const existing = [offering({ name: "Tea", sources: ["owner"] })];
+    const records = [
+      record({ id: "d1", offering_candidates: [offering({ name: "Bowl" })] }),
+      record({ id: "d2", offering_candidates: [offering({ name: "Falafel" })] }),
+    ];
+    const result = mergeIncomingCandidates(existing, records);
+    expect(result.map((item) => item.name)).toEqual(["Tea", "Bowl", "Falafel"]);
+  });
+
+  it("merges a name-matched candidate into the existing position with document content winning", () => {
+    const existing = [
+      offering({
+        name: "Bowl",
+        price_cents: 1000,
+        sources: ["owner"],
+        candidate_id: "owner-1",
+      }),
+    ];
+    const records = [
+      record({
+        id: "d1",
+        offering_candidates: [
+          offering({
+            name: "Bowl",
+            price_cents: 1500,
+            description: "lamb bowl",
+            supporting_document_ids: ["d1"],
+          }),
+        ],
+      }),
+    ];
+    const result = mergeIncomingCandidates(existing, records);
+    expect(result).toHaveLength(1);
+    expect(result[0].price_cents).toBe(1500);
+    expect(result[0].description).toBe("lamb bowl");
+    expect(result[0].sources).toEqual(["owner", "document"]);
+    expect(result[0].supporting_document_ids).toEqual(["d1"]);
+  });
+
+  it("leaves unrelated rows untouched", () => {
+    const existing = [offering({ name: "Tea", sources: ["owner"], candidate_id: "c1" })];
+    const result = mergeIncomingCandidates(existing, [
+      record({ id: "d1", offering_candidates: [offering({ name: "Bowl" })] }),
+    ]);
+    expect(result[0]).toEqual(existing[0]);
   });
 });
 

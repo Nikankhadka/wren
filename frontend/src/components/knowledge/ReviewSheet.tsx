@@ -1,10 +1,16 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { apiFetch } from "@/lib/api";
+import { ACCEPTED_UPLOAD_EXTENSIONS } from "@/lib/onboarding";
 import { Button } from "@/components/ui/Button";
 import { Sheet } from "@/components/ui/Sheet";
-import { offeringLabel } from "./offerings";
+import {
+  mergeIncomingCandidates,
+  offeringLabel,
+  reconcileAfterSave,
+  reconcileOfferings,
+} from "./offerings";
 import type { KnowledgeRecord, KnowledgeSection, PendingOffering, ReviewOffering, ReviewWorkspace, SourceDetail } from "./types";
 import { sourceLabel } from "./types";
 
@@ -50,38 +56,59 @@ export interface ReviewSheetProps {
    *  list and never re-syncs from the workspace after mount. */
   onSave: (documents: { document_id: string; sections: KnowledgeSection[] }[], offerings: PendingOffering[], acceptPriceChanges?: boolean) => Promise<PendingOffering[] | null>;
   onDiscard: () => void;
-  // W-11c: onboarding-only source actions, wired up in a later phase.
+  // W-11c: onboarding-only source actions. Their presence (onAddSource defined)
+  // is what turns on the Sources panel - the Business page never passes them.
   onAddSource?: (files: File[]) => Promise<KnowledgeRecord[]>;
   onReplaceSource?: (documentId: string, file: File) => Promise<KnowledgeRecord | null>;
   onRemoveSource?: (documentId: string) => Promise<void>;
 }
 
-export function ReviewSheet({ workspace, open, busy, priceConflict, onboarding = false, onClose, onSave, onDiscard }: ReviewSheetProps) {
+export function ReviewSheet({ workspace, open, busy, priceConflict, onboarding = false, onClose, onSave, onDiscard, onAddSource, onReplaceSource, onRemoveSource }: ReviewSheetProps) {
   return <Sheet open={open} onClose={onClose} desktop title={onboarding ? "Review your information" : workspace?.documents[0]?.status === "draft" ? "Read this back" : "Edit what I know"}>
-    {workspace ? <ReviewDocument key={workspace.id} workspace={workspace} busy={busy} priceConflict={priceConflict} onboarding={onboarding} onSave={onSave} onDiscard={onDiscard} /> : null}
+    {workspace ? <ReviewDocument key={workspace.id} workspace={workspace} busy={busy} priceConflict={priceConflict} onboarding={onboarding} onSave={onSave} onDiscard={onDiscard} onAddSource={onAddSource} onReplaceSource={onReplaceSource} onRemoveSource={onRemoveSource} /> : null}
   </Sheet>;
 }
 
-function ReviewDocument({ workspace, busy, priceConflict, onboarding, onSave, onDiscard }: { workspace: ReviewWorkspace; busy: boolean; priceConflict: string | null; onboarding: boolean; onSave: ReviewSheetProps["onSave"]; onDiscard: () => void }) {
-  // W-11c: the sheet reviews several documents together; this phase always has
-  // exactly one, so everything below routes through `record` = documents[0].
-  const record = workspace.documents[0];
-  const [sectionsByDocument, setSectionsByDocument] = useState<Map<string, KnowledgeSection[]>>(() => new Map([[record.id, orderedSections(record.sections)]]));
-  const sections = sectionsByDocument.get(record.id) ?? [];
-  const [offerings, setOfferings] = useState(() => (record.offering_candidates ?? []).map(toWorkingOffering));
+function ReviewDocument({ workspace, busy, priceConflict, onboarding, onSave, onDiscard, onAddSource, onReplaceSource, onRemoveSource }: { workspace: ReviewWorkspace; busy: boolean; priceConflict: string | null; onboarding: boolean; onSave: ReviewSheetProps["onSave"]; onDiscard: () => void; onAddSource?: ReviewSheetProps["onAddSource"]; onReplaceSource?: ReviewSheetProps["onReplaceSource"]; onRemoveSource?: ReviewSheetProps["onRemoveSource"] }) {
+  // W-11c: the sheet reviews every workspace document together. The state map
+  // below is seeded once per workspace.id and never re-synced from the
+  // workspace after mount - W-11b retention (a close/reopen or a
+  // rebuilds-after-save keeps the owner's in-session edits).
+  const [sectionsByDocument, setSectionsByDocument] = useState<Map<string, KnowledgeSection[]>>(() => new Map(workspace.documents.map((doc) => [doc.id, orderedSections(doc.sections)])));
+  const [offerings, setOfferings] = useState(() => (workspace.offering_candidates ?? []).map(toWorkingOffering));
   const [expanded, setExpanded] = useState(offerings.length <= PAGE_SIZE);
   const [page, setPage] = useState(0);
-  const [editingSection, setEditingSection] = useState<number | null>(null);
-  const [source, setSource] = useState<SourceDetail | null>(null);
-  const [sourceLoading, setSourceLoading] = useState(false);
+  const [editingSection, setEditingSection] = useState<{ docId: string; index: number } | null>(null);
+  const [sources, setSources] = useState<Map<string, SourceDetail>>(new Map());
+  const [sourceLoading, setSourceLoading] = useState<string | null>(null);
   const [combine, setCombine] = useState<{ left: string; right: string; price: number | null } | null>(null);
+  const [replaceTarget, setReplaceTarget] = useState<string | null>(null);
+  const [replacingSource, setReplacingSource] = useState<string | null>(null);
+  const [addingSources, setAddingSources] = useState(false);
   const cardRefs = useRef(new Map<string, HTMLInputElement>());
+  // W-11c: every user edit/add/combine marks the row dirty (and enters this
+  // ref) so a later replace orphans it instead of silently dropping it.
+  const editedIdsRef = useRef(new Set<string>());
+  const addFileRef = useRef<HTMLInputElement>(null);
+  const replaceFileRef = useRef<HTMLInputElement>(null);
   const pages = offeringPageCount(offerings.length);
   const currentPage = Math.min(page, pages - 1);
   const visible = expanded ? offeringPage(offerings, currentPage) : offerings.slice(0, PAGE_SIZE);
   const duplicateIds = duplicateOfferingIds(offerings);
   const unresolvedMatches = offerings.reduce((total, item) => total + item.possibleMatches.filter((id) => offerings.some((other) => other.candidate_id === id)).length, 0) / 2;
+  // W-11c: the Sources panel and the per-document actions exist only when the
+  // sheet is used in onboarding mode - the Business page passes no source
+  // props, so its single-document flow stays exactly as it was.
+  const sourcesMode = onAddSource !== undefined;
+  const firstDocument = workspace.documents[0];
+  const labels = workspace.documents.map(sourceLabel).join(", ");
 
+  function sectionsFor(docId: string, doc: KnowledgeRecord): KnowledgeSection[] {
+    // Docs that entered the workspace after mount (a message turn that created
+    // a draft while the sheet was closed) are not in the map - fall back to
+    // the record's own sections instead of showing an empty block.
+    return sectionsByDocument.get(docId) ?? orderedSections(doc.sections);
+  }
   function updateSections(docId: string, update: (previous: KnowledgeSection[]) => KnowledgeSection[]) {
     setSectionsByDocument((previous) => {
       const next = new Map(previous);
@@ -90,13 +117,15 @@ function ReviewDocument({ workspace, busy, priceConflict, onboarding, onSave, on
     });
   }
   function updateOffering(id: string, update: Partial<WorkingOffering>) {
-    setOfferings((previous) => previous.map((item) => item.candidate_id === id ? { ...item, ...update } : item));
+    editedIdsRef.current.add(id);
+    setOfferings((previous) => previous.map((item) => item.candidate_id === id ? { ...item, ...update, dirty: true } : item));
   }
   function removeOffering(id: string) { setOfferings((previous) => previous.filter((item) => item.candidate_id !== id)); }
   function addOffering() {
     const candidate_id = `owner_${crypto.randomUUID()}`;
+    editedIdsRef.current.add(candidate_id);
     setOfferings((previous) => {
-      const next = [...previous, { candidate_id, name: "", description: "", price_cents: null, sources: ["owner"] as ("owner" | "document")[], source_references: [], priceText: "", priceOptions: [], priceNote: "", possibleMatches: [], support_state: "supported" as const, dirty: false }];
+      const next = [...previous, { candidate_id, name: "", description: "", price_cents: null, sources: ["owner"] as ("owner" | "document")[], source_references: [], priceText: "", priceOptions: [], priceNote: "", possibleMatches: [], support_state: "supported" as const, dirty: true }];
       setExpanded(true); setPage(Math.floor((next.length - 1) / PAGE_SIZE)); return next;
     });
     requestAnimationFrame(() => cardRefs.current.get(candidate_id)?.focus());
@@ -114,6 +143,7 @@ function ReviewDocument({ workspace, busy, priceConflict, onboarding, onSave, on
     const prices = [left.price_cents, right.price_cents].filter((price): price is number => price != null);
     if (new Set(prices).size > 1 && combine.price == null) return;
     const price = combine.price ?? retained.price_cents ?? removed.price_cents;
+    editedIdsRef.current.add(retained.candidate_id);
     setOfferings((previous) => previous.filter((item) => item.candidate_id !== removed.candidate_id).map((item) => item.candidate_id !== retained.candidate_id ? item : { ...retained, price_cents: price, priceText: formatPrice(price), description: retained.description || removed.description, sources: [...new Set([...retained.sources, ...removed.sources])], source_references: [...(retained.source_references ?? []), ...(removed.source_references ?? [])], possibleMatches: [...new Set([...retained.possibleMatches, ...removed.possibleMatches])].filter((id) => id !== retained.candidate_id && id !== removed.candidate_id), dirty: true }));
     setCombine(null);
   }
@@ -123,16 +153,86 @@ function ReviewDocument({ workspace, busy, priceConflict, onboarding, onSave, on
       if (target) { setExpanded(true); setPage(Math.floor(offerings.indexOf(target) / PAGE_SIZE)); requestAnimationFrame(() => cardRefs.current.get(target.candidate_id)?.focus()); }
       return;
     }
-    const adopted = await onSave([{ document_id: record.id, sections }], offerings.filter((item) => item.name.trim()).map(toPendingOffering), priceConflict !== null);
-    if (adopted) setOfferings(adopted.map(toWorkingOffering));
+    const documents = workspace.documents.map((doc) => ({ document_id: doc.id, sections: sectionsFor(doc.id, doc) }));
+    const adopted = await onSave(documents, offerings.filter((item) => item.name.trim()).map(toPendingOffering), priceConflict !== null);
+    if (adopted) setOfferings(reconcileAfterSave(offerings, adopted, workspace.documents, editedIdsRef.current).map(toWorkingOffering));
   }
-  async function loadSource() { if (source || sourceLoading) return; setSourceLoading(true); try { setSource(await apiFetch<SourceDetail>(`/api/knowledge/records/${record.id}/source`)); } finally { setSourceLoading(false); } }
+  async function loadSource(docId: string) { if (sources.has(docId) || sourceLoading) return; setSourceLoading(docId); try { const detail = await apiFetch<SourceDetail>(`/api/knowledge/records/${docId}/source`); setSources((previous) => { const next = new Map(previous); next.set(docId, detail); return next; }); } finally { setSourceLoading(null); } }
+  async function handleAddFiles(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (files.length === 0 || !onAddSource) return;
+    setAddingSources(true);
+    try {
+      const records = await onAddSource(files);
+      if (records.length > 0) {
+        setSectionsByDocument((previous) => {
+          const next = new Map(previous);
+          for (const record of records) next.set(record.id, orderedSections(record.sections));
+          return next;
+        });
+        setOfferings((previous) => {
+          const merged = mergeIncomingCandidates(previous, records);
+          return merged.map((item, index) => {
+            const working = toWorkingOffering(item);
+            if (index < previous.length && previous[index].dirty) {
+              working.dirty = true;
+              editedIdsRef.current.add(working.candidate_id);
+            }
+            return working;
+          });
+        });
+      }
+    } finally {
+      setAddingSources(false);
+    }
+  }
+  async function handleReplaceFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    const documentId = replaceTarget;
+    setReplaceTarget(null);
+    if (!file || !documentId || !onReplaceSource) return;
+    setReplacingSource(documentId);
+    try {
+      // null means the upload failed - the page's DELETE never fired and the
+      // old document is untouched, so everything below stays as it was.
+      const next = await onReplaceSource(documentId, file);
+      if (!next) return;
+      setSectionsByDocument((previous) => {
+        const updated = new Map(previous);
+        updated.delete(documentId);
+        updated.set(next.id, orderedSections(next.sections));
+        return updated;
+      });
+      setSources((previous) => { const updated = new Map(previous); updated.delete(documentId); return updated; });
+      setOfferings((previous) => reconcileOfferings(previous, next.offering_candidates ?? [], documentId, editedIdsRef.current).map(toWorkingOffering));
+    } finally {
+      setReplacingSource(null);
+    }
+  }
+  async function handleRemoveSource(documentId: string) {
+    if (!onRemoveSource) return;
+    try {
+      await onRemoveSource(documentId);
+      setSectionsByDocument((previous) => { const next = new Map(previous); next.delete(documentId); return next; });
+      setSources((previous) => { const next = new Map(previous); next.delete(documentId); return next; });
+    } catch {
+      // The page surfaces the failure through reviewError; nothing to drop.
+    }
+  }
+
+  const intro = onboarding
+    ? workspace.documents.length > 1
+      ? `Here's what I found in ${labels}. Review them before you use them.`
+      : `Here's what I found in ${sourceLabel(firstDocument)}. Review it before you use it.`
+    : `From ${labels}. Your assistant answers from the reviewed facts below.`;
 
   return <div className="flex min-h-0 flex-1 flex-col">
     <div className="min-h-0 flex-1 overflow-y-auto pb-4">
-      <p className="text-meta text-ink-a40">{onboarding ? `Here's what I found in ${sourceLabel(record)}. Review it before you use it.` : `From ${sourceLabel(record)}. Your assistant answers from the reviewed facts below.`}</p>
+      <p className="text-meta text-ink-a40">{intro}</p>
+      {sourcesMode ? <section className="mt-5"><h3 className="text-row-label font-medium text-text">Sources</h3><div className="mt-2 flex flex-col gap-2">{workspace.documents.map((doc) => { const label = sourceLabel(doc); const failed = doc.status === "failed"; const replacing = replacingSource === doc.id; return <div key={doc.id} className="flex items-center justify-between gap-3 rounded-card border border-hairline px-3 py-2.5"><div className="min-w-0"><p className="truncate text-prose text-text">{label}</p>{failed && workspace.errors?.[doc.id] ? <p className="mt-1 text-meta text-danger">{workspace.errors[doc.id]}</p> : null}</div><span className={`shrink-0 rounded-full px-2 py-0.5 text-meta ${failed ? "bg-danger-subtle text-danger" : "bg-accent-a06 text-accent"}`}>{failed ? "Failed" : "Draft"}</span>{doc.status === "draft" || failed ? <div className="flex shrink-0 items-center gap-2"><button type="button" disabled={busy || addingSources || replacingSource !== null} onClick={() => { setReplaceTarget(doc.id); replaceFileRef.current?.click(); }} aria-label={`Replace ${label}`} data-testid="review-replace-source" className="text-action font-medium text-accent disabled:opacity-40">{replacing ? "Replacing\u2026" : "Replace"}</button><button type="button" disabled={busy || addingSources || replacingSource !== null} onClick={() => void handleRemoveSource(doc.id)} aria-label={`Remove ${label}`} data-testid="review-remove-source" className="text-action text-ink-a40 disabled:opacity-40">Remove</button></div> : null}</div>; })}</div><button type="button" disabled={busy || replacingSource !== null} onClick={() => addFileRef.current?.click()} data-testid="review-add-source" className="mt-3 text-action font-medium text-accent disabled:opacity-40">{addingSources ? "Adding\u2026" : "Add source"}</button><input ref={addFileRef} type="file" multiple accept={ACCEPTED_UPLOAD_EXTENSIONS.join(",")} className="hidden" data-testid="review-add-input" onChange={(event) => void handleAddFiles(event)} /><input ref={replaceFileRef} type="file" accept={ACCEPTED_UPLOAD_EXTENSIONS.join(",")} className="hidden" data-testid="review-replace-input" onChange={(event) => void handleReplaceFile(event)} /></section> : null}
       <section className="mt-5"><h3 className="text-row-label font-medium text-text">Offerings</h3><p className="mt-1 text-meta text-ink-a40">{offerings.length} retained {offerings.length === 1 ? "offering" : "offerings"}{unresolvedMatches ? `, ${unresolvedMatches} possible ${unresolvedMatches === 1 ? "match" : "matches"} left to decide` : ""}.</p>
-        {record.extraction_status === "partial" || record.extraction_status === "failed" ? <p role="status" className="mt-3 rounded-field bg-warning-subtle p-2 text-meta text-text">{record.extraction_status === "failed" ? "I could not read the offerings from this source." : "I could not read all of this source."} Add anything missing, or check the original source.</p> : null}
         {offerings.length === 0 ? <p className="mt-3 rounded-field bg-surface-container p-3 text-prose text-text">No offerings yet.</p> : null}
         <div className="mt-3 flex flex-col gap-3">{visible.map((offering, index) => <OfferingCard key={offering.candidate_id} offering={offering} documents={workspace.documents} position={(expanded ? currentPage * PAGE_SIZE : 0) + index + 1} all={offerings} editing={expanded} inputRef={(node) => { if (node) cardRefs.current.set(offering.candidate_id, node); }} onChange={updateOffering} onRemove={removeOffering} onKeepBoth={keepBoth} onCombine={(left, right) => setCombine({ left, right, price: null })} />)}</div>
         {!expanded && offerings.length > PAGE_SIZE ? <button type="button" onClick={() => setExpanded(true)} className="mt-3 text-action font-medium text-accent">Review all {offerings.length}</button> : null}
@@ -141,12 +241,11 @@ function ReviewDocument({ workspace, busy, priceConflict, onboarding, onSave, on
         <button type="button" onClick={addOffering} className="mt-3 text-action font-medium text-accent">Add offering</button>
         {duplicateIds.length ? <p role="alert" className="mt-2 text-meta text-danger">Two retained offerings have the same name. Go to the highlighted offering to correct it.</p> : null}
       </section>
-      {sections.length ? <section className="mt-7"><h3 className="text-row-label font-medium text-text">Business information</h3><KnowledgeDocument sections={sections} editingSection={editingSection} onEdit={setEditingSection} onChange={(index, update) => updateSections(record.id, (previous) => previous.map((section, position) => position === index ? { ...section, ...update } : section))} onRemove={(index) => updateSections(record.id, (previous) => previous.filter((_, position) => position !== index))} onAddOther={() => { updateSections(record.id, (previous) => [...previous, { heading: "New information", body: "", kind: "other" }]); setEditingSection(sections.length); }} /></section> : null}
-      <details className="mt-7 rounded-card border border-hairline p-3" onToggle={(event) => { if ((event.currentTarget as HTMLDetailsElement).open) void loadSource(); }}><summary className="cursor-pointer text-action font-medium text-accent">View original source</summary>{sourceLoading ? <p className="mt-3 text-meta text-ink-a40">Loading source…</p> : null}{source ? <><p className="mt-3 text-meta text-ink-a40">{source.is_fallback ? "This legacy source only retains its saved reviewed text." : "Original extracted source. It does not answer customers."}</p><pre className="mt-3 whitespace-pre-wrap break-words font-sans text-prose text-text">{source.text}</pre></> : null}</details>
+      <section className="mt-7"><h3 className="text-row-label font-medium text-text">Business information</h3>{workspace.documents.map((doc) => { const sections = sectionsFor(doc.id, doc); const label = sourceLabel(doc); return <div key={doc.id} className="mt-4">{workspace.documents.length > 1 ? <p className="text-meta text-ink-a40">From {label}</p> : null}{doc.extraction_status === "partial" || doc.extraction_status === "failed" ? <p role="status" className="mt-3 rounded-field bg-warning-subtle p-2 text-meta text-text">{doc.extraction_status === "failed" ? "I could not read the offerings from this source." : "I could not read all of this source."} Add anything missing, or check the original source.</p> : null}<KnowledgeDocument sections={sections} editingSection={editingSection?.docId === doc.id ? editingSection.index : null} onEdit={(index) => setEditingSection((current) => index === null || (current?.docId === doc.id && current.index === index) ? null : { docId: doc.id, index })} onChange={(index, update) => updateSections(doc.id, (previous) => previous.map((section, position) => position === index ? { ...section, ...update } : section))} onRemove={(index) => updateSections(doc.id, (previous) => previous.filter((_, position) => position !== index))} onAddOther={() => { updateSections(doc.id, (previous) => [...previous, { heading: "New information", body: "", kind: "other" }]); setEditingSection({ docId: doc.id, index: sections.length }); }} /><details className="mt-4 rounded-card border border-hairline p-3" onToggle={(event) => { if ((event.currentTarget as HTMLDetailsElement).open) void loadSource(doc.id); }}><summary className="cursor-pointer text-action font-medium text-accent">View original source</summary>{sourceLoading === doc.id ? <p className="mt-3 text-meta text-ink-a40">Loading source…</p> : null}{sources.get(doc.id) ? <><p className="mt-3 text-meta text-ink-a40">{sources.get(doc.id)!.is_fallback ? "This legacy source only retains its saved reviewed text." : "Original extracted source. It does not answer customers."}</p><pre className="mt-3 whitespace-pre-wrap break-words font-sans text-prose text-text">{sources.get(doc.id)!.text}</pre></> : null}</details></div>; })}</section>
     </div>
     {combine ? <CombinePreview combine={combine} offerings={offerings} onPrice={(price) => setCombine({ ...combine, price })} onCancel={() => setCombine(null)} onConfirm={applyCombine} /> : null}
     {priceConflict ? <p role="alert" className="mt-3 rounded-card bg-accent-a06 p-3 text-meta text-text">{priceConflict}</p> : null}
-    <footer className="mt-3 flex shrink-0 gap-2 border-t border-hairline pt-3"><Button className="flex-1" loading={busy} onClick={save} data-testid={onboarding ? "onboarding-knowledge-save" : "knowledge-save"}>{onboarding ? "Use this information" : priceConflict ? "Confirm price changes" : record.status === "draft" ? "Save it" : "Save changes"}</Button><button type="button" onClick={onDiscard} disabled={busy} className="px-3 text-action font-medium text-ink-a40" data-testid={onboarding ? "onboarding-knowledge-discard" : "knowledge-discard"}>{onboarding || record.status === "draft" ? "Discard" : "Remove"}</button></footer>
+    <footer className="mt-3 flex shrink-0 gap-2 border-t border-hairline pt-3"><Button className="flex-1" loading={busy} onClick={save} data-testid={onboarding ? "onboarding-knowledge-save" : "knowledge-save"}>{onboarding ? "Use this information" : priceConflict ? "Confirm price changes" : firstDocument?.status === "draft" ? "Save it" : "Save changes"}</Button><button type="button" onClick={onDiscard} disabled={busy} className="px-3 text-action font-medium text-ink-a40" data-testid={onboarding ? "onboarding-knowledge-discard" : "knowledge-discard"}>{onboarding || firstDocument?.status === "draft" ? "Discard" : "Remove"}</button></footer>
   </div>;
 }
 

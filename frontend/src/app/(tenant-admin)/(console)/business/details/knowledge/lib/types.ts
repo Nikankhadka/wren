@@ -9,9 +9,11 @@ export {
 } from "../../../../../../../components/knowledge/types";
 export {
   buildWorkspace,
+  mergeIncomingCandidates,
   mergeOffering,
   normalizeOfferingName,
   offeringLabel,
+  reconcileAfterSave,
   reconcileOfferings,
   withCombinedOfferings,
 } from "../../../../../../../components/knowledge/offerings";

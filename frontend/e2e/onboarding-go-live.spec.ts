@@ -109,11 +109,14 @@ test("saving a knowledge review opens the confirm step with a non-empty address"
   // recorded implementation evidence for this ticket's review-save path.
   await mockState(page, confirmReadyState());
   await mockRecords(page, [draftRecord]);
-  await page.route("**/api/onboarding/knowledge/*", (route) =>
+  // W-11c: onboarding saves go through the batch endpoint now - the response
+  // is {published, failed, offering_candidates}, not the single-record shape.
+  await page.route("**/api/onboarding/knowledge/batch", (route) =>
     route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
-        record: { ...draftRecord, status: "ready" },
+        published: ["draft-1"],
+        failed: [],
         offering_candidates: [],
       }),
     }),
