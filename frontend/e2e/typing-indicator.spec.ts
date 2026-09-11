@@ -48,7 +48,7 @@ async function ask(page: Page, question = "What do you charge for a screen?") {
     await expect(box).toHaveCount(1);
     await box.fill(question);
   }).toPass({ timeout: 15_000 });
-  await page.getByRole("button", { name: "Send" }).click();
+  await page.getByRole("button", { name: "Send message" }).click();
 }
 
 test.describe("the typing indicator spans the turn", () => {
@@ -70,8 +70,9 @@ test.describe("the typing indicator spans the turn", () => {
   });
 
   test("progress events do not interrupt it", async ({ page }) => {
-    // Stages arrive and the stream ends without a token. The live region under
-    // the composer is where a stage is allowed to speak; the bubble is not.
+    // Stages arrive and the stream ends without a token. Progress stages carry
+    // no customer-facing copy at all now - only the bubble's pulsing dots may
+    // speak for the wait.
     await page.route("**/api/chat", (route) =>
       route.fulfill({
         status: 200,
@@ -92,15 +93,16 @@ test.describe("the typing indicator spans the turn", () => {
     await expect(page.getByTestId("thinking-dots")).toBeVisible();
     await expect(page.getByTestId("thinking-dots")).toHaveCount(1);
 
-    // A stage is allowed to speak in the live region under the composer. It is
-    // not allowed into the bubble, where it would read as a half-answer.
-    const bubbles = await page.locator("main").innerText();
+    // No stage label reaches the customer anywhere on the page - it would read
+    // as a half-answer in the bubble, and there is no separate status line for
+    // it to speak in any more.
+    const pageText = await page.locator("main").innerText();
     for (const label of [
       "Understanding your question",
       "Finding an answer",
       "Checking the answer",
     ]) {
-      expect(bubbles.split("Message")[0]).not.toContain(label);
+      expect(pageText).not.toContain(label);
     }
   });
 

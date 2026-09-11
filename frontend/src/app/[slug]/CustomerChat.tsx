@@ -9,6 +9,7 @@ import {
   type RefObject,
 } from "react";
 import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
 import { Input } from "@/components/ui/Input";
 import { ChatBubble, type ChatRole } from "@/components/ui/ChatBubble";
 import { Chip } from "@/components/ui/Chip";
@@ -18,7 +19,7 @@ import { QuoteCard, type QuotePayload } from "@/components/ui/QuoteCard";
 import { PriceSummaryCard, type PriceSummaryPayload } from "@/components/ui/PriceSummaryCard";
 import { CatalogCard, type CatalogPayload } from "@/components/ui/CatalogCard";
 import { EscalationBanner } from "@/components/ui/EscalationBanner";
-import { PROGRESS_LABELS, parseChatStreamEvent, type ProgressStage } from "@/lib/chat-events";
+import { parseChatStreamEvent } from "@/lib/chat-events";
 import { customerOpening } from "@/lib/greeting";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -92,9 +93,6 @@ export function CustomerChat({
   // not a stop: the chat stays live and only the human-reply poll starts.
   const [escalated, setEscalated] = useState(false);
   const [handoffSeen, setHandoffSeen] = useState(false);
-  // Which agent stage is running right now, for the live region below. Null
-  // between turns; the backend sends one of these per graph node.
-  const [stage, setStage] = useState<ProgressStage | null>(null);
   // Starter chips only make sense before the customer has said anything -
   // hidden the moment the first real message goes out, never shown again.
   const [showStarters, setShowStarters] = useState(starterQuestions.length > 0);
@@ -179,7 +177,6 @@ export function CustomerChat({
     const trimmed = text.trim();
     if (!trimmed || busy || escalated) return;
     setBusy(true);
-    setStage(null);
     setInput("");
     setShowStarters(false);
     setMessages((prev) => [
@@ -235,7 +232,8 @@ export function CustomerChat({
               updateLastAssistant(() => ({ catalog: event.catalog }));
               break;
             case "progress":
-              setStage(event.stage);
+              // The in-bubble typing indicator already covers the wait; no
+              // separate status line to update.
               break;
             case "redraft":
               // The backend's price gate rejected the streamed draft and is
@@ -295,7 +293,6 @@ export function CustomerChat({
     } finally {
       abortRef.current = null;
       setBusy(false);
-      setStage(null);
     }
   }
 
@@ -355,13 +352,6 @@ export function CustomerChat({
           onSubmit={handleSubmit}
           className="flex shrink-0 flex-col gap-2 border-t border-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
         >
-          {/* Mounted unconditionally (only the text toggles) - screen readers
-              reliably announce content changes inside an existing live
-              region, but often miss one that appears and disappears with its
-              content in the same render. */}
-          <p className="h-4 text-footnote text-text-secondary" aria-live="polite">
-            {busy ? (stage ? PROGRESS_LABELS[stage] : "Answering…") : ""}
-          </p>
           <div className="flex items-end gap-2">
             <div className="flex-1">
               <Input
@@ -377,8 +367,8 @@ export function CustomerChat({
                 Stop
               </Button>
             ) : (
-              <Button type="submit" loading={busy}>
-                Send
+              <Button type="submit" loading={busy} aria-label="Send message">
+                <Icon name="send" size={20} />
               </Button>
             )}
           </div>
