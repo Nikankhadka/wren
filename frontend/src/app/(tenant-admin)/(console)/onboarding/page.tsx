@@ -103,6 +103,15 @@ const PROCESSING_COPY: Record<string, string> = {
 const UPLOAD_RECOVERY =
   "Try again with the +, or tell me about it in a sentence.";
 
+/**
+ * W-11c: one batch takes five files at most, uploaded three at a time. The
+ * thread stamps every file up front and settles them all before the review
+ * sheet opens, so these two numbers are the contract that "one review after
+ * everything settles" depends on.
+ */
+const MAX_BATCH_FILES = 5;
+const MAX_CONCURRENT_UPLOADS = 3;
+
 function historyToMessages(
   history: { role: string; content: string }[] | undefined,
 ): Message[] {
@@ -456,10 +465,39 @@ export default function OnboardingPage() {
   }
 
   /**
+   * W-11c: run at most `limit` tasks concurrently, resolving in input order -
+   * results are indexed by task position, so the caller can match each outcome
+   * to its task regardless of settle order.
+   */
+  async function runBounded<T>(
+    tasks: (() => Promise<T>)[],
+    limit: number,
+  ): Promise<PromiseSettledResult<T>[]> {
+    const results: PromiseSettledResult<T>[] = [];
+    let cursor = 0;
+    async function worker() {
+      while (cursor < tasks.length) {
+        const index = cursor;
+        cursor += 1;
+        try {
+          results[index] = { status: "fulfilled", value: await tasks[index]() };
+        } catch (reason) {
+          results[index] = { status: "rejected", reason };
+        }
+      }
+    }
+    await Promise.all(
+      Array.from({ length: Math.min(limit, tasks.length) }, () => worker()),
+    );
+    return results;
+  }
+
+  /**
    * Files attached through the pill's "+". Each file gets its own stamp and its
-   * own line, uploaded one at a time so the thread reads in order. Knowledge is
-   * never a blocking beat: a refused or failed file leaves one calm line and the
-   * interview carries on.
+   * own line, uploaded three at a time (W-11c) so the thread reads in order.
+   * Knowledge is never a blocking beat: a refused or failed file leaves one calm
+   * line and the interview carries on. The review sheet opens only once every
+   * file has settled - never on the first accepted draft.
    *
    * ponytail: the stamps are client-side only - the ingested document is
    * persisted, its stamp is not, so a reload shows the thread without them.
@@ -471,7 +509,20 @@ export default function OnboardingPage() {
     setBusy(true);
     const accepted: KnowledgeRecord[] = [];
     try {
-      for (const file of files) {
+      // W-11c: a batch caps at five files - the first five are processed, the
+      // rest are turned away in one line.
+      const batch = files.slice(0, MAX_BATCH_FILES);
+      if (files.length > MAX_BATCH_FILES) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", text: "I can take up to 5 files at once..." },
+        ]);
+      }
+      // describeUpload rejections (an image, an unknown extension) answer at
+      // once with no stamp; accepted files get their pending stamp up front,
+      // in input order, before any upload starts.
+      const queue: { file: File; stampId: string }[] = [];
+      for (const file of batch) {
         const verdict = describeUpload(file.name);
         if (!verdict.accepted) {
           setMessages((prev) => [
@@ -480,7 +531,8 @@ export default function OnboardingPage() {
           ]);
           continue;
         }
-        const id = crypto.randomUUID();
+        const stampId = crypto.randomUUID();
+        queue.push({ file, stampId });
         // W-3: the stamp itself carries the animated processing state
         // (ThinkingDots, rendered beside `message.text` in the thread) instead
         // of a frozen "adding\u2026" suffix - reading and scrolling stay available
@@ -488,26 +540,24 @@ export default function OnboardingPage() {
         // below, on both the success and the failure path.
         setMessages((prev) => [
           ...prev,
-          { id, role: "stamp", text: file.name, pending: true },
+          { id: stampId, role: "stamp", text: file.name, pending: true },
         ]);
-        const form = new FormData();
-        form.append("file", file);
-        form.append("doc_type", "other");
-        try {
-          const draft = await apiFetch<KnowledgeRecord>("/api/knowledge/drafts/upload", {
-            method: "POST",
-            body: form,
+      }
+      const results = await runBounded(
+        queue.map((entry) => () => uploadOne(entry)),
+        MAX_CONCURRENT_UPLOADS,
+      );
+      for (let index = 0; index < results.length; index += 1) {
+        const result = results[index];
+        if (result.status === "fulfilled" && result.value) {
+          accepted.push(result.value);
+        } else if (result.status === "rejected") {
+          const { file, stampId } = queue[index];
+          const err = result.reason;
+          updateById(stampId, {
+            text: `${file.name} \u00b7 failed`,
+            pending: false,
           });
-          setCanConfirm(false);
-          accepted.push(draft);
-          setDrafts((previous) => [...previous, draft]);
-          updateById(id, { text: `${file.name} \u00b7 added`, pending: false });
-          setMessages((prev) => [
-            ...prev,
-            { role: "assistant", text: `I found ${file.name}. Review it before it answers customers.` },
-          ]);
-        } catch (err) {
-          updateById(id, { text: `${file.name} \u00b7 not added`, pending: false });
           setMessages((prev) => [
             ...prev,
             {
@@ -520,12 +570,67 @@ export default function OnboardingPage() {
           ]);
         }
       }
-      if (accepted[0]) {
-        setWorkspace(buildWorkspace([accepted[0]], ownerOfferings, accepted[0].id));
+      if (accepted.length > 0) {
+        setCanConfirm(false);
+        // W-11c: one rebuild after everything settles - never per draft. The
+        // workspace id carries over so the sheet does not remount mid-flight.
+        setDrafts((previous) => [...previous, ...accepted]);
+        setWorkspace(
+          buildWorkspace(
+            [...(workspace?.documents ?? []), ...accepted],
+            ownerOfferings,
+            workspace?.id,
+          ),
+        );
         setOpen(true);
       }
     } finally {
       setBusy(false);
+    }
+
+    async function uploadOne(entry: {
+      file: File;
+      stampId: string;
+    }): Promise<KnowledgeRecord | null> {
+      const form = new FormData();
+      form.append("file", entry.file);
+      form.append("doc_type", "other");
+      const draft = await apiFetch<KnowledgeRecord>(
+        "/api/knowledge/drafts/upload",
+        {
+          method: "POST",
+          body: form,
+        },
+      );
+      if (draft.status === "failed") {
+        // W-11a: a 201 that parks a failed draft - the file is kept so the
+        // owner can retry it from Knowledge. It is not a reviewable draft, so
+        // it never joins drafts or the workspace.
+        updateById(entry.stampId, {
+          text: `${entry.file.name} \u00b7 failed`,
+          pending: false,
+        });
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            text: "It's kept in Knowledge so you can retry it.",
+          },
+        ]);
+        return null;
+      }
+      updateById(entry.stampId, {
+        text: `${entry.file.name} \u00b7 ready`,
+        pending: false,
+      });
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          text: `I found ${entry.file.name}. Review it before it answers customers.`,
+        },
+      ]);
+      return draft;
     }
   }
 

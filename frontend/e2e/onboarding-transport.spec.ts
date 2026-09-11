@@ -250,7 +250,7 @@ test("an upload stamp animates while pending and lands on an explicit outcome", 
   await expect(page.getByTestId("thinking-dots")).toBeVisible();
 
   // Resolved: an explicit outcome, dots gone.
-  await expect(thread.getByText("notes.txt · added", { exact: true })).toBeVisible({
+  await expect(thread.getByText("notes.txt · ready", { exact: true })).toBeVisible({
     timeout: 5000,
   });
   await expect(page.getByTestId("thinking-dots")).toHaveCount(0);
