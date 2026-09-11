@@ -62,16 +62,18 @@ Detailed records live in [`spec/completed/`](spec/completed/).
 - [ ] W-10: drop `tenant_config.system_prompt` and `.tone` and their last
   writers, after W-9 is verified in production
   ([`spec/active/14-schema-drop.md`](spec/active/14-schema-drop.md)).
-- [ ] W-13: keep the six-digit email OTP contract aligned across local and
+- [x] W-13: keep the six-digit email OTP contract aligned across local and
   hosted Auth configuration; inspect hosted `mailer_otp_length` before any
   change and verify a fresh real login
-  ([`spec/active/16-auth-otp-reliability.md`](spec/active/16-auth-otp-reliability.md)).
-  Local config and docs landed (`GOTRUE_MAILER_OTP_LENGTH: "6"`, `deploy.md`
-  GET/PATCH examples); auth E2E green. Hosted GET/PATCH/verify step still
-  open - needs an operator with a Supabase Management API token.
+  ([`spec/completed/16-auth-otp-reliability.md`](spec/completed/16-auth-otp-reliability.md)).
+  Hosted reported `mailer_otp_length: 8`; a single-field PATCH set it to `6`
+  and a re-GET confirmed, then a fresh code completed login through the
+  deployed UI. The same check found and fixed a five-migration hosted schema
+  drift (see the narrative below). Local config and docs landed
+  (`GOTRUE_MAILER_OTP_LENGTH: "6"`, `deploy.md` GET/PATCH examples).
 - [x] W-12: make the email OTP resend cooldown visible and recovery from a
   failed code reliable, with mobile and desktop browser coverage
-  ([`spec/active/16-auth-otp-reliability.md`](spec/active/16-auth-otp-reliability.md)).
+  ([`spec/completed/16-auth-otp-reliability.md`](spec/completed/16-auth-otp-reliability.md)).
   Visible `Resend in Ns` / `Resend code` countdown, clear-and-refocus on
   failed verification and on resend (including when nothing was typed yet),
   one request per click, inline recoverable network errors. 12 new
@@ -123,6 +125,12 @@ the merge dependency. It is fully implemented: W-11a, W-11b, and W-11c are merge
 - The Hobby deployment has cold starts and Supabase can pause after inactivity; keep-warm mitigates this for the portfolio deployment.
 - No real customer data should use the free-tier LLM and embedding providers until the provider decision changes.
 - Custom SMTP (Brevo) is not yet configured on the hosted Supabase project. Its built-in mailer delivers only to project members at ~2/hour, so no real tenant owner can receive a login code until Brevo is set (`deploy.md` Step 1.5) - found 2026-09-04 while fixing the login OTP misconfiguration below.
+- Hosted migrations are manual: `.github/workflows/deploy.yml` never runs
+  `python -m app.shared.migrate`, so every deploy that adds a migration file
+  depends on an operator remembering `deploy.md` Step 3. The hosted schema
+  was five migrations behind the deployed code until the 2026-09-11 drift
+  below. Automating the step, or gating a deploy on the ledger, is open
+  operational hardening work.
 
 ## Spec status
 
@@ -197,6 +205,24 @@ dashboard-click prose, and `docker-compose.yml` gained
 hosted needs. Custom SMTP (Brevo) is a separate, still-open gap (above): this
 fix restores the founder's own login, but a real tenant owner receives
 nothing until Brevo is configured.
+
+**Hosted production schema was five migrations behind the deployed code**
+(found 2026-09-11 during the W-13 hosted acceptance login, fixed the same
+day). Hosted `schema_migrations` stopped at `0025`, while the deployed
+staging build already contained W-6 and W-11, whose record columns read
+`documents.offerings` (0026) and
+`documents.failure_stage`/`failure_retryable`/`failed_at` (0028/0030). Every
+owner call to `/api/onboarding/state` or `/api/knowledge/records` failed with
+`UndefinedColumnError: column "offerings" does not exist`, surfaced to the
+browser as a 500 Problem Details - login itself was fine. Re-running the
+documented migration runner against the hosted pooler URL applied the four
+pending migrations; the ledger now reads 29/29, and no redeploy was needed
+because the running backend reads the schema live. The systemic half is
+recorded under Known gaps: `deploy.yml` has no migration step, so hosted
+schema changes have always depended on an operator. **This class of drift is
+invisible to a health-check smoke test** - it only appeared when a real owner
+loaded `/onboarding` - which is worth remembering for R-4/R-5 evidence
+planning.
 
 **W-6 shipped** (2026-09-06, `feat/w-6-offering-extraction`). The founder's PDF
 turned out to be recoverable, and it is now `backend/tests/fixtures/`. Running
@@ -465,6 +491,7 @@ stubs the unnamed case the seed cannot produce.
 | [`spec/completed/13-walkthrough.md`](spec/completed/13-walkthrough.md) | Complete | W-1 through W-9 delivered and verified |
 | [`spec/active/14-schema-drop.md`](spec/active/14-schema-drop.md) | Open | W-10, blocked on W-9 production verification |
 | [`spec/completed/15-document-review.md`](spec/completed/15-document-review.md) | Complete | W-11a, W-11b, W-11c delivered and verified |
+| [`spec/completed/16-auth-otp-reliability.md`](spec/completed/16-auth-otp-reliability.md) | Complete | W-12, W-13 delivered and hosted-verified |
 | [`spec/completed/`](spec/completed/) | Complete | All delivered feature, deployment, and supporting phases |
 | [`docs/archive/phase1-complete/`](../archive/phase1-complete/) | Historical | Completed R-1 and R-2 records |
 

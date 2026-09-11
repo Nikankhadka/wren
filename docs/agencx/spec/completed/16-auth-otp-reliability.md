@@ -74,13 +74,24 @@ ticket and lands before W-12.
       coverage passes. `GOTRUE_MAILER_OTP_LENGTH: "6"` is pinned beside the
       existing expiry in `docker-compose.yml`; confirmed live in the running
       container and all nine `frontend/e2e/auth-login.spec.ts` cases pass.
-- [ ] Hosted Auth `mailer_otp_length` was inspected before a PATCH; the
+- [x] Hosted Auth `mailer_otp_length` was inspected before a PATCH; the
       observed value and whether a PATCH was needed are recorded as evidence.
-      **Open - no Management API token available in this environment.**
-- [ ] A fresh hosted email contains six digits and that code completes login
-      through the deployed UI. **Open, blocked on the item above.**
+      Inspected 2026-09-11 with a project Management API token from the
+      operator environment: the hosted project reported
+      `mailer_otp_length: 8`. A minimal single-field PATCH set it to `6`; a
+      re-GET confirmed `6` with `site_url`, `uri_allow_list`,
+      `mailer_otp_exp`, and both mailer templates unchanged.
+- [x] A fresh hosted email contains six digits and that code completes login
+      through the deployed UI. Verified 2026-09-11 on
+      `https://agencx-iota.vercel.app`: a code issued after the PATCH was
+      accepted by the six-cell `CodeInput` (which truncates pasted input to
+      six characters, so a longer code cannot complete) and verification
+      reached tenant provisioning and `/onboarding`. The post-login 500 this
+      first surfaced was a separate hosted schema drift, diagnosed and fixed
+      below.
 - [x] No dynamic client length or unrelated Auth behavior was introduced.
-      `CodeInput.tsx` and `login/page.tsx` are untouched.
+      `CodeInput.tsx` and `login/page.tsx` are untouched by W-13 (W-12 later
+      changed both as its own ticket).
 - [x] Relevant config/docs checks and the existing auth E2E coverage are
       green: `make check` (lint, typecheck, 1007 backend + 120 frontend
       tests) and `frontend/e2e/auth-login.spec.ts`,
@@ -95,11 +106,29 @@ from source control. GET the Auth service config, compare
 and verify it end to end. If credentials are unavailable, the code/config
 portion may be reviewed, but the hosted acceptance item remains open.
 
-**Status: local config/docs portion shipped. Hosted GET/PATCH/verify step
-still needs an operator with a [Supabase personal access
-token](https://supabase.com/dashboard/account/tokens) - the Supabase MCP
-connector in this workspace is unauthenticated and has no Auth-config tool
-regardless.**
+**Status: complete (2026-09-11).** The hosted check ran with a project
+Management API token supplied in the operator environment, never source
+control. The hosted Auth config reported `mailer_otp_length: 8`; a
+single-field PATCH set it to `6`, and a re-GET confirmed `6` alongside
+unchanged `site_url`, `uri_allow_list`, `mailer_otp_exp`, and both mailer
+templates. A fresh code issued after the PATCH completed login through the
+deployed UI. Staging and production share one Supabase project, so this one
+check covers both.
+
+**Production incident found by the check (fixed).** The first post-login
+`/onboarding` load returned a 500 Problem Details (`code: internal_error`).
+The hosted `schema_migrations` ledger stopped at `0025`, while the deployed
+backend already queried `documents.offerings` (0026) and
+`documents.failure_stage`/`failure_retryable`/`failed_at` (0028/0030) in
+`knowledge/service.py`'s record columns - so `GET /api/knowledge/records`
+and `GET /api/onboarding/state` failed with `UndefinedColumnError: column
+"offerings" does not exist`. Re-running the migration runner
+(`python -m app.shared.migrate`, `deploy.md` Step 3) against the hosted
+pooler URL applied the four pending migrations; the ledger now reads 29/29
+and no redeploy was needed. Root process gap: `.github/workflows/deploy.yml`
+never runs migrations, so every hosted schema change depends on an operator
+remembering `deploy.md`'s prose instruction - recorded under Known gaps in
+`progress.md`.
 
 ## W-12: OTP resend and retry recovery
 
