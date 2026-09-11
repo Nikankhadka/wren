@@ -168,6 +168,16 @@
   The helper had been copy-pasted byte-for-byte into six eval modules, so the guard
   went into one shared `evals/_git.py` and the six copies went away. **The general
   lesson: `check=False` is not the same as "this cannot raise".**
+- **Deploys never migrated the hosted database.** `deploy.yml` has no
+  migration step; `deploy.md` Step 3 is a manual
+  `python -m app.shared.migrate` run, and it was missed from migration 0026
+  (W-6) onward. On 2026-09-11 the hosted ledger read 25/29 and every owner
+  knowledge/onboarding call 500'd with `UndefinedColumnError: column
+  "offerings" does not exist` (the deployed code selects
+  `_RECORD_COLUMNS`, which needs 0026/0028/0030). Running the runner against
+  the pooler URL (session port 5432) fixed it live; no redeploy needed.
+  Check `schema_migrations` against `backend/migrations/` after any deploy
+  that adds a migration.
 
 ### LLM and eval
 

@@ -165,6 +165,10 @@ Create one hosted project. It backs the deployed stack; local dev keeps using
    The runner is forward-only and idempotent (applied files are recorded in
    `schema_migrations`), so **re-run it on every deploy whose branch adds
    migration files** - deployed code and database schema must change together.
+   The check is a count: rows in `schema_migrations` must equal
+   `backend/migrations/*.sql` before a deploy is called done, because a ledger
+   that lags the repo is invisible until a request touches a new column (the
+   2026-09-11 drift left `/onboarding` 500ing for every owner).
    Skipping it has cost a real outage: on 2026-09-03 migrations 0022-0025 (the
    offerings/catalogue feature) had reached staging but not this database, the
    storefront endpoint 500'd with `relation "offerings" does not exist`, and the

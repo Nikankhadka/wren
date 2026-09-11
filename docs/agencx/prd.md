@@ -333,7 +333,7 @@ $10/month (decision D16).
   whether they're talking to a human or an AI is answered honestly - the
   exemption above is about the noun used in routine copy, never a license to
   mislead when asked outright. (Amended 2026-09-06, W-9 - see
-  `spec/active/13-walkthrough.md` Amendment 3; the original blanket rule
+  `spec/completed/13-walkthrough.md` Amendment 3; the original blanket rule
   predates both mandated openings.)
 - Lead with outcomes, not features
 - Plain dash, never the em dash (U+2014)

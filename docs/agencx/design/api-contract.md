@@ -34,7 +34,7 @@ checked without writing with `npm run gen:types -- --check`.
 
 ## Knowledge review contract (Phase 13, W-8)
 
-The Phase 13 refinements (`spec/active/13-walkthrough.md`, amended 2026-09-05)
+The Phase 13 refinements (`spec/completed/13-walkthrough.md`, amended 2026-09-05)
 define the contract used by onboarding and later knowledge review.
 
 - **Draft offering identity, description, provenance, and source references.**

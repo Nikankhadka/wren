@@ -53,7 +53,7 @@ that said "AI"/"agent" and needed a rewrite pass (decision 11).
 **so that** the product leads with outcomes.
 
 > Amended after this ticket shipped: W-9's copy-rule amendment (2026-09-06,
-> `spec/active/13-walkthrough.md`) took "assistant" off the list and put
+> `spec/completed/13-walkthrough.md`) took "assistant" off the list and put
 > "virtual" on it, so both mandated openings can name the assistant as what the
 > surface is. The list `frontend/e2e/copy-rules.spec.ts` enforces today is
 > "AI", "agent", "automated", "virtual". Recorded here rather than rewritten:
