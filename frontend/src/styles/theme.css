@@ -271,7 +271,7 @@
 
   /* chat bubble surfaces (inbound/outbound roles, re-tinted to crimson) */
   --color-bubble-out: var(--primary-40);        /* outgoing (owner/customer) - filled */
-  --color-bubble-in: var(--neutral-94);         /* incoming assistant - light neutral */
+  --color-bubble-in: #F0EDED;                   /* incoming assistant - light neutral. A literal, not --neutral-94: that primitive also backs --color-surface-container (cards, containers) and is white by design - the bubble needs its own tint without re-tinting every container that shares the ramp step. */
   --color-bubble-agent-in: var(--primary-95);   /* incoming human agent - light crimson */
   --color-highlight: var(--amber-400);          /* prototype notification dot / rating / overdue - legible as dark-text-on-solid-fill (8.6:1), where the pale warning amber-500 (#EFD96B) fails as text or a solid fill */
 }

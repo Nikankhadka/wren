@@ -2404,37 +2404,97 @@ anyway; no user-visible bug was fixed by removing it.
       structural: the marker the cases hunt for is in the prompt. The eval's own
       pass rate is provider-backed and unmeasured - see the last box.
 - [x] W-8's keyboard/mobile Definition-of-done box is closed.
-- [ ] Amendment 4: active offering ids, descriptions, categories, and prices
+- [x] Amendment 4: active offering ids, descriptions, categories, and prices
       are present in the protected context, while ids remain invisible in
-      customer copy.
-- [ ] Amendment 4: fixed-price basket requests use one validated pricing-engine
+      customer copy. The id is deliberately **on** both structured payloads,
+      because `CatalogCard` and `PriceSummaryCard` use it as the row key and a
+      follow-up turn re-selects by it. So the guarantee is not absence from the
+      payload but absence from the fields that are printed, and that is what is
+      pinned: on the backend in `test_quoting_agent.py`, against `name`,
+      `category`, `description` and the summary `label`, and on the frontend in
+      the first tests either card has ever had
+      ([`CatalogCard.test.tsx`](../../../../frontend/src/components/ui/CatalogCard.test.tsx),
+      [`PriceSummaryCard.test.tsx`](../../../../frontend/src/components/ui/PriceSummaryCard.test.tsx)),
+      which assert no id reaches the rendered markup.
+- [x] Amendment 4: fixed-price basket requests use one validated pricing-engine
       selection, emit one `price_summary` payload, persist it in
-      `messages.metadata.response`, and create no quote row.
-- [ ] Amendment 4: ambiguous, unsupported, unpriced, mixed-priceability, and
+      `messages.metadata.response`, and create no quote row. The graph-level
+      case was already covered; the missing HTTP-boundary case is now in
+      [`test_chat_api.py`](../../../../backend/tests/test_chat_api.py), driving
+      `/api/chat` and reading the persisted row back.
+- [x] Amendment 4: ambiguous, unsupported, unpriced, mixed-priceability, and
       commitment requests never produce a partial total or a substituted item.
-- [ ] Amendment 4: `show_catalog` emits the ordered active catalog once,
+      **This box was the largest real gap.** The engine was covered as a unit
+      and the formal-quote path was covered, but nothing drove `calculate_quote`
+      itself through a bad selection. Five cases now do: unsupported id,
+      unpriced item, a mixed basket whose priced half must not return as a
+      partial total, an inactive offering, and another tenant's real priced
+      offering. Each asserts the deterministic clarification reaches the
+      customer, no structured response is emitted, and no `quotes` row is
+      written. Ambiguous and commitment requests are model judgment with no
+      deterministic path to drive, so they are deliberately left untested
+      rather than faked by scripting a provider into the answer.
+- [x] Amendment 4: `show_catalog` emits the ordered active catalog once,
       including unpriced rows, and customer and owner transcript views render
-      the same persisted response payload.
-- [ ] Amendment 4: follow-up add, remove, and quantity changes recalculate the
+      the same persisted response payload. Parity holds, though not in the
+      shape the wording implies: the customer surface has **no transcript
+      restore at all** (`conversationId` starts null and nothing is stored), so
+      what parity means here is that the persisted payload is identical to the
+      streamed one and both feed the same components. A catalog turn through
+      `/api/chat` asserts the persisted `metadata.response` equals the SSE
+      event, ordered and including the unpriced row, and
+      [`StructuredResponse.test.tsx`](../../../../frontend/src/components/ui/StructuredResponse.test.tsx)
+      asserts it renders byte-identical output to the cards the live customer
+      view uses.
+- [x] Amendment 4: follow-up add, remove, and quantity changes recalculate the
       complete basket against current tenant prices, and `price_summary_ms` is
-      recorded.
-- [ ] Amendment 4: handoff uses the exact in-app confirmation, remains
+      recorded. Add, remove and quantity follow-ups each assert the complete
+      recomputed basket rather than a delta, and a price edited in the database
+      between two turns proves the engine reads current prices.
+      `price_summary_ms`, which had zero references anywhere under
+      `backend/tests/`, is now asserted present and numeric on the persisted
+      message row. What these prove is the mechanism, not model comprehension:
+      with a faked provider the selections are the test's, so they show the
+      tool recomputes the whole basket fresh with no cross-turn caching, not
+      that a real model reads "make that three" correctly.
+- [x] Amendment 4: handoff uses the exact in-app confirmation, remains
       non-terminal, deduplicates escalation creation, and offers direct contact
-      details only for the explicitly requested channel.
+      details only for the explicitly requested channel. Non-terminal behavior
+      and deduplication were already genuinely covered. "Exact" was not: every
+      assertion compared the draft to the imported `HANDOFF_MESSAGE` constant,
+      so it would have survived any edit to that constant. It is now pinned
+      against a literal copy, U+2019 apostrophe included. **The contact-channel
+      clause has no deterministic enforcement anywhere** - there is no gate
+      analogous to `price_gate.py` - so the honest coverage is that the rule
+      text reaches every customer prose route's prompt, asserted through the
+      real graph in `test_agent_contract.py`. Obedience rests on the model.
+      Recorded as a known limit rather than claimed as enforcement.
 - [ ] `make check`, `make ci`, `make test-e2e`, and `make eval-skip-llm` are
-      green; `make eval` is green where a provider is configured. **Partially
-      measured, so this box stays open.** Green on the final branch state:
-      `make check` (940 backend tests, 110 frontend tests, import-linter 3 of 3
-      contracts kept, mypy clean on 206 files), `make format-check`,
-      `make build` (`make ci` is those three), and `make eval-skip-llm`, which
-      reports `trajectory_eval` as skipped rather than failed - the split the
-      new persona cases were written to sit behind. Not measured: `make eval`
-      could not run, because the free-tier daily budget was spent by the
-      reproduction drives, Groq returned `429 tokens per day (TPD): Limit
-      200000, Used 197445`, and the Google primary leg was rate-limited into
-      its retry ladder at the same time. The `tool_correctness: 0.611` a
-      partial run recorded is not a valid measurement - it was taken while
-      provider calls were failing and it carries no baseline. Not run:
-      `make test-e2e` against the final branch state. Nothing in this box has
-      failed; two of its five commands are unmeasured or unrun, and this box is
-      the only reason the ticket is still in `spec/active/`.
+      green; `make eval` is green where a provider is configured. **Four of the
+      five are now green and measured. The fifth still cannot be measured on the
+      free tier, so this box stays honestly unticked even though the ticket
+      closes.** Green on the closeout branch (2026-09-08): `make ci`, which is
+      `make check` (959 backend tests, 120 frontend tests) plus
+      `make format-check` and `make build`; `make eval-skip-llm`, GATE PASSED;
+      and `make test-e2e`, **105 passed in 2.1m** against the final branch
+      state, which the prior session had never run.
+
+      `make eval` was attempted and failed on provider quota rather than on the
+      code. Its three absolute deterministic gates passed
+      (`money_guardrail_eval`, `leakage_eval`, `retrieval_eval`); the three
+      provider-backed legs each reported `eval errored (exit 1)`, which is a
+      crash, not a metric regression. The run reached roughly case 31 of 41 on a
+      120-second retry ladder before Groq returned `429 tokens per day (TPD):
+      Limit 200000, Used 197944, Requested 2869` for `openai/gpt-oss-120b`, with
+      the Google primary leg rate-limited into its own retries simultaneously.
+      That is the third attempt to fail for the same reason. There is still no
+      valid `tool_correctness` or injection `pass_rate` baseline for this code,
+      so the first completing run sets a baseline rather than gating against
+      one.
+
+      **The conclusion worth carrying forward is that the free tier cannot
+      measure this gate at all**, not that the measurement is merely pending. A
+      paid provider tier, or an eval slice small enough to fit inside 200k
+      tokens per day, is what would actually close it. Per the founder's
+      2026-09-08 decision the sequence does not block on this; the item is
+      carried in `progress.md` instead.

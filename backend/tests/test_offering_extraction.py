@@ -21,6 +21,7 @@ Two properties are pinned here, and they are different in kind:
 from __future__ import annotations
 
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 
@@ -37,6 +38,7 @@ from tests.fakes import BaseFakeProvider
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sabbaba_profile.txt"
 SOURCE = FIXTURE.read_text()
+DOCUMENT_ID = uuid4()
 
 
 @pytest.fixture(scope="module")
@@ -80,7 +82,9 @@ class FailingFake(BaseFakeProvider):
 
 
 async def resolve(offerings: list[dict[str, str]]) -> dict[str, PendingOffering]:
-    candidates, _ = await extract_offerings(SOURCE, provider=IdentifyFake(offerings))
+    candidates, _ = await extract_offerings(
+        SOURCE, provider=IdentifyFake(offerings), document_id=DOCUMENT_ID
+    )
     return {item.name: item for item in candidates}
 
 
@@ -120,6 +124,7 @@ async def test_no_price_exists_that_is_not_a_figure_in_the_source() -> None:
                 },
             ]
         ),
+        document_id=DOCUMENT_ID,
     )
     priced = [item.price_cents for item in candidates if item.price_cents is not None]
     assert priced, "expected at least one resolved price"
@@ -199,7 +204,9 @@ Half plate - $17.50
 
 
 async def resolve_in(source: str, offerings: list[dict[str, str]]) -> dict[str, PendingOffering]:
-    candidates, _ = await extract_offerings(source, provider=IdentifyFake(offerings))
+    candidates, _ = await extract_offerings(
+        source, provider=IdentifyFake(offerings), document_id=DOCUMENT_ID
+    )
     return {item.name: item for item in candidates}
 
 
@@ -372,14 +379,18 @@ async def test_extraction_failure_yields_no_candidates_and_says_so() -> None:
     that is the behaviour being replaced. It yields nothing and reports it, so
     the review sheet can say the read was incomplete instead of showing a
     truncated list that looks whole."""
-    candidates, status = await extract_offerings(SOURCE, provider=FailingFake())
+    candidates, status = await extract_offerings(
+        SOURCE, provider=FailingFake(), document_id=DOCUMENT_ID
+    )
     assert candidates == []
     assert status == "failed"
 
 
 @pytest.mark.asyncio
 async def test_an_empty_document_is_not_an_error() -> None:
-    candidates, status = await extract_offerings("   \n\n ", provider=FailingFake())
+    candidates, status = await extract_offerings(
+        "   \n\n ", provider=FailingFake(), document_id=DOCUMENT_ID
+    )
     assert (candidates, status) == ([], "full")
 
 

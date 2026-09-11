@@ -21,8 +21,14 @@ W-9's record beside it would not make sense.
 
 Drop `tenant_config.system_prompt` and `tenant_config.tone` and remove the last
 code that writes them. The columns have no reader in `backend/app` after W-9;
-this ticket removes the writers, drops the columns in migration `0028`, and
+this ticket removes the writers, drops the columns in migration `0029`, and
 reconciles the schema documentation that still describes them as live.
+
+Migration number moved from `0028` to `0029`: W-11a took `0028` first
+(`documents.failure_stage`/`failure_retryable`/`failed_at`), landing on
+`development` before this ticket starts. Every `0028` reference in this
+ticket originally assumed W-10 would run first; it doesn't, so they're all
+`0029` below.
 
 ### Why
 
@@ -87,7 +93,7 @@ Do not start until all three hold:
   [`app/agents/contract.py`](../../../../backend/app/agents/contract.py), which is
   where the copy the injection eval scores has lived since W-9.
 
-**Migration `0028_drop_tenant_prompt_columns.sql`.** Two statements, no
+**Migration `0029_drop_tenant_prompt_columns.sql`.** Two statements, no
 backfill, no data movement:
 
 ```sql
@@ -100,13 +106,13 @@ constraint, index, or policy references them and the drop needs no companion
 change.
 
 **Documentation.** `docs/agencx/design/database.md` still shows both columns in
-the `tenant_config` DDL and its migration list must gain `0028`.
-`test_migrations.py`'s count and its narrated migration list both move from 27
-to 28.
+the `tenant_config` DDL and its migration list must gain `0029`.
+`test_migrations.py`'s count and its narrated migration list both move from 28
+to 29.
 
 ### Tests
 
-- `test_migrations.py`: the count is 28, `0028` is narrated, and a re-run is
+- `test_migrations.py`: the count is 29, `0029` is narrated, and a re-run is
   still idempotent.
 - `test_schema_audit.py` stays green: no policy, grant, or RLS assertion names
   either column.
@@ -124,8 +130,8 @@ to 28.
 
 - [ ] No code in `backend/` writes `tenant_config.system_prompt` or
       `tenant_config.tone`; `system_prompt_for` is deleted, not left unused.
-- [ ] Migration `0028` drops both columns and applies cleanly to a database
-      already carrying `0001` through `0027`.
+- [ ] Migration `0029` drops both columns and applies cleanly to a database
+      already carrying `0001` through `0028`.
 - [ ] Every seed runs green against the migrated schema, and
       `seed_injection_probe.py` plants the leak marker only through the contract.
 - [ ] `database.md`'s `tenant_config` DDL and migration list match the shipped

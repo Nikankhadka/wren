@@ -124,7 +124,7 @@ export function FieldPill({
               : "bg-accent-a12 text-accent-a50",
           ].join(" ")}
         >
-          <Icon name="arrow_forward" size={20} />
+          <Icon name="send" size={20} />
         </button>
       </div>
       {below}

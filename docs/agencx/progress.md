@@ -28,7 +28,7 @@ Production database: hosted Supabase, migrated and seeded with `bytefix`
 | Product polish and hygiene | B-1, B-3, D-2, E-3, F-1, F-2, F-3, G-1 |
 | Developer experience and deployment | K-1, B-4; containerized development, two Vercel services, same-origin routing, hosted embedding and reranking |
 | Security and API reliability | R-1, R-2, R-4 US-1, R-5 US-1; Problem Details, safe SSE errors, request correlation, SSRF protection, Google tool-history fix |
-| Customer-agent contract | W-9 base contract merged to `development`; Amendment 4 implemented with deterministic basket summaries, catalog cards, transcript parity, and in-chat handoff |
+| Customer-agent contract | W-9 complete; base contract and Amendment 4 merged and verified, with deterministic basket summaries, catalog cards, transcript parity, and in-chat handoff |
 
 Detailed records live in [`spec/completed/`](spec/completed/).
 
@@ -36,6 +36,11 @@ Detailed records live in [`spec/completed/`](spec/completed/).
 
 - [ ] R-3: audit success schemas and explicit unknown-field policies.
 - [ ] R-4: complete founder judge calibration and record additional production-smoke evidence.
+- [ ] **The provider-backed `make eval` gate has now failed three times on free-tier
+  quota and has never produced a valid baseline.** This is a capacity problem, not a
+  code problem: the deterministic gates pass and the LLM legs crash on a 429 rather
+  than regressing. Closing it needs a paid provider tier or an eval slice that fits
+  inside 200k tokens per day. Carried forward from W-9.
 - [ ] R-5: decide and validate backups/restore, error tracking, E2E-in-CI, and dependency scanning.
 - [ ] Add the GitHub `VERCEL_TOKEN` secret so registry cleanup can run. The local Vercel token is not a repository secret.
 - [ ] Record the QA pass, root-cause fixes, regression tests, and measured optimization results.
@@ -48,20 +53,54 @@ Detailed records live in [`spec/completed/`](spec/completed/).
 - [x] W-7: make the interview read like a person - challenge junk input, drop the
   skip chip, keep replies short, address-only go-live, priced offering cards.
 - [x] W-8: review a large import without losing information - shared structured document review, five-item preview and editor pages, explicit duplicate decisions, owner-only source evidence, and catalog-only offering publication.
-- [ ] W-9: the definitive onboarding and customer-assistant contract - name
+- [x] W-9: the definitive onboarding and customer-assistant contract - name
   confirmation, corrections from any beat, offering operations, a code-owned
   customer-agent contract applied to every prose route, structured customer
   voice, deterministic basket pricing, structured catalog responses, and
-  non-terminal handoff. The base contract and Amendment 4 are merged to
-  `development`; the ticket remains active only for configured-provider
-  evaluation and production evidence.
+  non-terminal handoff. Closed out 2026-09-08 on `test/w-9-closeout` by writing
+  the verification Amendment 4's delivery evidence had claimed but not shipped.
 - [ ] W-10: drop `tenant_config.system_prompt` and `.tone` and their last
   writers, after W-9 is verified in production
   ([`spec/active/14-schema-drop.md`](spec/active/14-schema-drop.md)).
+- [ ] W-13: keep the six-digit email OTP contract aligned across local and
+  hosted Auth configuration; inspect hosted `mailer_otp_length` before any
+  change and verify a fresh real login
+  ([`spec/active/16-auth-otp-reliability.md`](spec/active/16-auth-otp-reliability.md)).
+  Local config and docs landed (`GOTRUE_MAILER_OTP_LENGTH: "6"`, `deploy.md`
+  GET/PATCH examples); auth E2E green. Hosted GET/PATCH/verify step still
+  open - needs an operator with a Supabase Management API token.
+- [x] W-12: make the email OTP resend cooldown visible and recovery from a
+  failed code reliable, with mobile and desktop browser coverage
+  ([`spec/active/16-auth-otp-reliability.md`](spec/active/16-auth-otp-reliability.md)).
+  Visible `Resend in Ns` / `Resend code` countdown, clear-and-refocus on
+  failed verification and on resend (including when nothing was typed yet),
+  one request per click, inline recoverable network errors. 12 new
+  deterministic Playwright cases (desktop + mobile) plus the existing 19
+  real GoTrue/Mailpit cases all green; `make check` green.
 - [ ] W-11: retain and review multi-file document drafts safely, publish
   successful documents independently, expose retryable failures, and disclose
-  tenant-isolated storage and configured AI processing
+  tenant-isolated storage and configured AI processing. Split into three
+  tickets, each on its own branch
   ([`spec/active/15-document-review.md`](spec/active/15-document-review.md)).
+  - [x] W-11a: backend contract - `supporting_document_ids`/`support_state`
+    and `reconcile_replacement` for document replacement, migration 0028's
+    failure metadata with the reversed stored-failure rule, `retry-draft`,
+    and the batch publish endpoint. Reviewed and merged to `development` via
+    PR #31; corrective follow-up adding retryability and review-state guards,
+    batch cardinality validation, storage-failure isolation, and migration
+    0030's legacy-safe metadata constraint merged via PR #34.
+  - [x] W-11b: the retained review workspace (`ReviewSheet`'s `record` ->
+    `workspace`/`open` split). Reviewed and merged to `development` via PR #32.
+  - [x] W-11c: bounded-concurrency batch upload, `Replace`, offering
+    ordering/labels, pagination copy, and the privacy disclosures. 3-at-a-time
+    uploads capped at 5 files with in-place stamps and a single workspace
+    build; combined review sheet with a Sources panel (add/replace/remove),
+    per-document sections, and batch save with partial-failure retention;
+    reconcile and label policies mirrored from `flow.py` into a pure
+    `offerings.ts`; ready card and both disclosures verbatim; Business >
+    Knowledge retry-draft, Replace, and disclosure. 14 new deterministic
+    Playwright cases (desktop + mobile), 131 total e2e, `make check`, `make
+    ci`, and the eval gate all green.
 
 **Phase 13 specification amended four times.** 2026-09-05
 (`docs/phase13-walkthrough-refinement`): a second walkthrough round and its
@@ -70,10 +109,10 @@ introduction to nine tickets. 2026-09-06: W-9 was rewritten into the phase's
 single authoritative closing ticket (Amendment 3 in `13-walkthrough.md`),
 2026-09-07: Amendment 4 added deterministic basket pricing, catalog responses,
 and the non-terminal handoff contract, and 2026-09-08: the base contract and
-Amendment 4 were merged to `development` sequentially. **W-1 through W-8 are
-shipped; W-9 remains open only for provider-backed evaluation and production
-evidence.** W-11 is documented separately in Phase 15 and can now proceed
-independently from the merge dependency, though it remains unimplemented.
+Amendment 4 were merged to `development` sequentially. **W-1 through W-9 are
+shipped, and the phase is closed** ([`spec/completed/13-walkthrough.md`](spec/completed/13-walkthrough.md)).
+W-11 is documented separately in Phase 15 and can now proceed independently from
+the merge dependency. It is fully implemented: W-11a, W-11b, and W-11c are merged.
 
 ## Known gaps and deliberate deferrals
 
@@ -297,10 +336,10 @@ then validated and squash-merged as the second delivery. The deterministic
 verification is green: 943 backend tests, 110 frontend tests, frontend and
 backend lint/type/format checks, the full 105-test browser suite, and the
 targeted mobile voice-sheet rerun after fixing the shared topbar's flex-shrink
-touch-target bug. The ticket remains in `spec/active/` because the configured
-provider-backed `make eval` and production evidence still require external
-provider capacity and a live deployment; the deterministic `make eval-skip-llm`
-gate is the local regression gate.
+touch-target bug. The ticket was closed out on `test/w-9-closeout` the same day
+(see the W-9 closeout record below); only the provider-backed `make eval` and
+production evidence remain outstanding, and the deterministic
+`make eval-skip-llm` gate is the local regression gate.
 
 What the reproduction changed about the ticket is worth keeping. Five of the six
 failures the ticket names reproduced through the real onboarding UI, and the
@@ -330,6 +369,61 @@ this ticket, but the columns and their seed writes are still in place. Dropping
 them is W-10 (`spec/active/14-schema-drop.md`), deliberately its own ticket
 because one squash-merge cannot both deploy forward-compatible code and run the
 destructive migration after it is verified.
+
+**W-9 closed out** (2026-09-08, `test/w-9-closeout`). The prior session recorded
+the six open Amendment 4 boxes as "verification, not unwritten code". That was
+half right. The code was all there, but Amendment 4's own delivery evidence
+claimed a test matrix - "ambiguity... mixed priceability... inactive items,
+tenant isolation... owner price changes between turns... transcript parity...
+handoff deduplication, explicit contact-channel requests" - and several of those
+tests did not exist. Closing the ticket meant writing them. Backend tests went
+from 943 to 959, frontend from 110 to 120.
+
+Three things the boxes said that turned out to need rewording rather than a fix:
+
+- **Ids are supposed to be on the payload.** Box 1 reads as though the offering
+  id should be absent from customer-facing structured responses. It cannot be:
+  the cards use it as the row key and a follow-up turn re-selects by it. The
+  real guarantee is that it never reaches a *printed* field, and that is now
+  pinned on both sides, including the first tests `CatalogCard` and
+  `PriceSummaryCard` have ever had.
+- **There is no customer transcript to be in parity with.** Box 4's "customer
+  and owner transcript views render the same persisted response payload" reads
+  like a cross-surface guarantee. The customer surface has no history restore at
+  all - `conversationId` starts null and nothing is stored - so parity means the
+  persisted payload is identical to the streamed one and both feed the same
+  components. Asserted that way rather than by building customer history, which
+  no ticket asked for.
+- **"Exact" was asserted against itself.** Every handoff test compared the draft
+  to the imported `HANDOFF_MESSAGE` constant, so the wording could have been
+  changed to anything and the suite would still have passed. It is now pinned
+  against a literal copy, U+2019 apostrophe included.
+
+**`make eval` was attempted and failed on provider quota, not on the code.**
+Run 2026-09-08 against `bytefix`. The three absolute deterministic gates passed
+(`money_guardrail_eval`, `leakage_eval`, `retrieval_eval`). The three
+provider-backed legs (`generation_eval`, `trajectory_eval`, `injection_eval`)
+each reported `eval errored (exit 1)`, not a metric regression: the run ground
+through roughly 31 of 41 trajectory cases on a 120-second retry ladder before
+Groq returned `429 tokens per day (TPD): Limit 200000, Used 197944, Requested
+2869` for `openai/gpt-oss-120b`, with the Google primary leg rate-limited into
+its own retries at the same time. **So the gate is still unmeasured, for the
+third attempt, and for the same reason each time.** There is no valid recorded
+`tool_correctness` or injection `pass_rate` baseline for this code, so the first
+run that completes establishes a baseline rather than gating against one. Per
+the founder's 2026-09-08 decision the sequence does not block on this. **The
+honest read is that the free tier cannot measure this gate; a paid tier or a
+much smaller eval slice is what would actually close it.**
+
+**Two clauses are prompt-only and are recorded as such rather than claimed.**
+The contact-channel rule ("a confirmed email or phone is returned only when that
+channel is explicitly requested") has no deterministic enforcement anywhere -
+there is no gate analogous to `price_gate.py`. Coverage proves the rule text
+reaches every customer prose route's prompt; obedience rests on the model.
+Likewise "ambiguous" and "commitment" requests have no code path to drive, so
+they are deliberately untested rather than faked by scripting a provider into
+the answer. **A deterministic contact-channel gate is the natural follow-up if
+the founder wants that clause enforced rather than instructed.**
 
 **Chats-list row identity is unticketed UI polish** (founder request,
 2026-09-06, `fix/chats-row-identity`). Every row on the owner's Chats list read
@@ -368,7 +462,7 @@ stubs the unnamed case the seed cannot produce.
 |---|---|---|
 | [`spec/active/08-deferred.md`](spec/active/08-deferred.md) | Deferred | B-2, D-1, D-3 |
 | [`spec/active/12-refinement.md`](spec/active/12-refinement.md) | Open | R-3, R-4, R-5 |
-| [`spec/active/13-walkthrough.md`](spec/active/13-walkthrough.md) | Open | W-1 through W-8 delivered; W-9's base contract and Amendment 4 are merged, with provider-backed evaluation and production evidence open |
+| [`spec/completed/13-walkthrough.md`](spec/completed/13-walkthrough.md) | Complete | W-1 through W-9 delivered and verified |
 | [`spec/active/14-schema-drop.md`](spec/active/14-schema-drop.md) | Open | W-10, blocked on W-9 production verification |
 | [`spec/active/15-document-review.md`](spec/active/15-document-review.md) | Open | W-11, implementation may proceed now that W-9 is merged to `development` |
 | [`spec/completed/`](spec/completed/) | Complete | All delivered feature, deployment, and supporting phases |

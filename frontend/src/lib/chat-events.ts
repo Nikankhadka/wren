@@ -52,20 +52,6 @@ export type ChatStreamEvent =
   | { type: "done" };
 
 /**
- * Customer-facing label for each stage. A turn runs several LLM calls in series
- * and nothing the model writes may be shown until inspection clears it, so
- * without this the customer stares at an unexplained pause; naming the current
- * stage makes that wait legible rather than making it shorter.
- */
-export const PROGRESS_LABELS: Record<ProgressStage, string> = {
-  routing: "Understanding your question…",
-  answering: "Finding an answer…",
-  quoting: "Preparing your quote…",
-  checking: "Checking the answer…",
-  escalating: "Passing this to the business…",
-};
-
-/**
  * Parse one SSE `data:` payload into a typed event, or `null` if it is not
  * valid JSON with a string `type`. Returning `null` (rather than throwing) lets
  * the caller skip a bad frame and keep reading the stream.

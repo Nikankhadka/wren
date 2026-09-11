@@ -61,14 +61,43 @@ async def test_all_migrations_recorded(superuser_conn: asyncpg.Connection[Any]) 
     # documents.offerings, the candidates extracted once at ingest instead of
     # re-derived on every read; 0027 back-fills W-9's config->customer_voice from
     # the free-text tone column, which application code stops reading with that
-    # ticket - the columns themselves are dropped by a later ticket, not this one.
-    assert len(on_disk) == 27, "expected migrations 0001-0027"
+    # ticket - the columns themselves are dropped by a later ticket, not this one;
+    # 0028 adds W-11's documents.failure_stage/failure_retryable/failed_at, so a
+    # processing failure that used to vanish into a 422 is now a retryable row;
+    # 0030 keeps that metadata off non-failed rows without requiring a legacy
+    # failed row to be backfilled. 0029 is reserved for W-10; the runner applies
+    # this later filename in order and tolerates the gap.
+    assert len(on_disk) == 29, "expected migrations 0001-0028 and 0030"
     applied = await superuser_conn.fetch("select version from schema_migrations order by version")
     assert [r["version"] for r in applied] == on_disk
 
 
 async def test_rerun_is_idempotent(migrated_db: str) -> None:
     assert await run_migrations(migrated_db) == []
+
+
+async def test_failure_metadata_is_rejected_on_non_failed_documents(
+    superuser_conn: asyncpg.Connection[Any],
+) -> None:
+    tenant_id = await superuser_conn.fetchval(
+        "insert into tenants (slug, name) values ('t002-failure-check', 'Failure Check') "
+        "returning id"
+    )
+    document_id = await superuser_conn.fetchval(
+        "insert into documents (tenant_id, filename, doc_type, status) "
+        "values ($1, 'notes.txt', 'other', 'ready') returning id",
+        tenant_id,
+    )
+    with pytest.raises(asyncpg.CheckViolationError):
+        await superuser_conn.execute(
+            "update documents set failure_stage = 'embed' where id = $1", document_id
+        )
+    # Legacy failed rows with no metadata remain valid and do not need a risky
+    # backfill merely to apply this constraint.
+    await superuser_conn.execute(
+        "update documents set status = 'failed' where id = $1", document_id
+    )
+    await superuser_conn.execute("delete from tenants where id = $1", tenant_id)
 
 
 async def test_every_designed_table_exists(superuser_conn: asyncpg.Connection[Any]) -> None:

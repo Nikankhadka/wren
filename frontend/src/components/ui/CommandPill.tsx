@@ -92,17 +92,16 @@ export function CommandPill({
         field ? "py-3.5 pl-5 pr-[9px]" : "py-[11px] pl-[18px] pr-[10px]",
       ].join(" ")}
     >
-      {/* `.pill-plus`: a 22px hit box around an 18px glyph. The glyph stays a
-          plus whether or not it is wired - the prototype has one affordance
-          here, and swapping it for a paperclip when live would make the pill
-          read differently from screen to screen. */}
-      {field ? null : (
+      {/* `.pill-plus`: a 22px hit box around an 18px glyph. Hidden (not just
+          disabled) when nothing is wired to it - only the document-upload
+          beat passes onAttach, and a dimmed plus on every other step reads as
+          an affordance that just doesn't work yet. */}
+      {field || !onAttach ? null : (
         <button
           type="button"
           onClick={onAttach}
-          disabled={!onAttach}
           aria-label="Attach"
-          className="mb-0.5 flex h-[22px] w-[22px] shrink-0 items-center justify-center text-ink-a40 disabled:opacity-50"
+          className="mb-0.5 flex h-[22px] w-[22px] shrink-0 items-center justify-center text-ink-a40"
         >
           <Icon name="add" size={18} />
         </button>
@@ -139,7 +138,7 @@ export function CommandPill({
             armed ? "bg-accent text-text-inverse" : "bg-accent-a12 text-accent-a50",
           ].join(" ")}
         >
-          <Icon name="arrow_forward" size={20} />
+          <Icon name="send" size={20} />
         </button>
       ) : null}
     </div>

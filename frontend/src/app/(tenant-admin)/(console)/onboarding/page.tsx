@@ -19,6 +19,10 @@ import { ThinkingDots } from "@/components/ui/ThinkingDots";
 import { useAuth } from "@/components/AuthProvider";
 import { apiFetch, apiFetchStream, ApiError } from "@/lib/api";
 import {
+  type OnboardingKnowledgeBatchResponse,
+  type PendingOfferingOutput,
+} from "@/lib/api-schemas";
+import {
   describeUpload,
   foldReply,
   parseOnboardingEvent,
@@ -30,9 +34,11 @@ import { slugShapeError } from "@/lib/slug";
 import { BeatComposer } from "./components/BeatComposer";
 import {
   type KnowledgeRecord,
+  type KnowledgeSection,
   type PendingOffering,
-  type ReviewOffering,
+  type ReviewWorkspace,
 } from "@/components/knowledge/types";
+import { buildWorkspace } from "@/components/knowledge/offerings";
 import { ReviewSheet } from "@/components/knowledge/ReviewSheet";
 
 interface Message {
@@ -101,6 +107,15 @@ const PROCESSING_COPY: Record<string, string> = {
 const UPLOAD_RECOVERY =
   "Try again with the +, or tell me about it in a sentence.";
 
+/**
+ * W-11c: one batch takes five files at most, uploaded three at a time. The
+ * thread stamps every file up front and settles them all before the review
+ * sheet opens, so these two numbers are the contract that "one review after
+ * everything settles" depends on.
+ */
+const MAX_BATCH_FILES = 5;
+const MAX_CONCURRENT_UPLOADS = 3;
+
 function historyToMessages(
   history: { role: string; content: string }[] | undefined,
 ): Message[] {
@@ -121,7 +136,7 @@ function historyToMessages(
  * even visible, the other 409s this endpoint can raise (an unreviewed draft,
  * a paused beat, an already-completed record - controller.py:487-501) are
  * already excluded by this screen's own render condition
- * (`!completed && canConfirm && !reviewing`), so the one 409 left that can
+ * (`!completed && canConfirm && !workspace`), so the one 409 left that can
  * reach here is the taken-slug conflict (controller.py:535-539).
  */
 function isSlugConfirmFailure(err: ApiError): boolean {
@@ -142,6 +157,34 @@ function confirmFailureDetail(err: ApiError): string {
   const raw = err.errors[0]?.detail ?? err.detail;
   const prefix = "Value error, ";
   return raw.startsWith(prefix) ? raw.slice(prefix.length) : raw;
+}
+
+/**
+ * W-11c: the batch endpoint answers with the generated PendingOffering-Output
+ * shape (every field optional - pydantic omits defaults); the review stack
+ * works in the local PendingOffering shape (price_cents and sources
+ * guaranteed). Normalize once at the API boundary.
+ */
+function toPendingOfferings(
+  candidates: PendingOfferingOutput[],
+): PendingOffering[] {
+  return candidates.map((candidate) => ({
+    name: candidate.name,
+    candidate_id: candidate.candidate_id,
+    description: candidate.description,
+    price_cents: candidate.price_cents ?? null,
+    sources: candidate.sources ?? ["document"],
+    source_references: candidate.source_references?.map((reference) => ({
+      ...reference,
+      supported_fields: reference.supported_fields ?? [],
+    })),
+    supporting_document_ids: candidate.supporting_document_ids,
+    support_state: candidate.support_state ?? "supported",
+    price_note: candidate.price_note,
+    needs_review: candidate.needs_review,
+    possible_matches: candidate.possible_matches,
+    price_options: candidate.price_options,
+  }));
 }
 
 /**
@@ -199,7 +242,8 @@ export default function OnboardingPage() {
   const [loaded, setLoaded] = useState(false);
   const [ownerOfferings, setOwnerOfferings] = useState<PendingOffering[]>([]);
   const [drafts, setDrafts] = useState<KnowledgeRecord[]>([]);
-  const [reviewing, setReviewing] = useState<KnowledgeRecord | null>(null);
+  const [workspace, setWorkspace] = useState<ReviewWorkspace | null>(null);
+  const [open, setOpen] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [openingPaced, setOpeningPaced] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -237,7 +281,10 @@ export default function OnboardingPage() {
         setDrafts(pending);
         if (pending[0]) {
           setCanConfirm(false);
-          setReviewing(withCombinedOfferings(pending[0], state.offering_candidates ?? []));
+          // W-11c: the combined review opens over every pending draft, not the
+          // first one - the sheet's Sources panel reviews them together.
+          setWorkspace(buildWorkspace(pending, state.offering_candidates ?? [], pending[0].id));
+          setOpen(true);
         }
         const restored = historyToMessages(state.history);
         if (restored.length > 0) {
@@ -370,7 +417,10 @@ export default function OnboardingPage() {
       setDrafts(pending);
       if (pending[0]) {
         setCanConfirm(false);
-        setReviewing(withCombinedOfferings(pending[0], ownerOfferings));
+        // W-11b/W-11c: keep the workspace id across rebuilds so the sheet
+        // never remounts mid-session, and review every pending draft together.
+        setWorkspace(buildWorkspace(pending, ownerOfferings, workspace?.id ?? pending[0].id));
+        setOpen(true);
       }
     } catch (err) {
       // W-3: an aborted stream and a failed request both leave no reply behind
@@ -451,10 +501,158 @@ export default function OnboardingPage() {
   }
 
   /**
-   * Files attached through the pill's "+". Each file gets its own stamp and its
-   * own line, uploaded one at a time so the thread reads in order. Knowledge is
-   * never a blocking beat: a refused or failed file leaves one calm line and the
-   * interview carries on.
+   * W-11c: run at most `limit` tasks concurrently, resolving in input order -
+   * results are indexed by task position, so the caller can match each outcome
+   * to its task regardless of settle order.
+   */
+  async function runBounded<T>(
+    tasks: (() => Promise<T>)[],
+    limit: number,
+  ): Promise<PromiseSettledResult<T>[]> {
+    const results: PromiseSettledResult<T>[] = [];
+    let cursor = 0;
+    async function worker() {
+      while (cursor < tasks.length) {
+        const index = cursor;
+        cursor += 1;
+        try {
+          results[index] = { status: "fulfilled", value: await tasks[index]() };
+        } catch (reason) {
+          results[index] = { status: "rejected", reason };
+        }
+      }
+    }
+    await Promise.all(
+      Array.from({ length: Math.min(limit, tasks.length) }, () => worker()),
+    );
+    return results;
+  }
+
+  /**
+   * W-11c: the shared upload core behind the composer's "+" and the review
+   * sheet's Add source and Replace paths. A batch caps at five files, uploaded
+   * three at a time; every file gets its own stamp up front and settles to
+   * "· ready" or "· failed". Returns the accepted draft records in input order.
+   * A stored failure (a 201 with status "failed") is never returned - the file
+   * is kept in Knowledge for retry, and never joins drafts or the workspace.
+   * Callers own the busy state and the follow-up drafts/workspace surgery.
+   */
+  async function uploadDrafts(files: File[]): Promise<KnowledgeRecord[]> {
+    // W-11c: a batch caps at five files - the first five are processed, the
+    // rest are turned away in one line.
+    const batch = files.slice(0, MAX_BATCH_FILES);
+    if (files.length > MAX_BATCH_FILES) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", text: "I can take up to 5 files at once..." },
+      ]);
+    }
+    // describeUpload rejections (an image, an unknown extension) answer at
+    // once with no stamp; accepted files get their pending stamp up front,
+    // in input order, before any upload starts.
+    const queue: { file: File; stampId: string }[] = [];
+    for (const file of batch) {
+      const verdict = describeUpload(file.name);
+      if (!verdict.accepted) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", text: verdict.message },
+        ]);
+        continue;
+      }
+      const stampId = crypto.randomUUID();
+      queue.push({ file, stampId });
+      // W-3: the stamp itself carries the animated processing state
+      // (ThinkingDots, rendered beside `message.text` in the thread) instead
+      // of a frozen "adding\u2026" suffix - reading and scrolling stay available
+      // while extraction runs, and `pending` is always resolved explicitly
+      // below, on both the success and the failure path.
+      setMessages((prev) => [
+        ...prev,
+        { id: stampId, role: "stamp", text: file.name, pending: true },
+      ]);
+    }
+    const accepted: KnowledgeRecord[] = [];
+    const results = await runBounded(
+      queue.map((entry) => () => uploadOne(entry)),
+      MAX_CONCURRENT_UPLOADS,
+    );
+    for (let index = 0; index < results.length; index += 1) {
+      const result = results[index];
+      const { file, stampId } = queue[index];
+      if (result.status === "fulfilled" && result.value) {
+        accepted.push(result.value);
+      } else if (result.status === "rejected") {
+        const err = result.reason;
+        updateById(stampId, {
+          text: `${file.name} \u00b7 failed`,
+          pending: false,
+        });
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            text:
+              err instanceof ApiError && err.detail
+                ? `I couldn't read that one. ${err.detail} ${UPLOAD_RECOVERY}`
+                : `I couldn't read that one. ${UPLOAD_RECOVERY}`,
+          },
+        ]);
+      }
+    }
+    return accepted;
+
+    async function uploadOne(entry: {
+      file: File;
+      stampId: string;
+    }): Promise<KnowledgeRecord | null> {
+      const form = new FormData();
+      form.append("file", entry.file);
+      form.append("doc_type", "other");
+      const draft = await apiFetch<KnowledgeRecord>(
+        "/api/knowledge/drafts/upload",
+        {
+          method: "POST",
+          body: form,
+        },
+      );
+      if (draft.status === "failed") {
+        // W-11a: a 201 that parks a failed draft - the file is kept so the
+        // owner can retry it from Knowledge. It is not a reviewable draft, so
+        // it never joins drafts or the workspace.
+        updateById(entry.stampId, {
+          text: `${entry.file.name} \u00b7 failed`,
+          pending: false,
+        });
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            text: "It's kept in Knowledge so you can retry it.",
+          },
+        ]);
+        return null;
+      }
+      updateById(entry.stampId, {
+        text: `${entry.file.name} \u00b7 ready`,
+        pending: false,
+      });
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          text: `I found ${entry.file.name}. Review it before it answers customers.`,
+        },
+      ]);
+      return draft;
+    }
+  }
+
+  /**
+   * Files attached through the pill's "+". Knowledge is never a blocking beat:
+   * a refused or failed file leaves one calm line and the interview carries
+   * on. The review sheet opens only once every file has settled - never on the
+   * first accepted draft.
    *
    * ponytail: the stamps are client-side only - the ingested document is
    * persisted, its stamp is not, so a reload shows the thread without them.
@@ -464,106 +662,268 @@ export default function OnboardingPage() {
     if (busy) return;
     setError(null);
     setBusy(true);
-    const accepted: KnowledgeRecord[] = [];
     try {
-      for (const file of files) {
-        const verdict = describeUpload(file.name);
-        if (!verdict.accepted) {
-          setMessages((prev) => [
-            ...prev,
-            { role: "assistant", text: verdict.message },
-          ]);
-          continue;
-        }
-        const id = crypto.randomUUID();
-        // W-3: the stamp itself carries the animated processing state
-        // (ThinkingDots, rendered beside `message.text` in the thread) instead
-        // of a frozen "adding\u2026" suffix - reading and scrolling stay available
-        // while extraction runs, and `pending` is always resolved explicitly
-        // below, on both the success and the failure path.
-        setMessages((prev) => [
-          ...prev,
-          { id, role: "stamp", text: file.name, pending: true },
-        ]);
-        const form = new FormData();
-        form.append("file", file);
-        form.append("doc_type", "other");
-        try {
-          const draft = await apiFetch<KnowledgeRecord>("/api/knowledge/drafts/upload", {
-            method: "POST",
-            body: form,
-          });
-          setCanConfirm(false);
-          accepted.push(draft);
-          setDrafts((previous) => [...previous, draft]);
-          updateById(id, { text: `${file.name} \u00b7 added`, pending: false });
-          setMessages((prev) => [
-            ...prev,
-            { role: "assistant", text: `I found ${file.name}. Review it before it answers customers.` },
-          ]);
-        } catch (err) {
-          updateById(id, { text: `${file.name} \u00b7 not added`, pending: false });
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              text:
-                err instanceof ApiError && err.detail
-                  ? `I couldn't read that one. ${err.detail} ${UPLOAD_RECOVERY}`
-                  : `I couldn't read that one. ${UPLOAD_RECOVERY}`,
-            },
-          ]);
-        }
+      const accepted = await uploadDrafts(files);
+      if (accepted.length > 0) {
+        setCanConfirm(false);
+        // W-11c: one rebuild after everything settles - never per draft. The
+        // workspace id carries over so the sheet does not remount mid-flight.
+        setDrafts((previous) => [...previous, ...accepted]);
+        setWorkspace(
+          buildWorkspace(
+            [...(workspace?.documents ?? []), ...accepted],
+            ownerOfferings,
+            workspace?.id,
+          ),
+        );
+        setOpen(true);
       }
-      if (accepted[0]) setReviewing(withCombinedOfferings(accepted[0], ownerOfferings));
     } finally {
       setBusy(false);
     }
   }
 
-  function nextDraft(excluding: string): KnowledgeRecord | null {
-    return drafts.find((draft) => draft.id !== excluding) ?? null;
-  }
-
-  async function saveKnowledge(
-    sections: { heading: string; body: string }[],
-    offerings: PendingOffering[],
-  ) {
-    if (!reviewing) return;
+  /**
+   * W-11c: Add source from inside the review sheet. Same upload core as the
+   * composer, then the workspace grows by the accepted records (id stable -
+   * W-11b) and the sheet merges their candidates into its own list.
+   */
+  async function addSources(files: File[]): Promise<KnowledgeRecord[]> {
+    if (busy) return [];
+    setError(null);
     setReviewError(null);
     setBusy(true);
     try {
-      const response = await apiFetch<{
-        record: KnowledgeRecord;
-        offering_candidates: PendingOffering[];
-      }>(`/api/onboarding/knowledge/${reviewing.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ sections, offerings }),
+      const accepted = await uploadDrafts(files);
+      if (accepted.length > 0) {
+        setCanConfirm(false);
+        setDrafts((previous) => [...previous, ...accepted]);
+        setWorkspace(
+          buildWorkspace(
+            [...(workspace?.documents ?? []), ...accepted],
+            ownerOfferings,
+            workspace?.id,
+          ),
+        );
+      }
+      return accepted;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * W-11c: replace one source from the review sheet. Upload first, then delete
+   * the old record only once the new one is a reviewable draft - an upload
+   * failure returns null with the old document untouched and the DELETE never
+   * fired. A delete failure after a successful upload surfaces the error and
+   * refreshes the record list (the orphaned new draft is then visible and
+   * recoverable); the old document is still there.
+   */
+  async function replaceSource(
+    documentId: string,
+    file: File,
+  ): Promise<KnowledgeRecord | null> {
+    if (busy) return null;
+    setError(null);
+    setReviewError(null);
+    setBusy(true);
+    try {
+      const accepted = await uploadDrafts([file]);
+      const uploaded = accepted[0];
+      if (!uploaded) return null;
+      try {
+        await apiFetch(`/api/knowledge/records/${documentId}`, {
+          method: "DELETE",
+        });
+      } catch (err) {
+        setReviewError(
+          err instanceof ApiError
+            ? err.detail
+            : "I couldn't replace that source. Your old one is still there - try again.",
+        );
+        const records = await apiFetch<KnowledgeRecord[]>(
+          "/api/knowledge/records",
+        ).catch(() => null);
+        if (records) setDrafts(records.filter((record) => record.status === "draft"));
+        return null;
+      }
+      const records = await apiFetch<KnowledgeRecord[]>("/api/knowledge/records");
+      const next = records.find((record) => record.id === uploaded.id) ?? uploaded;
+      setDrafts(records.filter((record) => record.status === "draft"));
+      // Old position replaced with the new record; workspace id stays put.
+      setWorkspace((previous) =>
+        previous
+          ? {
+              ...previous,
+              documents: previous.documents.map((doc) =>
+                doc.id === documentId ? next : doc,
+              ),
+            }
+          : previous,
+      );
+      return next;
+    } catch (err) {
+      setReviewError(
+        err instanceof ApiError ? err.detail : "I couldn't replace that source.",
+      );
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * W-11c: remove one source from the review sheet. Deletes the record, then
+   * refreshes the list. Removing the last document clears the workspace and
+   * unblocks confirm.
+   */
+  async function removeSource(documentId: string): Promise<void> {
+    if (!workspace || busy) return;
+    setError(null);
+    setReviewError(null);
+    setBusy(true);
+    try {
+      await apiFetch(`/api/knowledge/records/${documentId}`, {
+        method: "DELETE",
       });
-      const remaining = nextDraft(reviewing.id);
-      setOwnerOfferings(response.offering_candidates);
-      setDrafts((previous) => previous.filter((draft) => draft.id !== reviewing.id));
-      setReviewing(remaining ? withCombinedOfferings(remaining, response.offering_candidates) : null);
-      setCanConfirm(!remaining);
+      const records = await apiFetch<KnowledgeRecord[]>("/api/knowledge/records");
+      const remaining = workspace.documents.filter((doc) => doc.id !== documentId);
+      setDrafts(records.filter((record) => record.status === "draft"));
+      if (remaining.length === 0) {
+        setWorkspace(null);
+        setOpen(false);
+        setCanConfirm(true);
+      } else {
+        setWorkspace({ ...workspace, documents: remaining });
+      }
     } catch (err) {
-      setReviewError(err instanceof ApiError ? err.detail : "I couldn't save that information.");
+      setReviewError(
+        err instanceof ApiError ? err.detail : "I couldn't remove that source.",
+      );
     } finally {
       setBusy(false);
     }
   }
 
-  async function discardKnowledge() {
-    if (!reviewing) return;
+  /**
+   * W-11c: the review save publishes every workspace document in one batch
+   * call. The endpoint always answers 200 - a document's own failure (price
+   * conflict, or a hard failure at publish time) lands in `failed`, never as a
+   * network error, and never aborts the documents that did publish.
+   *
+   * On any failure the workspace is rebuilt over the remaining documents
+   * (refetch /api/knowledge/records, keep the workspace id so the sheet stays
+   * mounted, keep the previous document order) with a per-document `errors`
+   * map and a summary line; the sheet shows the per-doc messages under each
+   * source. On full success the workspace dies, the confirm step unblocks, and
+   * the resolved candidates are returned for the sheet to adopt.
+   */
+  async function saveKnowledge(
+    documents: { document_id: string; sections: KnowledgeSection[] }[],
+    offerings: PendingOffering[],
+    acceptPriceChanges = false,
+  ): Promise<PendingOffering[] | null> {
+    if (!workspace) return null;
     setReviewError(null);
     setBusy(true);
     try {
-      await apiFetch(`/api/knowledge/records/${reviewing.id}`, { method: "DELETE" });
-      const remaining = nextDraft(reviewing.id);
-      setDrafts((previous) => previous.filter((draft) => draft.id !== reviewing.id));
-      setReviewing(remaining ? withCombinedOfferings(remaining, ownerOfferings) : null);
-      setCanConfirm(!remaining);
+      const response = await apiFetch<OnboardingKnowledgeBatchResponse>(
+        "/api/onboarding/knowledge/batch",
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            documents,
+            offerings,
+            accept_price_changes: acceptPriceChanges,
+          }),
+        },
+      );
+      const candidates = toPendingOfferings(response.offering_candidates);
+      const failedIds = new Set(
+        response.failed.map((failure) => failure.document_id),
+      );
+      if (failedIds.size > 0) {
+        const records = await apiFetch<KnowledgeRecord[]>("/api/knowledge/records");
+        // Keep the previous document order; a failure whose document is
+        // already gone (a "document not found" ghost) simply drops out.
+        const remaining: KnowledgeRecord[] = [];
+        for (const doc of workspace.documents) {
+          const record = records.find((candidate) => candidate.id === doc.id);
+          if (record && failedIds.has(record.id)) remaining.push(record);
+        }
+        setOwnerOfferings(candidates);
+        setDrafts(records.filter((record) => record.status === "draft"));
+        if (remaining.length === 0) {
+          // Every failure was a ghost (document already gone) - treat the
+          // batch as done rather than leaving an empty sheet behind.
+          setWorkspace(null);
+          setOpen(false);
+          setCanConfirm(true);
+          return candidates;
+        }
+        const errors: Record<string, string> = {};
+        for (const failure of response.failed) {
+          errors[failure.document_id] = failure.error;
+        }
+        setWorkspace({
+          ...buildWorkspace(remaining, candidates, workspace.id),
+          errors,
+        });
+        setOpen(true);
+        setCanConfirm(false);
+        setReviewError(
+          "Some documents couldn't be saved. See the message under each source, then save again.",
+        );
+        return candidates;
+      }
+      setOwnerOfferings(candidates);
+      setDrafts([]);
+      setWorkspace(null);
+      setOpen(false);
+      setCanConfirm(true);
+      return candidates;
     } catch (err) {
-      setReviewError(err instanceof ApiError ? err.detail : "I couldn't discard that draft.");
+      // A network-level failure - the batch never ran, nothing published.
+      setReviewError(
+        err instanceof ApiError
+          ? err.detail
+          : "I couldn't save that information.",
+      );
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * W-11c: discard deletes every document still in the review, not just the
+   * first - per-source Remove covers individuals. All published-side drafts go
+   * with the workspace, and confirm unblocks.
+   */
+  async function discardKnowledge() {
+    if (!workspace) return;
+    setReviewError(null);
+    setBusy(true);
+    try {
+      await Promise.all(
+        workspace.documents.map((doc) =>
+          apiFetch(`/api/knowledge/records/${doc.id}`, { method: "DELETE" }),
+        ),
+      );
+      const discarded = new Set(workspace.documents.map((doc) => doc.id));
+      setDrafts((previous) =>
+        previous.filter((draft) => !discarded.has(draft.id)),
+      );
+      setWorkspace(null);
+      setOpen(false);
+      setCanConfirm(true);
+    } catch (err) {
+      setReviewError(
+        err instanceof ApiError
+          ? err.detail
+          : "I couldn't discard those drafts.",
+      );
     } finally {
       setBusy(false);
     }
@@ -690,7 +1050,33 @@ export default function OnboardingPage() {
 
       <div className="relative z-[1] shrink-0 px-gutter pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
         <div className="mx-auto w-full max-w-thread">
-          {!completed && canConfirm && !reviewing ? (
+          {/* W-11c: the persistent "Documents ready to review" card from
+              15-document-review.md - a closed-but-unfinished draft always has
+              a way back. Replaces the W-11b bare button; the button keeps the
+              W-11b testid so onboarding-url.spec.ts still finds it. Styled
+              after the home screen's BriefCard (same surface). */}
+          {!open && drafts.length > 0 ? (
+            <div
+              data-testid="onboarding-ready-card"
+              className="mt-4 animate-rise rounded-card border border-hairline bg-surface px-[18px] py-4 shadow-card"
+            >
+              <p className="text-card-hl font-medium text-text">Documents ready to review</p>
+              <p className="mt-1 text-meta text-ink-a40">
+                {drafts.length === 1
+                  ? "1 source is read and waiting"
+                  : `${drafts.length} sources are read and waiting`}
+              </p>
+              <Button
+                variant="secondary"
+                onClick={() => setOpen(true)}
+                className="mt-3 w-full sm:w-auto"
+                data-testid="onboarding-reopen-review"
+              >
+                Review documents
+              </Button>
+            </div>
+          ) : null}
+          {!completed && canConfirm && !workspace ? (
             <div className="flex flex-col gap-3">
               {businessName ? (
                 <p className="text-meta text-ink-a40" data-testid="onboarding-going-live-as">
@@ -738,7 +1124,7 @@ export default function OnboardingPage() {
               onSelection={(values, label) => void sendSelection(values, label)}
               onStop={handleStop}
               ownerEmail={user?.email ?? null}
-              onFiles={(files) => void uploadFiles(files)}
+              onFiles={stage === "knowledge" ? (files) => void uploadFiles(files) : undefined}
             />
           ) : null}
 
@@ -756,67 +1142,36 @@ export default function OnboardingPage() {
           >
             {error ?? ""}
           </p>
+          {/* Onboarding half of the privacy disclosure (15-document-review.md,
+              "Privacy disclosure") - unconditional, shortened per founder
+              request to one sentence, no vendor name. The fuller disclosure
+              stays on Business > Knowledge, which has room for it. */}
+          <p
+            data-testid="onboarding-privacy-disclosure"
+            className="mt-2 text-meta text-ink-a40"
+          >
+            {"Your documents stay private to your business, and nothing answers customers until you review and save it."}
+          </p>
         </div>
       </div>
       <ReviewSheet
-        record={reviewing}
+        workspace={workspace}
+        open={open}
         busy={busy}
         priceConflict={reviewError}
         onboarding
         onClose={() => {
           setReviewError(null);
-          setReviewing(null);
+          setOpen(false);
         }}
-        onSave={(sections, offerings) => void saveKnowledge(sections, offerings)}
+        onSave={(documents, offerings, acceptPriceChanges) =>
+          saveKnowledge(documents, offerings, acceptPriceChanges)
+        }
         onDiscard={() => void discardKnowledge()}
+        onAddSource={(files) => addSources(files)}
+        onReplaceSource={(documentId, file) => replaceSource(documentId, file)}
+        onRemoveSource={(documentId) => removeSource(documentId)}
       />
     </main>
   );
-}
-
-/**
- * Owner-typed offerings unioned with a draft document's candidates, for review.
- *
- * W-6: the precedence applied here is the server's, not a second opinion. The
- * rule is written down once, in `merge_offerings`
- * (`backend/app/onboarding/flow.py`): the document wins name, price and
- * description, and sources union. This function used to resolve the opposite
- * way - owner wins - so an uploaded price list and a chip-typed name produced
- * different answers depending on which surface you were looking at.
- *
- * It exists at all only because a file uploaded mid-interview posts to the
- * shared `/api/knowledge/drafts/upload` route, which does not fold candidates
- * into the onboarding record the way the URL turn does. Every other path
- * displays the list the server already merged.
- */
-function withCombinedOfferings(
-  record: KnowledgeRecord,
-  ownerOfferings: PendingOffering[],
-): KnowledgeRecord {
-  const merged = new Map<string, ReviewOffering>();
-  for (const item of ownerOfferings) merged.set(normalizeOfferingName(item.name), { ...item });
-  for (const item of record.offering_candidates ?? []) {
-    const key = normalizeOfferingName(item.name);
-    const owner = merged.get(key);
-    const options = [owner?.price_cents, item.price_cents].filter(
-      (price): price is number => price != null,
-    );
-    merged.set(key, {
-      ...item,
-      description: item.description || owner?.description || "",
-      price_cents: item.price_cents ?? owner?.price_cents ?? null,
-      sources: [...new Set([...(owner?.sources ?? []), ...item.sources])],
-      price_options: new Set(options).size > 1 ? [...new Set(options)] : undefined,
-    });
-  }
-  return { ...record, offering_candidates: [...merged.values()] };
-}
-
-function normalizeOfferingName(value: string): string {
-  return value
-    .normalize("NFKC")
-    .trim()
-    .toLowerCase()
-    .replace(/[\p{P}]/gu, " ")
-    .replace(/\s+/g, " ");
 }

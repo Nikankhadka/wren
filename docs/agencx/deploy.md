@@ -188,10 +188,12 @@ Create one hosted project. It backs the deployed stack; local dev keeps using
    export SUPABASE_ACCESS_TOKEN=<personal access token>
    export PROJECT_REF=rbujlsbnghnfnhaiwlhh
 
-   # Inspect current config first.
+   # Inspect current config first. Always GET before any PATCH below: the
+   # PATCH body is a full apply, so record what the project reports first,
+   # and only change a field whose observed value is actually wrong.
    curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
      "https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth" \
-     | jq '{site_url, uri_allow_list, mailer_otp_exp,
+     | jq '{site_url, uri_allow_list, mailer_otp_exp, mailer_otp_length,
             mailer_templates_magic_link_content,
             mailer_templates_confirmation_content}'
 
@@ -203,6 +205,7 @@ Create one hosted project. It backs the deployed stack; local dev keeps using
        "site_url": "https://agencx-iota.vercel.app",
        "uri_allow_list": "https://agencx-iota.vercel.app,https://agencx-git-staging-nikankhadkas-projects.vercel.app,https://agencx-git-development-nikankhadkas-projects.vercel.app,http://localhost:3000",
        "mailer_otp_exp": 600,
+       "mailer_otp_length": 6,
        "mailer_subjects_magic_link": "{{ .Token }} is your Agencx login code",
        "mailer_subjects_confirmation": "{{ .Token }} is your Agencx login code",
        "mailer_templates_magic_link_content": "<h2>Your login code</h2><p>Enter this code to sign in:</p><h1>{{ .Token }}</h1><p>This code expires shortly and can only be used once.</p>",
@@ -216,6 +219,12 @@ Create one hosted project. It backs the deployed stack; local dev keeps using
    `GET` first if the field names above ever look wrong against a newer API
    version - `mailer_templates_*_content` is the documented key, but do not
    assume it never changes.
+
+   `mailer_otp_length` must stay `6` (D23): `CodeInput` on the login screen
+   is hardcoded to six cells, so a project set to eight or ten digits mails a
+   code the UI cannot accept. After applying, verify with a freshly issued
+   code (not one sent before the change) that a real login completes before
+   considering the project fixed.
    - **Auth > Emails > SMTP Settings**: turn on **Custom SMTP** and point it at
      Brevo (see Step 3 below). Supabase's built-in mailer sends at most ~2
      emails/hour and only to addresses that are already project members - with

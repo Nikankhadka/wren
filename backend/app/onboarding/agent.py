@@ -180,7 +180,21 @@ _EXTRACT_PROMPT = (
     "You are extracting business information from a small-business owner who is "
     "onboarding their assistant. Read the conversation and update the profile "
     "with anything new the owner stated: owner_display_name, business_name, business_type, "
-    "headcount, hours, services, contact, abn, gst. Also list offering_names "
+    "headcount, hours, services, contact, abn, gst. "
+    # W-9 US-6: promoted from the tail of this prompt and reframed positively -
+    # buried after ten other rules and immediately undercut by a nearby "never
+    # guess", it was too easy for the model to skip on exactly the borderline
+    # typo it exists to catch.
+    "Write each value in ordinary correct spelling. Keep the owner's own words, "
+    "their order, and their meaning exactly - fix only clear spelling mistakes "
+    "and obvious slips in ordinary words. Never reword, never shorten, never "
+    'add or drop anything. For example, "we open evrey day 7 to 8" becomes '
+    'hours: "we open every day 7 to 8" - the day and the time are untouched, '
+    "only the misspelled word is fixed. Never change a person's name, a "
+    "business or brand name, capitalization, an ABN or other identifier, an "
+    "email address, a phone number, or any amount. When you cannot tell what "
+    "an unusual word was meant to be, keep it exactly as written. "
+    "Also list offering_names "
     "only when the owner explicitly names individual offerings. Fill only what the owner "
     "actually said - never invent a value. Copy any price or other amount "
     "exactly as the owner wrote it: never round it, convert it, tidy it up, or "
@@ -213,13 +227,7 @@ _EXTRACT_PROMPT = (
     "When the owner adds, renames, removes, or replaces one of the things they "
     "offer, put that in offering_ops as an operation with op, name (the item "
     "they named) and, for rename and replace, new_name. Use offering_names only "
-    "for a plain list of what they offer. "
-    # W-9 US-6: conservative cleanup, through this call and no other.
-    "Fix clear spelling mistakes in ordinary words as you extract. Never change "
-    "a person's name, a business or brand name, capitalization, an ABN or other "
-    "identifier, an email address, a phone number, or any amount. When you "
-    "cannot tell what the owner meant, keep exactly what they wrote - never "
-    "guess."
+    "for a plain list of what they offer."
 )
 
 

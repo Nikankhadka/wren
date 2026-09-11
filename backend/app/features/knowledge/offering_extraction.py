@@ -46,6 +46,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -302,7 +303,7 @@ def _is_attributed(text: str, figure: MonetaryFigure, blocks: list[SourceBlock])
 
 
 async def extract_offerings(
-    raw_text: str, *, provider: LLMProvider
+    raw_text: str, *, provider: LLMProvider, document_id: UUID
 ) -> tuple[list[PendingOffering], str]:
     """The whole document -> reviewable candidates, and how complete the read was.
 
@@ -311,7 +312,9 @@ async def extract_offerings(
     ``failed`` when none succeeded. A failure never falls back to splitting
     lines at their first figure - that is the behaviour this module replaces -
     it simply yields fewer candidates and says so, leaving the readable sections
-    as the owner's route to the source.
+    as the owner's route to the source. ``document_id`` is stamped onto every
+    candidate as its sole supporting document (W-11), so a later replacement of
+    this document knows which candidates depended on it.
     """
     index = index_document(raw_text)
     if not index.text:
@@ -328,7 +331,9 @@ async def extract_offerings(
             logger.warning("offering extraction failed for a segment", exc_info=True)
             failures += 1
             continue
-        resolved.extend(_resolve(identified, index=index, blocks=segment_blocks))
+        resolved.extend(
+            _resolve(identified, index=index, blocks=segment_blocks, document_id=document_id)
+        )
 
     if failures and failures == attempts:
         return [], "failed"
@@ -373,6 +378,7 @@ def _resolve(
     *,
     index: DocumentIndex,
     blocks: list[SourceBlock],
+    document_id: UUID,
 ) -> list[PendingOffering]:
     """Stage 3. Verified names, source-derived prices, flagged ambiguity."""
     segment_text = "\n".join(item.text for item in blocks)
@@ -393,6 +399,7 @@ def _resolve(
                 price_note=price_note,
                 needs_review=needs_review,
                 sources=["document"],
+                supporting_document_ids=[document_id],
                 source_references=_source_references(candidate, name, description, index),
             )
         )

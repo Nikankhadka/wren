@@ -12,7 +12,17 @@ BE  := $(DC) run --rm backend
 BE_ := $(DC) run --rm --no-deps backend
 FE  := $(DC) run --rm frontend
 FE_ := $(DC) run --rm --no-deps frontend
-E2E := $(DC) --profile e2e run --rm e2e
+# Whether a model provider is actually reachable, answered on the host and
+# handed to the runner as a yes/no. The two paste-a-link specs drive the real
+# URL ingest, which calls the provider to turn a page into sections - with no
+# key they can only time out, which is exactly what they did the first time the
+# suite ran in CI. The key lives in backend/.env, the file the backend
+# container reads, and not in the host environment or the root .env, so a
+# compose interpolation would read "unconfigured" on a developer's machine too.
+# The container gets the answer, never the key. This is the same gate the eval
+# job already uses in .github/workflows/ci.yml (`if [ -n "${LLM_API_KEY}" ]`).
+E2E_LLM := $(shell grep -qs '^LLM_API_KEY=.' backend/.env && echo 1)
+E2E := $(DC) --profile e2e run --rm -e E2E_LLM=$(E2E_LLM) e2e
 # Loopback mirrors of the stack. The browser bundle inlines absolute origins
 # (NEXT_PUBLIC_API_URL=http://localhost:8000, NEXT_PUBLIC_SUPABASE_URL=
 # http://localhost:54321), and inside this container localhost is the container
@@ -190,6 +200,7 @@ test-backend: ## Run backend tests (pytest)
 
 .PHONY: test-e2e
 test-e2e: ## Run Playwright e2e in a container - NEEDS the stack up (make dev && make seed)
+	@[ -n "$(E2E_LLM)" ] || printf "\033[0;33m  ! LLM_API_KEY is empty in backend/.env - the two paste-a-link specs skip (see E2E_LLM above)\033[0m\n"
 	$(E2E) $(E2E_NET) npm run test:e2e
 
 .PHONY: test-e2e-ui

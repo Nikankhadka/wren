@@ -42,7 +42,7 @@ export default function HomePage() {
 
   useEffect(() => {
     apiFetch<OnboardingState>("/api/onboarding/state")
-      .then((state) => setName(state.draft?.["name"]?.trim() || null))
+      .then((state) => setName(state.draft?.["owner_display_name"]?.trim() || null))
       .catch(() => setName(null));
   }, []);
 

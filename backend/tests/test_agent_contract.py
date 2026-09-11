@@ -87,6 +87,25 @@ def test_contract_states_the_identity_rules_us8_asks_for() -> None:
     assert "Create a handoff only when the customer asks for a person or accepts" in contract
 
 
+def test_contract_states_the_contact_channel_rule() -> None:
+    """W-9 box 6 (slice 1.4): in-app forwarding is offered before a direct
+    contact channel, and a confirmed email or phone is given only when the
+    customer explicitly asks for that channel. There is no deterministic gate
+    for this the way there is for money (app/agents/price_gate.py) or an em
+    dash (app/shared/text.py) - grep across app/agents, app/features and
+    app/services turns up no code path that reads, redacts, or conditions a
+    contact channel on what the customer asked. This is prompt-only, and this
+    is the strongest honest test available for it: the exact rule text reaches
+    every customer prose route's system prompt.
+    """
+    contract = customer_contract("Bytefix Repairs")
+    assert (
+        "If the customer asks how to contact the business, offer in-chat forwarding\n"
+        "  first. Give a confirmed email address or phone number only when the customer\n"
+        "  explicitly asks for that channel."
+    ) in contract
+
+
 def test_contract_carries_the_copy_rule_amendment_verbatim() -> None:
     """Amendment 3: "assistant" names the surface, the other four words stay out
     of routine copy, and a direct question is still answered honestly."""
@@ -375,6 +394,15 @@ async def test_every_prose_route_runs_the_contract(
         assert "You are the customer assistant for Contract Test Co." in prompt
         assert f"{LEAK_MARKER}-DO-NOT-REVEAL" in prompt
         assert "# VOICE (expression only)" in prompt
+        # W-9 box 6: in-chat forwarding is offered before a direct contact
+        # channel, and a channel is given only when the customer asks for it -
+        # prompt-only (no deterministic gate exists for this), so the strongest
+        # available proof is that every customer prose route's assembled
+        # prompt carries the rule.
+        assert (
+            "If the customer asks how to contact the business, offer in-chat forwarding" in prompt
+        )
+        assert "explicitly asks for that channel." in prompt
         # The tenant's chosen voice reaches the model as expression, and the
         # legacy free-text column reaches nothing at all.
         assert HOSTILE_VOICE in prompt

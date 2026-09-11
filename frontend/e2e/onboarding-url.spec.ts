@@ -23,6 +23,15 @@ test("pasting a link reads the site and reads it back", async ({
   page,
   request,
 }) => {
+  // Unlike the other onboarding specs, this one stubs nothing: the backend
+  // really fetches the page and really asks the model to structure it. With no
+  // provider there is nothing to wait for, so skip rather than time out. The
+  // Makefile derives E2E_LLM from backend/.env.
+  test.skip(
+    !process.env.E2E_LLM,
+    "no LLM provider configured (set LLM_API_KEY in backend/.env) - this spec drives the real URL ingest",
+  );
+
   // A fresh (never-onboarded) owner: the demo tenants are seeded already
   // onboarded, and this flow needs the interview to be live.
   await loginInChat(page, request, `o3-${Date.now()}@founder.dev`);
@@ -78,9 +87,27 @@ test("pasting a link reads the site and reads it back", async ({
   expect(site?.doc_type).toBe("website");
   expect(site?.status).toBe("draft");
 
-  await page
-    .getByRole("dialog", { name: "Review your information" })
-    .getByTestId("onboarding-knowledge-discard")
-    .click();
-  await expect(page.getByRole("dialog", { name: "Review your information" })).toBeHidden();
+  // W-11b: closing the sheet with the X button or Escape must not destroy the
+  // owner's in-progress edits - only Discard (covered below) throws the draft
+  // away. Prove it with a value nothing but the owner's own typing produced,
+  // so a reopen that shows the original extracted state (the pre-fix bug)
+  // fails this assertion instead of passing it by accident.
+  const dialog = page.getByRole("dialog", { name: "Review your information" });
+  await dialog.getByRole("button", { name: "Add offering" }).click();
+  const nameField = dialog.getByLabel(/name$/i).last();
+  const typedName = `Test offering ${Date.now()}`;
+  await nameField.fill(typedName);
+  await expect(nameField).toHaveValue(typedName);
+
+  // Close via Escape - not the discard button - to exercise the path that
+  // used to unmount ReviewDocument and lose this edit.
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+
+  await page.getByTestId("onboarding-reopen-review").click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel(/name$/i).last()).toHaveValue(typedName);
+
+  await dialog.getByTestId("onboarding-knowledge-discard").click();
+  await expect(dialog).toBeHidden();
 });

@@ -7,6 +7,13 @@ export interface CodeInputProps {
   onChange: (value: string) => void;
   onComplete: (code: string) => void;
   disabled?: boolean;
+  /**
+   * Bump (to any new value) whenever the parent wants Digit 1 refocused even
+   * if the cells are already empty - e.g. a resend clicked before anything
+   * was typed. `value` alone can't signal that: an effect only reruns when a
+   * dependency actually changes, and `value` would stay `""` throughout.
+   */
+  resetSignal?: number | null;
 }
 
 const LENGTH = 6;
@@ -29,18 +36,36 @@ const empty = (): string[] => Array.from({ length: LENGTH }, () => "");
  * pre-update prop, and because `value.split("")` collapses the gaps in a
  * partly-filled code and so misaligns every later digit.
  */
-export function CodeInput({ value, onChange, onComplete, disabled }: CodeInputProps) {
+export function CodeInput({ value, onChange, onComplete, disabled, resetSignal }: CodeInputProps) {
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   const [digits, setDigits] = useState<string[]>(empty);
   const digitsRef = useRef<string[]>(digits);
+  const prevResetSignal = useRef(resetSignal);
 
-  // The parent clears `value` to reset the cells (e.g. after a wrong code).
+  // The parent clears `value` to reset the cells (e.g. after a wrong code or
+  // a resend) - also return focus to Digit 1 so typing can start immediately.
+  // Only an external reset should steal focus: `value` also passes through
+  // "" when the user backspaces the last digit they typed themselves, and by
+  // that point `digitsRef` (updated synchronously in `commit`, ahead of the
+  // `value` prop echoing back) already agrees with it - `some(Boolean)`
+  // is false, same as it would be for a no-op re-render. An external reset
+  // either leaves stale digits behind (`some(Boolean)` true) or, when the
+  // cells were already empty, still bumps `resetSignal` - that's the signal
+  // this effect can't get from `value` alone in that second case. The
+  // comparison runs inside the effect, not the render body, so it isn't
+  // thrown off by React Strict Mode's extra render pass.
   useEffect(() => {
-    if (value === "" && digitsRef.current.some(Boolean)) {
+    const signalChanged = prevResetSignal.current !== resetSignal;
+    prevResetSignal.current = resetSignal;
+    if (value !== "") return;
+    const hadStaleDigits = digitsRef.current.some(Boolean);
+    if (hadStaleDigits) {
       digitsRef.current = empty();
       setDigits(digitsRef.current);
     }
-  }, [value]);
+    if (!hadStaleDigits && !signalChanged) return;
+    refs.current[0]?.focus();
+  }, [value, resetSignal]);
 
   function commit(next: string[]) {
     digitsRef.current = next;

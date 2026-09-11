@@ -35,6 +35,7 @@ dev = [
     "mypy==2.2.0",
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
+    "pytest-timeout==2.4.0",
     "ruff==0.15.21",
     "asyncpg-stubs==0.31.3",
     "hypothesis==6.156.6",
@@ -67,6 +68,16 @@ select = ["E", "F", "I", "UP", "B", "ASYNC"]
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
+# Kept from the CI stall this ticket diagnosed: the run froze mid-report, and
+# because GitHub drops the logs of a forcibly-cancelled job there was nothing
+# to read afterwards. The cause is fixed (an unguarded primary provider leg
+# failing nine tests, one of whose node ids was a 4MB parametrize value, so the
+# report itself was megabytes of single-line output) - this stays as the guard
+# that turns any future unbounded stall into a located failure with a real
+# traceback. The slowest real test patches its own timeout to 0 rather than
+# waiting it out (test_knowledge_api.py's _DRAFT_TIMEOUT_SECONDS), so 60s per
+# test is generous headroom, not a tight budget.
+timeout = 60
 # Session-scoped async fixtures must not await after yield (they run on the first
 # requesting test's function-scoped loop); see tests/conftest.py.
 asyncio_default_fixture_loop_scope = "function"

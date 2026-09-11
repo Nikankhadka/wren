@@ -9,6 +9,7 @@ import {
   type RefObject,
 } from "react";
 import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
 import { Input } from "@/components/ui/Input";
 import { ChatBubble, type ChatRole } from "@/components/ui/ChatBubble";
 import { Chip } from "@/components/ui/Chip";
@@ -18,7 +19,7 @@ import { QuoteCard, type QuotePayload } from "@/components/ui/QuoteCard";
 import { PriceSummaryCard, type PriceSummaryPayload } from "@/components/ui/PriceSummaryCard";
 import { CatalogCard, type CatalogPayload } from "@/components/ui/CatalogCard";
 import { EscalationBanner } from "@/components/ui/EscalationBanner";
-import { PROGRESS_LABELS, parseChatStreamEvent, type ProgressStage } from "@/lib/chat-events";
+import { parseChatStreamEvent } from "@/lib/chat-events";
 import { customerOpening } from "@/lib/greeting";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -92,13 +93,9 @@ export function CustomerChat({
   // not a stop: the chat stays live and only the human-reply poll starts.
   const [escalated, setEscalated] = useState(false);
   const [handoffSeen, setHandoffSeen] = useState(false);
-  // Which agent stage is running right now, for the live region below. Null
-  // between turns; the backend sends one of these per graph node.
-  const [stage, setStage] = useState<ProgressStage | null>(null);
   // Starter chips only make sense before the customer has said anything -
   // hidden the moment the first real message goes out, never shown again.
   const [showStarters, setShowStarters] = useState(starterQuestions.length > 0);
-  const abortRef = useRef<AbortController | null>(null);
   // Cursor for the transcript poll: the created_at of the newest message we
   // have already fetched. Starts undefined so the first poll fetches the whole
   // tail once, then narrows each tick.
@@ -179,7 +176,6 @@ export function CustomerChat({
     const trimmed = text.trim();
     if (!trimmed || busy || escalated) return;
     setBusy(true);
-    setStage(null);
     setInput("");
     setShowStarters(false);
     setMessages((prev) => [
@@ -188,15 +184,11 @@ export function CustomerChat({
       { role: "assistant", text: "", streaming: true },
     ]);
 
-    const controller = new AbortController();
-    abortRef.current = controller;
-
     try {
       const res = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slug, conversation_id: conversationId, message: trimmed }),
-        signal: controller.signal,
       });
       if (!res.ok || !res.body) throw new Error("chat request failed");
 
@@ -235,7 +227,8 @@ export function CustomerChat({
               updateLastAssistant(() => ({ catalog: event.catalog }));
               break;
             case "progress":
-              setStage(event.stage);
+              // The in-bubble typing indicator already covers the wait; no
+              // separate status line to update.
               break;
             case "redraft":
               // The backend's price gate rejected the streamed draft and is
@@ -271,41 +264,20 @@ export function CustomerChat({
           }
         }
       }
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
-        // Customer-initiated stop. Keep whatever text streamed in, but a stop
-        // before the first token would otherwise leave an empty bubble behind
-        // forever - drop it instead of just marking it done.
-        setMessages((prev) => {
-          const last = prev[prev.length - 1];
-          if (last && last.role === "assistant" && last.text === "") {
-            return prev.slice(0, -1);
-          }
-          const next = [...prev];
-          if (last) next[next.length - 1] = { ...last, streaming: false };
-          return next;
-        });
-      } else {
-        updateLastAssistant(() => ({
-          text: "Something went wrong just then. Try again?",
-          error: true,
-          streaming: false,
-        }));
-      }
+    } catch {
+      updateLastAssistant(() => ({
+        text: "Something went wrong just then. Try again?",
+        error: true,
+        streaming: false,
+      }));
     } finally {
-      abortRef.current = null;
       setBusy(false);
-      setStage(null);
     }
   }
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     void send(input);
-  }
-
-  function handleStop() {
-    abortRef.current?.abort();
   }
 
   return (
@@ -355,13 +327,6 @@ export function CustomerChat({
           onSubmit={handleSubmit}
           className="flex shrink-0 flex-col gap-2 border-t border-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
         >
-          {/* Mounted unconditionally (only the text toggles) - screen readers
-              reliably announce content changes inside an existing live
-              region, but often miss one that appears and disappears with its
-              content in the same render. */}
-          <p className="h-4 text-footnote text-text-secondary" aria-live="polite">
-            {busy ? (stage ? PROGRESS_LABELS[stage] : "Answering…") : ""}
-          </p>
           <div className="flex items-end gap-2">
             <div className="flex-1">
               <Input
@@ -372,15 +337,12 @@ export function CustomerChat({
                 autoFocus
               />
             </div>
-            {busy ? (
-              <Button type="button" variant="secondary" onClick={handleStop}>
-                Stop
-              </Button>
-            ) : (
-              <Button type="submit" loading={busy}>
-                Send
-              </Button>
-            )}
+            {/* No stop affordance: the customer never interrupts the
+                assistant's own reply, so the send icon stays put rather than
+                swapping to a control that would let them. */}
+            <Button type="submit" disabled={busy} aria-label="Send">
+              <Icon name="send" size={20} />
+            </Button>
           </div>
         </form>
       )}
