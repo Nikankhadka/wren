@@ -213,6 +213,14 @@ body {
   outline-offset: 2px;
 }
 
+/* Every button and button-role shows the pointer. Tailwind v4's preflight
+   leaves buttons `cursor: default`; this one unlayered rule restores the
+   affordance everywhere, so no individual button needs its own cursor class. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
 /* A pill is one control visually, so the pill's rounded shape is what lights up
    on focus - never a hard rectangle around the input inside it (the prototype's
    inputs are all `outline:none` with the pill as the affordance). Worn by

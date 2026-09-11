@@ -207,7 +207,8 @@ Every component takes only semantic tokens. Each lists its required states.
 | `Icon` | vendored Material Symbols Outlined SVG, `fill="currentColor"`, `name` -> path registry | n/a |
 | `Tabs` | underline style, accent indicator | active, hover, focus |
 | `Modal` / `Sheet` | shadow-3, scrim; Sheet for mobile | open/close, focus trap |
-| `Toast` | bottom-right, auto-dismiss, functional-token edge; text only, no celebration | success/error/info |
+| `ConfirmDialog` | the app's one confirmation dialog, built on `Modal` (`useConfirm` for promise-style use); destructive removes, hand-back, and sign-out ask through it - `window.confirm` is banned | default, danger, working |
+| `Toast` | top-center, auto-dismiss, functional-token edge; text only, no celebration | success/error/info |
 | `EmptyState` | icon + one-line explanation + primary action; never bare "no data" | n/a |
 | `Skeleton` | shimmer off in reduced-motion | n/a |
 | `MetricCard` | bento stat card: big number + label + optional icon/trend/footer | loading, empty, error |
@@ -571,10 +572,12 @@ codebase, responsive; no native app, no PWA shell in Stage 1.
   rather than a full-height block, and it is easy to lose
 - Active tab: **accent text on a 9% accent wash** (`bg-accent-a09 text-accent-active`)
   with the filled Material Symbol; inactive: `text-ink-a40` with the outlined
-  glyph. This is the prototype's `.tab.active` and it deliberately differs from
-  the sidebar's solid surface-container pill (the Airbnb desktop nav idiom): three of these sit side
-  by side on a small surface, where a solid fill repeated three times reads as
-  loud. The sidebar has room the bar does not, and keeps its own idiom
+  glyph. This is the prototype's `.tab.active`, and it is the one nav idiom
+  everywhere: the tenant and platform sidebars and the storefront category nav
+  wear the same wash through the shared `navTone()` helper
+  (`components/ui/TabBar.tsx`), differing only in their inactive text - the
+  light sidebars use `text-text-secondary`, which is the AA choice on their
+  background, while the bar keeps the prototype's muted tone
 - The bar is **persistent, including over drill-downs**: in the prototype
   `#screen-layer` is z-index 20 and stops 64px short of the bottom while
   `#tabbar` is 21, so a pushed screen never covers the bar

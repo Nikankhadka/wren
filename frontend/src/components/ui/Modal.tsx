@@ -7,6 +7,13 @@ export interface ModalProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /**
+   * "top" paints above an open Sheet (both sit at z-50 by default) - for the
+   * ConfirmDialog a sheet flow opens. `z-[60]`: `z-60` does not compile, and
+   * the `z-[1]` precedent on the login/onboarding pages already blesses the
+   * arbitrary form.
+   */
+  layer?: "base" | "top";
 }
 
 const FOCUSABLE_SELECTOR =
@@ -25,7 +32,7 @@ const FOCUSABLE_SELECTOR =
  * a two-phase mount-then-show state dance) that a plain mount/unmount +
  * fade would otherwise require.
  */
-export function Modal({ open, onClose, title, children }: ModalProps) {
+export function Modal({ open, onClose, title, children, layer = "base" }: ModalProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -77,7 +84,8 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
         if (open && event.target === event.currentTarget) onClose();
       }}
       className={[
-        "fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4",
+        "fixed inset-0 flex items-center justify-center bg-scrim p-4",
+        layer === "top" ? "z-[60]" : "z-50",
         "transition-opacity duration-(--duration-base) ease-out",
         open ? "opacity-100" : "pointer-events-none opacity-0",
       ].join(" ")}

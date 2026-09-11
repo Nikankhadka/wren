@@ -32,6 +32,8 @@ test("staff take a conversation over, reply, and hand it back", async ({ page, r
   await expect(page.getByText("Can I speak to a person please?")).toBeVisible();
 
   await page.getByTestId("take-over").click();
+  // Stepping in never asks - it only adds the owner, it takes nothing away.
+  await expect(page.getByTestId("confirm-accept")).toHaveCount(0);
   await expect(page.getByTestId("thread-status")).toHaveText("You're replying");
   // The stamp lands in the transcript, so the history says who was speaking.
   await expect(page.getByText("You took over this conversation")).toBeVisible();
@@ -67,6 +69,7 @@ test("staff take a conversation over, reply, and hand it back", async ({ page, r
 
   await page.goto(`/chats/${conversationId}`);
   await page.getByTestId("hand-back").click();
+  await page.getByTestId("confirm-accept").click();
   await expect(page.getByTestId("thread-status")).toHaveText("Handling");
   await expect(page.getByText("Handed back to Agencx")).toBeVisible();
 });

@@ -162,9 +162,11 @@ describe("review toolbar", () => {
     const html = renderSheet(workspaceWith(4));
     expect(html).not.toContain("Review all");
     expect(html).not.toContain("Edit offerings");
-    expect(html).toContain(
-      '<span></span><button type="button" class="text-action font-medium text-accent-active">Add offering</button>',
-    );
+    // The press feedback lives on the button, not in an exact class string:
+    // hover underline plus the label, with the empty span keeping it right.
+    expect(html).toContain("hover:underline");
+    expect(html).toContain(">Add offering</button>");
+    expect(html.indexOf("<span></span>")).toBeLessThan(html.indexOf(">Add offering</button>"));
   });
 
   it("inserts a new offering after the last owner row and pages to it", () => {

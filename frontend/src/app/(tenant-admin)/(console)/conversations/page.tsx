@@ -43,7 +43,7 @@ export default function ConversationsPage() {
         render: (row) => (
           <Link
             href={`/conversations/${row.id}`}
-            className="font-medium text-accent-active hover:underline"
+            className="font-medium text-accent-active transition-colors duration-(--duration-fast) hover:underline active:opacity-60"
             onClick={(e) => e.stopPropagation()}
           >
             {row.customer_ref ?? "Anonymous"}

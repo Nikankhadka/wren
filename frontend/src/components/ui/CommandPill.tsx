@@ -101,7 +101,7 @@ export function CommandPill({
           type="button"
           onClick={onAttach}
           aria-label="Attach"
-          className="mb-0.5 flex h-[22px] w-[22px] shrink-0 items-center justify-center text-ink-a40"
+          className="mb-0.5 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-ink-a40 transition-colors duration-(--duration-fast) hover:bg-surface-container hover:text-text active:bg-surface-container-high"
         >
           <Icon name="add" size={18} />
         </button>
@@ -122,7 +122,7 @@ export function CommandPill({
           type="button"
           onClick={onStop}
           aria-label="Stop"
-          className="flex size-send shrink-0 items-center justify-center rounded-full bg-accent text-text-inverse active:opacity-85"
+          className="flex size-send shrink-0 items-center justify-center rounded-full bg-accent text-text-inverse transition-colors duration-(--duration-fast) hover:bg-accent-hover active:bg-accent-active"
         >
           <span className="h-2.5 w-2.5 rounded-[2px] bg-current" aria-hidden="true" />
         </button>
@@ -134,8 +134,10 @@ export function CommandPill({
           aria-label="Send"
           className={[
             "flex size-send shrink-0 items-center justify-center rounded-full",
-            "transition-colors duration-(--duration-fast) ease-out active:opacity-85",
-            armed ? "bg-accent text-text-inverse" : "bg-accent-a12 text-accent-a50",
+            "transition-colors duration-(--duration-fast) ease-out",
+            armed
+              ? "bg-accent text-text-inverse hover:bg-accent-hover active:bg-accent-active"
+              : "bg-accent-a12 text-accent-a50",
           ].join(" ")}
         >
           <Icon name="send" size={20} />

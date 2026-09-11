@@ -92,6 +92,24 @@ test.describe("tenant app shell - three destinations", () => {
     await expect(page.getByRole("button", { name: "Back", exact: true })).toHaveCount(0);
   });
 
+  test("the active tab wears the accent wash, inactive tabs hover into it", async ({
+    page,
+    request,
+  }) => {
+    await loginAsTenantAdmin(page, request, BYTEFIX);
+    await page.goto("/home");
+
+    const nav = page.getByRole("navigation", { name: "Console" });
+    const home = nav.getByRole("link", { name: "Home" });
+    await expect(home).toHaveCSS("background-color", "rgba(255, 56, 92, 0.09)");
+    await expect(home).toHaveCSS("color", "rgb(180, 0, 78)");
+
+    const chats = nav.getByRole("link", { name: /^Chats\b/ });
+    await chats.hover();
+    await expect(chats).toHaveCSS("background-color", "rgba(255, 56, 92, 0.07)");
+    await expect(chats).toHaveCSS("color", "rgb(180, 0, 78)");
+  });
+
   // The advanced screens' own posture - unlinked but still serving - is E-2's,
   // and lives in hidden-screens.spec.ts.
 });

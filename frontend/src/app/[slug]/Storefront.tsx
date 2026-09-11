@@ -70,7 +70,7 @@ function VideoMedia({ media }: { media: NonNullable<StorefrontData["offerings"][
     );
   }
   return (
-    <a href={media.url} target="_blank" rel="noreferrer" className="block rounded-card bg-surface-container p-6 text-center text-action text-accent-active">
+    <a href={media.url} target="_blank" rel="noreferrer" className="block rounded-card bg-surface-container p-6 text-center text-action text-accent-active transition-[filter] duration-(--duration-fast) hover:brightness-95 active:brightness-90">
       Open video
     </a>
   );
@@ -201,7 +201,7 @@ export function Storefront({
                 <a
                   key={section.id}
                   href={`#${section.id}`}
-                  className="min-h-11 shrink-0 whitespace-nowrap rounded-chip bg-surface-container px-4 py-3 text-chip font-medium text-text-secondary active:bg-surface-container-high"
+                  className="min-h-11 shrink-0 whitespace-nowrap rounded-chip bg-surface-container px-4 py-3 text-chip font-medium text-text-secondary transition-colors duration-(--duration-fast) hover:bg-accent-a07 hover:text-accent-active active:bg-accent-a09"
                 >
                   {section.label}
                 </a>
@@ -219,7 +219,7 @@ export function Storefront({
                       <li key={section.id}>
                         <a
                           href={`#${section.id}`}
-                          className="block min-h-11 rounded-field px-3 py-3 text-body-sm text-text-secondary transition-colors duration-(--duration-fast) hover:bg-surface-container hover:text-text active:bg-surface-container-high"
+                          className="block min-h-11 rounded-field px-3 py-3 text-body-sm text-text-secondary transition-colors duration-(--duration-fast) hover:bg-accent-a07 hover:text-accent-active active:bg-accent-a09"
                         >
                           {section.label}
                         </a>

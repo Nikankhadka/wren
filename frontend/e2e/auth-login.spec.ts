@@ -90,6 +90,7 @@ test.describe("tenant-admin login-in-chat (app host)", () => {
       // The console shell (sidebar) renders the Sign out button on a chrome page.
       await page.goto("/home");
       await page.getByRole("button", { name: "Sign out" }).click();
+      await page.getByTestId("confirm-accept").click();
 
       // The login chat must render immediately - no manual reload required.
       await expect(page.getByPlaceholder("you@example.com")).toBeVisible();

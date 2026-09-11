@@ -76,6 +76,16 @@ test.describe("tenant app shell on a phone", () => {
     expect(contentBottom).toBeLessThanOrEqual(Math.round(box.y) + 1);
   });
 
+  test("the active tab wears the accent wash", async ({ page, request }) => {
+    await loginAsTenantAdmin(page, request, BYTEFIX);
+    await page.goto("/home");
+
+    const bar = page.getByRole("navigation", { name: "Main" });
+    const home = bar.getByRole("link", { name: "Home" });
+    await expect(home).toHaveCSS("background-color", "rgba(255, 56, 92, 0.09)");
+    await expect(home).toHaveCSS("color", "rgb(180, 0, 78)");
+  });
+
   for (const width of MOBILE_WIDTHS) {
     test(`no overflow and tappable controls at ${width}px`, async ({ page, request }) => {
       await page.setViewportSize({ width, height: 812 });

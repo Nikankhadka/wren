@@ -72,6 +72,7 @@ test("a pasted link is read back as sections, then saved", async ({
   await page.getByTestId("knowledge-save").click();
 
   await expect(page.getByTestId("knowledge-save")).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
 
   // The saved text is now what the assistant knows, and it says so. Scoped to
   // this record: the demo tenant may already carry others.
@@ -84,12 +85,14 @@ test("a pasted link is read back as sections, then saved", async ({
 
   // Removing it takes it back out of what the assistant knows.
   await saved.getByTestId("knowledge-remove").click();
+  await page.getByTestId("confirm-accept").click();
   await expect(page.locator("article").filter({ hasText: EDITED })).toHaveCount(
     0,
     {
       timeout: 30_000,
     },
   );
+  await expect(page.getByText("Removed", { exact: true })).toBeVisible();
 });
 
 /**
@@ -197,7 +200,8 @@ test("replace succeeds and is safe on failure", async ({ page, request }) => {
     mimeType: "text/plain",
     buffer: Buffer.from("New contents"),
   });
-  await expect(page.getByTestId("knowledge-error")).toHaveText("Upload failed");
+  await expect(page.getByText("Upload failed", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("knowledge-error")).toHaveCount(0);
   expect(records.deleteCount()).toBe(0);
   await expect(failed).toBeVisible();
 
@@ -217,4 +221,47 @@ test("replace succeeds and is safe on failure", async ({ page, request }) => {
     page.getByTestId("knowledge-draft").filter({ hasText: "new-menu.txt" }),
   ).toBeVisible();
   await expect(page.locator("article").filter({ hasText: "menu.txt" })).toHaveCount(0);
+});
+
+/**
+ * Discarding from the review sheet asks first for a document that already
+ * has a saved version - a draft never answered anything and skips the
+ * question. Fully mocked: the saved record carries sections, so opening it
+ * never fetches, and the confirm paints above the sheet it came from.
+ */
+test("discarding a saved document asks first, escape leaves it alone", async ({
+  page,
+  request,
+}) => {
+  const store = recordsStore([
+    draftRecord({ id: "saved-1", filename: "hours.txt", status: "ready" }),
+  ]);
+  const records = await stubRecords(page, store);
+  await loginAsTenantAdmin(page, request, DEMO_USERS[0]);
+  await page.goto("/business/details/knowledge");
+
+  const saved = page.locator("article").filter({ hasText: "hours.txt" });
+  await expect(saved).toBeVisible();
+  await saved.getByTestId("knowledge-edit").click();
+
+  const sheet = page.getByRole("dialog", { name: "Edit what I know" });
+  await expect(sheet).toBeVisible();
+  const discard = page.getByTestId("knowledge-discard");
+  await expect(discard).toHaveText("Remove");
+
+  // Escape asks nothing of the backend and leaves the sheet open.
+  await discard.click();
+  await expect(page.getByTestId("confirm-accept")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("confirm-accept")).toHaveCount(0);
+  expect(records.deleteCount()).toBe(0);
+  await expect(sheet).toBeVisible();
+
+  // Accepting removes the record exactly once and says so.
+  await discard.click();
+  await page.getByTestId("confirm-accept").click();
+  await expect(page.getByText("Draft discarded", { exact: true })).toBeVisible();
+  expect(records.deleteCount()).toBe(1);
+  expect(records.deletedIds()).toEqual(["saved-1"]);
+  await expect(page.locator("article").filter({ hasText: "hours.txt" })).toHaveCount(0);
 });

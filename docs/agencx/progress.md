@@ -119,8 +119,14 @@ Detailed records live in [`spec/completed/`](spec/completed/).
   text actions and chips, flat red icon fills, soft accent washes on the
   Business cards, neutral chrome, and white bordered fields with ink focus in
   all forms. `theme.test.ts` re-pinned with a gradient-stop AA check; the
-  storefront e2e accent pin updated to Rausch; the v6 prototype recolored
-  color-only; D26 recorded superseding D25.
+   storefront e2e accent pin updated to Rausch; the v6 prototype recolored
+   color-only; D26 recorded superseding D25.
+- [ ] UX consistency ([`spec/active/15-ux-consistency.md`](spec/active/15-ux-consistency.md)):
+  unify all navs on the mobile accent idiom via `navTone()`, add pointer
+  cursor plus hover/press feedback to every button, ask destructive removes,
+  hand-back, and sign-out through a shared `ConfirmDialog`/`useConfirm`,
+  and toast every mutation. Built on `feat/ux-consistency` (U-1 through U-4
+  with unit and e2e coverage); awaiting founder review and merge.
 
 **Phase 13 specification amended four times.** 2026-09-05
 (`docs/phase13-walkthrough-refinement`): a second walkthrough round and its

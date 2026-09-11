@@ -83,11 +83,16 @@ test.describe("Business hub", () => {
 
     // These specs share one seeded tenant, so start from a known state rather
     // than from whatever a previous run left behind - the same posture the
-    // link-slot test below takes.
+    // link-slot test below takes. Gated on the loaded list: `count()` does
+    // not retry, and counting before the first fetch lands would skip the
+    // cleanup while a stale row is still on its way in.
+    await expect(
+      page.getByTestId("offerings-list").or(page.getByText("Nothing added yet.")),
+    ).toBeVisible();
     const leftovers = page.getByRole("button", { name: "Remove M1 test offering" });
     while ((await leftovers.count()) > 0) {
-      page.once("dialog", (dialog) => dialog.accept());
       await leftovers.first().click();
+      await page.getByTestId("confirm-accept").click();
       await expect(leftovers).toHaveCount(0);
     }
 
@@ -100,6 +105,7 @@ test.describe("Business hub", () => {
     await page.getByTestId("offering-media-url").fill("https://youtu.be/example");
     await page.getByTestId("offering-save").click();
     await expect(page.getByTestId("offerings-list")).toContainText("M1 test offering");
+    await expect(page.getByText("Offering added", { exact: true })).toBeVisible();
 
     // The price the owner typed, on the page a customer actually reads - and
     // exactly as typed. This is the assertion the money rule lives or dies by.
@@ -130,18 +136,53 @@ test.describe("Business hub", () => {
     await page.getByTestId("offering-price").fill("99");
     await page.getByTestId("offering-save").click();
     await expect(page.getByTestId("offerings-list")).toContainText("$99.00");
+    await expect(page.getByText("Offering saved", { exact: true })).toBeVisible();
 
     await page.goto("/bytefix");
     await expect(page.getByRole("main").last()).toContainText("$99.00");
 
     await page.goto("/business/offerings");
-    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Remove M1 test offering" }).click();
+    await page.getByTestId("confirm-accept").click();
     await expect(page.getByTestId("offerings-list")).not.toContainText("M1 test offering");
+    await expect(page.getByText("Offering removed", { exact: true })).toBeVisible();
 
     // Retiring it takes it off the storefront too, not just out of the editor.
     await page.goto("/bytefix");
     await expect(page.getByRole("main").last()).not.toContainText("M1 test offering");
+  });
+
+  test("escape closes the remove confirm without touching the backend", async ({
+    page,
+    request,
+  }) => {
+    await loginAsTenantAdmin(page, request, BYTEFIX);
+    await page.goto("/business/offerings");
+
+    await page.getByTestId("offering-add").click();
+    await page.getByTestId("offering-name").fill("M1 cancel-remove probe");
+    await page.getByTestId("offering-save").click();
+    await expect(page.getByTestId("offerings-list")).toContainText("M1 cancel-remove probe");
+
+    let deletes = 0;
+    await page.route("**/api/business/offerings/*", (route) => {
+      if (route.request().method() === "DELETE") deletes += 1;
+      return route.continue();
+    });
+
+    await page.getByRole("button", { name: "Remove M1 cancel-remove probe" }).click();
+    await expect(page.getByTestId("confirm-accept")).toBeVisible();
+    await page.keyboard.press("Escape");
+    // A closed confirm renders nothing, so "closed" means no accept button
+    // in the tree - never a visibility assertion on the dialog role.
+    await expect(page.getByTestId("confirm-accept")).toHaveCount(0);
+    expect(deletes).toBe(0);
+    await expect(page.getByTestId("offerings-list")).toContainText("M1 cancel-remove probe");
+
+    // Clean up through the real confirm path.
+    await page.getByRole("button", { name: "Remove M1 cancel-remove probe" }).click();
+    await page.getByTestId("confirm-accept").click();
+    await expect(page.getByTestId("offerings-list")).not.toContainText("M1 cancel-remove probe");
   });
 
   test("copying puts the full URL, scheme and all, on the clipboard", async ({
@@ -206,6 +247,7 @@ test.describe("Business hub", () => {
     await tile.click();
     if (await page.getByTestId("booking-link-remove").isVisible()) {
       await page.getByTestId("booking-link-remove").click();
+      await page.getByTestId("confirm-accept").click();
       await expect(tile).toContainText("Add");
       await tile.click();
     }
@@ -214,6 +256,7 @@ test.describe("Business hub", () => {
     await page.getByTestId("booking-link-input").fill("instagram.com/bytefix");
     await page.getByTestId("booking-link-save").click();
     await expect(tile).toContainText("Open");
+    await expect(page.getByText("Link saved", { exact: true })).toBeVisible();
 
     // It survives a reload - this is the assertion that catches a save that
     // only ever updated local state.
@@ -232,7 +275,9 @@ test.describe("Business hub", () => {
 
     // Put the slot back, so this spec leaves the shared tenant as it found it.
     await page.getByTestId("booking-link-remove").click();
+    await page.getByTestId("confirm-accept").click();
     await expect(tile).toContainText("Add");
+    await expect(page.getByText("Link removed", { exact: true })).toBeVisible();
   });
 
   test("back from the business page returns to the hub", async ({

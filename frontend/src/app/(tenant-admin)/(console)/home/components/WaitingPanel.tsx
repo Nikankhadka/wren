@@ -67,7 +67,7 @@ export function WaitingPanel({ rows }: { rows: WaitingRow[] }) {
             key={row.id}
             href={`/chats/${row.id}`}
             data-testid="waiting-row"
-            className="flex items-center gap-2 border-t border-hairline px-[18px] py-3 active:bg-surface-sunken"
+            className="flex items-center gap-2 border-t border-hairline px-[18px] py-3 transition-colors duration-(--duration-fast) hover:bg-surface-container active:bg-surface-sunken"
           >
             <span className="min-w-0 flex-1">
               <span className="flex items-center justify-between gap-2">
@@ -92,7 +92,7 @@ export function WaitingPanel({ rows }: { rows: WaitingRow[] }) {
           type="button"
           data-testid="waiting-panel-toggle"
           onClick={() => setExpanded((value) => !value)}
-          className={`block w-full border-t border-hairline px-[18px] py-2.5 text-center text-chip text-accent-active active:bg-surface-sunken${fitsAtLarge ? " lg:hidden" : ""}`}
+            className={`block w-full border-t border-hairline px-[18px] py-2.5 text-center text-chip text-accent-active transition-colors duration-(--duration-fast) hover:underline active:opacity-60${fitsAtLarge ? " lg:hidden" : ""}`}
         >
           {expanded ? "Show fewer" : `Show all ${rows.length}`}
         </button>

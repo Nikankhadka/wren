@@ -81,7 +81,7 @@ export function TraceTree({
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
-        className="flex w-full items-center gap-2 px-2 py-1.5 text-left font-mono text-caption text-text-secondary hover:bg-surface"
+        className="flex w-full items-center gap-2 px-2 py-1.5 text-left font-mono text-caption text-text-secondary transition-colors duration-(--duration-fast) hover:bg-surface active:bg-surface-container"
       >
         <span aria-hidden="true" className="text-text-secondary">
           {open ? "▾" : "▸"}

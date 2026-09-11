@@ -36,7 +36,7 @@ export default function GlobalError({
           <button
             type="button"
             onClick={() => unstable_retry()}
-            className="mt-2 inline-flex items-center justify-center rounded-md border border-border bg-surface px-4 py-2 text-body font-medium text-text transition-colors duration-(--duration-fast) hover:bg-surface-sunken"
+            className="mt-2 inline-flex items-center justify-center rounded-md border border-border bg-surface px-4 py-2 text-body font-medium text-text transition-colors duration-(--duration-fast) hover:bg-surface-sunken active:bg-surface-container-high"
           >
             Try again
           </button>

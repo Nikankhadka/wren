@@ -40,6 +40,7 @@ import {
 } from "@/components/knowledge/types";
 import { buildWorkspace } from "@/components/knowledge/offerings";
 import { ReviewSheet } from "@/components/knowledge/ReviewSheet";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 interface Message {
   /** Set only for messages updated after they are pushed (upload stamps). */
@@ -245,6 +246,9 @@ export default function OnboardingPage() {
   const [workspace, setWorkspace] = useState<ReviewWorkspace | null>(null);
   const [open, setOpen] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  // Removing a review source asks first - the dialog renders beside the
+  // sheet below, above it, never inside it.
+  const { confirm: confirmRemove, dialog: confirmDialog } = useConfirm();
   const [openingPaced, setOpeningPaced] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const goLiveTimer = useRef<number | null>(null);
@@ -1171,7 +1175,9 @@ export default function OnboardingPage() {
         onAddSource={(files) => addSources(files)}
         onReplaceSource={(documentId, file) => replaceSource(documentId, file)}
         onRemoveSource={(documentId) => removeSource(documentId)}
+        confirmRemove={confirmRemove}
       />
+      {confirmDialog}
     </main>
   );
 }

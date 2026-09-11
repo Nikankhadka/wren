@@ -38,7 +38,7 @@ export function ScreenTopbar({ title, backHref, back = true, action }: ScreenTop
           // touch floor frontend.md sets, with the extra 8px pulled back out as
           // negative margin. The box a thumb hits grows; the arrow does not
           // move, and neither does the title beside it.
-          className="-ml-3 -mr-1 flex size-icon-btn-hit shrink-0 items-center justify-center rounded-full text-text active:opacity-60"
+          className="-ml-3 -mr-1 flex size-icon-btn-hit shrink-0 items-center justify-center rounded-full text-text transition-colors duration-(--duration-fast) hover:bg-surface-container hover:text-text active:bg-surface-container-high"
         >
           <Icon name="arrow_back" size={20} />
         </button>

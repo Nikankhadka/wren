@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "react-hot-toast";
 import { Icon } from "@/components/ui/Icon";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { ApiError, apiFetch } from "@/lib/api";
 
 interface Offering {
@@ -57,13 +59,18 @@ export function OfferingsList() {
   const [form, setForm] = useState<FormValues>(EMPTY_FORM);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [working, setWorking] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Loading the list is the one failure that stays inline - every mutation
+  // reports through a toast instead, so a failure never hides inside a form
+  // the owner already closed.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const { confirm, dialog: confirmDialog } = useConfirm();
 
   async function load() {
     try {
       setOfferings(await apiFetch<Offering[]>("/api/business/offerings"));
+      setLoadError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err.detail : "Couldn't load what you offer.");
+      setLoadError(err instanceof ApiError ? err.detail : "Couldn't load what you offer.");
     }
   }
 
@@ -73,14 +80,16 @@ export function OfferingsList() {
   // behaviour is identical. `load()` stays for the mutation handlers below.
   useEffect(() => {
     apiFetch<Offering[]>("/api/business/offerings")
-      .then(setOfferings)
+      .then((rows) => {
+        setOfferings(rows);
+        setLoadError(null);
+      })
       .catch((err) =>
-        setError(err instanceof ApiError ? err.detail : "Couldn't load what you offer."),
+        setLoadError(err instanceof ApiError ? err.detail : "Couldn't load what you offer."),
       );
   }, []);
 
   function begin(offering?: Offering) {
-    setError(null);
     setEditing(offering?.id ?? "new");
     setForm(offering ? formFor(offering) : EMPTY_FORM);
     setDetailsOpen(
@@ -100,8 +109,8 @@ export function OfferingsList() {
 
   async function save() {
     if (!editing || !form.name.trim()) return;
+    const isNew = editing === "new";
     setWorking(true);
-    setError(null);
     const body = {
       name: form.name,
       description: form.description,
@@ -133,25 +142,46 @@ export function OfferingsList() {
       }
       setEditing(null);
       await load();
+      toast.success(isNew ? "Offering added" : "Offering saved");
     } catch (err) {
-      setError(err instanceof ApiError ? err.detail : "Couldn't save that offering.");
+      toast.error(err instanceof ApiError ? err.detail : "Couldn't save that offering.");
     } finally {
       setWorking(false);
     }
   }
 
   async function remove(offering: Offering) {
-    if (working || !window.confirm(`Remove ${offering.name}?`)) return;
-    setWorking(true);
-    setError(null);
-    try {
-      await apiFetch(`/api/business/offerings/${offering.id}`, { method: "DELETE" });
-      await load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.detail : "Couldn't remove that offering.");
-    } finally {
-      setWorking(false);
-    }
+    if (working) return;
+    await confirm({
+      title: `Remove ${offering.name}?`,
+      description: "Customers will no longer see it on your page.",
+      confirmLabel: "Remove",
+      tone: "danger",
+      onConfirm: async () => {
+        setWorking(true);
+        try {
+          await apiFetch(`/api/business/offerings/${offering.id}`, { method: "DELETE" });
+          await load();
+          toast.success("Offering removed");
+        } catch (err) {
+          toast.error(err instanceof ApiError ? err.detail : "Couldn't remove that offering.");
+        } finally {
+          setWorking(false);
+        }
+      },
+    });
+  }
+
+  async function confirmRemoveMedia() {
+    await confirm({
+      title: "Remove this photo?",
+      description: "The offering stays - only its photo goes.",
+      confirmLabel: "Remove",
+      tone: "danger",
+      onConfirm: () => {
+        setForm((current) => ({ ...current, mediaChanged: true, removeMedia: true }));
+      },
+    });
   }
 
   return (
@@ -170,7 +200,7 @@ export function OfferingsList() {
             type="button"
             onClick={() => begin()}
             data-testid="offering-add"
-            className="flex shrink-0 items-center gap-1 text-action font-medium text-accent-active active:opacity-60"
+            className="flex shrink-0 items-center gap-1 text-action font-medium text-accent-active transition-colors duration-(--duration-fast) hover:underline active:opacity-60"
           >
             <Icon name="add" size={16} />
             Add
@@ -201,7 +231,7 @@ export function OfferingsList() {
                 disabled={working}
                 aria-label={`Edit ${offering.name}`}
                 data-testid="offering-edit"
-                className="flex size-icon-btn shrink-0 items-center justify-center rounded-full text-ink-a40 active:opacity-60 disabled:opacity-50"
+                className="flex size-icon-btn shrink-0 items-center justify-center rounded-full text-ink-a40 transition-colors duration-(--duration-fast) hover:bg-surface-container hover:text-text active:bg-surface-container-high disabled:opacity-50"
               >
                 <Icon name="edit" size={18} />
               </button>
@@ -211,7 +241,7 @@ export function OfferingsList() {
                 disabled={working}
                 aria-label={`Remove ${offering.name}`}
                 data-testid="offering-remove"
-                className="flex size-icon-btn shrink-0 items-center justify-center rounded-full text-ink-a40 active:opacity-60 disabled:opacity-50"
+                className="flex size-icon-btn shrink-0 items-center justify-center rounded-full text-ink-a40 transition-colors duration-(--duration-fast) hover:bg-surface-container hover:text-text active:bg-surface-container-high disabled:opacity-50"
               >
                 <Icon name="delete" size={18} />
               </button>
@@ -238,7 +268,7 @@ export function OfferingsList() {
               type="button"
               onClick={close}
               disabled={working}
-              className="text-action text-ink-a40 disabled:opacity-50"
+              className="text-action text-ink-a40 transition-colors duration-(--duration-fast) hover:underline active:opacity-60 disabled:opacity-50"
             >
               Cancel
             </button>
@@ -300,14 +330,13 @@ export function OfferingsList() {
             ) : form.mediaUrl ? (
               <button
                 type="button"
-                onClick={() => setForm((current) => ({ ...current, mediaChanged: true, removeMedia: true }))}
-                className="mt-3 text-action font-medium text-accent-active"
+                onClick={() => void confirmRemoveMedia()}
+                className="mt-3 text-action font-medium text-accent-active transition-colors duration-(--duration-fast) hover:underline active:opacity-60"
               >
                 Remove current media
               </button>
             ) : null}
           </details>
-          {error ? <p className="mt-2 text-meta text-danger">{error}</p> : null}
           <div className="mt-3 flex justify-end">
             <button
               type="submit"
@@ -319,9 +348,10 @@ export function OfferingsList() {
             </button>
           </div>
         </form>
-      ) : error ? (
-        <p className="mt-3 text-meta text-danger">{error}</p>
+      ) : loadError ? (
+        <p className="mt-3 text-meta text-danger">{loadError}</p>
       ) : null}
+      {confirmDialog}
     </section>
   );
 }

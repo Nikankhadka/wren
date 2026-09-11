@@ -27,7 +27,7 @@ export interface RowLinkProps {
  */
 export function RowLink({ href, label, icon, detail, onClick }: RowLinkProps) {
   const className =
-    "flex w-full items-center gap-3.5 border-b border-hairline px-gutter py-[15px] text-left transition-colors duration-(--duration-fast) active:bg-ink-a05";
+    "flex w-full items-center gap-3.5 border-b border-hairline px-gutter py-[15px] text-left transition-colors duration-(--duration-fast) hover:bg-surface-container active:bg-ink-a05";
   const inner = (
     <>
       <span className="flex size-5 shrink-0 items-center justify-center text-ink-a40">

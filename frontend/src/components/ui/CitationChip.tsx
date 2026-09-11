@@ -27,7 +27,7 @@ export function CitationChip({ citation }: CitationChipProps) {
         onMouseLeave={() => setOpen(false)}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
-        className="mx-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-subtle px-1 text-[10px] font-medium text-accent-active"
+        className="mx-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-subtle px-1 text-[10px] font-medium text-accent-active transition-[filter] duration-(--duration-fast) hover:brightness-95 active:brightness-90"
       >
         {citation.index}
       </button>

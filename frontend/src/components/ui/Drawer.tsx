@@ -6,6 +6,8 @@ export interface DrawerProps {
   open: boolean;
   onClose: () => void;
   children: ReactNode;
+  /** Controls the panel's id so the hamburger can name it via aria-controls. */
+  id?: string;
 }
 
 const FOCUSABLE_SELECTOR =
@@ -23,7 +25,7 @@ const FOCUSABLE_SELECTOR =
  * scrim transitions have something to animate between - toggling `inert` is
  * what removes it from focus/tab order and screen readers while closed.
  */
-export function Drawer({ open, onClose, children }: DrawerProps) {
+export function Drawer({ open, onClose, children, id }: DrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
 
@@ -81,6 +83,7 @@ export function Drawer({ open, onClose, children }: DrawerProps) {
         role="dialog"
         aria-modal="true"
         tabIndex={-1}
+        id={id}
         className={[
           "absolute inset-y-0 left-0 flex h-full w-[288px] flex-col gap-1 rounded-r-[44px] bg-surface p-4 shadow-drawer",
           "transition-transform duration-(--duration-push) ease-push",
