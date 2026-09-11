@@ -17,6 +17,14 @@ export interface PendingOffering {
   price_cents: number | null;
   sources: ("owner" | "document")[];
   source_references?: SourceReference[];
+  /** W-11: the documents this candidate depends on. Empty for an owner-typed
+   *  candidate - that emptiness is meaningful, it says the candidate depends on
+   *  no document and must survive any document being replaced. */
+  supporting_document_ids?: string[];
+  /** W-11: set only by reconcileOfferings, when a document that supported this
+   *  candidate was replaced but the owner had already edited it. No owner-facing
+   *  wording lives here - the review UI renders that. */
+  support_state?: "supported" | "orphaned";
   /** W-6: the source's own wording for a price the row cannot hold - a range, a
    *  "from" price, a rate - shown instead of a number picked out of it. */
   price_note?: string;
@@ -47,14 +55,25 @@ export interface KnowledgeRecord {
   sections: KnowledgeSection[];
   offering_candidates?: ReviewOffering[];
   extraction_status?: ExtractionStatus;
+  // W-11a: where ingest stopped when this document failed, and whether retrying
+  // is possible. Mirrors the generated api-types.ts shape.
+  failure_stage?: "structure" | "extract" | "embed" | null;
+  failure_retryable?: boolean | null;
+  failed_at?: string | null;
 }
 
-// W-11b: separates "which document's edit state is loaded" from "is the sheet
-// currently visible" - see ReviewSheet.tsx. A type alias for now; W-11c
-// extends this to represent several documents reviewed together, at which
-// point ReviewSheet's `key={workspace.id}` becomes one mount across all of
-// them instead of one per document.
-export type ReviewWorkspace = KnowledgeRecord;
+// W-11b: separates "which documents' edit state is loaded" from "is the sheet
+// currently visible" - see ReviewSheet.tsx. The sheet is keyed by
+// `workspace.id` - one mount across all of the documents reviewed together.
+// The id must be STABLE across close/reopen and rebuilds-after-save (W-11b
+// retention); it dies only when workspace goes to null.
+export interface ReviewWorkspace {
+  id: string;
+  documents: KnowledgeRecord[];
+  offering_candidates: ReviewOffering[];
+  /** W-11c: per-document save failures, keyed by document id. */
+  errors?: Record<string, string>;
+}
 
 export interface SourceDetail {
   text: string;

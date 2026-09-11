@@ -30,10 +30,11 @@ import { slugShapeError } from "@/lib/slug";
 import { BeatComposer } from "./components/BeatComposer";
 import {
   type KnowledgeRecord,
+  type KnowledgeSection,
   type PendingOffering,
-  type ReviewOffering,
   type ReviewWorkspace,
 } from "@/components/knowledge/types";
+import { buildWorkspace } from "@/components/knowledge/offerings";
 import { ReviewSheet } from "@/components/knowledge/ReviewSheet";
 
 interface Message {
@@ -239,7 +240,7 @@ export default function OnboardingPage() {
         setDrafts(pending);
         if (pending[0]) {
           setCanConfirm(false);
-          setWorkspace(withCombinedOfferings(pending[0], state.offering_candidates ?? []));
+          setWorkspace(buildWorkspace([pending[0]], state.offering_candidates ?? [], pending[0].id));
           setOpen(true);
         }
         const restored = historyToMessages(state.history);
@@ -373,7 +374,7 @@ export default function OnboardingPage() {
       setDrafts(pending);
       if (pending[0]) {
         setCanConfirm(false);
-        setWorkspace(withCombinedOfferings(pending[0], ownerOfferings));
+        setWorkspace(buildWorkspace([pending[0]], ownerOfferings, pending[0].id));
         setOpen(true);
       }
     } catch (err) {
@@ -520,7 +521,7 @@ export default function OnboardingPage() {
         }
       }
       if (accepted[0]) {
-        setWorkspace(withCombinedOfferings(accepted[0], ownerOfferings));
+        setWorkspace(buildWorkspace([accepted[0]], ownerOfferings, accepted[0].id));
         setOpen(true);
       }
     } finally {
@@ -533,28 +534,31 @@ export default function OnboardingPage() {
   }
 
   async function saveKnowledge(
-    sections: { heading: string; body: string }[],
+    documents: { document_id: string; sections: KnowledgeSection[] }[],
     offerings: PendingOffering[],
-  ) {
-    if (!workspace) return;
+  ): Promise<PendingOffering[] | null> {
+    if (!workspace) return null;
+    const documentId = workspace.documents[0].id;
     setReviewError(null);
     setBusy(true);
     try {
       const response = await apiFetch<{
         record: KnowledgeRecord;
         offering_candidates: PendingOffering[];
-      }>(`/api/onboarding/knowledge/${workspace.id}`, {
+      }>(`/api/onboarding/knowledge/${documentId}`, {
         method: "PUT",
-        body: JSON.stringify({ sections, offerings }),
+        body: JSON.stringify({ sections: documents[0]?.sections ?? [], offerings }),
       });
-      const remaining = nextDraft(workspace.id);
+      const remaining = nextDraft(documentId);
       setOwnerOfferings(response.offering_candidates);
-      setDrafts((previous) => previous.filter((draft) => draft.id !== workspace.id));
-      setWorkspace(remaining ? withCombinedOfferings(remaining, response.offering_candidates) : null);
+      setDrafts((previous) => previous.filter((draft) => draft.id !== documentId));
+      setWorkspace(remaining ? buildWorkspace([remaining], response.offering_candidates, remaining.id) : null);
       setOpen(remaining !== null);
       setCanConfirm(!remaining);
+      return response.offering_candidates;
     } catch (err) {
       setReviewError(err instanceof ApiError ? err.detail : "I couldn't save that information.");
+      return null;
     } finally {
       setBusy(false);
     }
@@ -562,13 +566,14 @@ export default function OnboardingPage() {
 
   async function discardKnowledge() {
     if (!workspace) return;
+    const documentId = workspace.documents[0].id;
     setReviewError(null);
     setBusy(true);
     try {
-      await apiFetch(`/api/knowledge/records/${workspace.id}`, { method: "DELETE" });
-      const remaining = nextDraft(workspace.id);
-      setDrafts((previous) => previous.filter((draft) => draft.id !== workspace.id));
-      setWorkspace(remaining ? withCombinedOfferings(remaining, ownerOfferings) : null);
+      await apiFetch(`/api/knowledge/records/${documentId}`, { method: "DELETE" });
+      const remaining = nextDraft(documentId);
+      setDrafts((previous) => previous.filter((draft) => draft.id !== documentId));
+      setWorkspace(remaining ? buildWorkspace([remaining], ownerOfferings, remaining.id) : null);
       setOpen(remaining !== null);
       setCanConfirm(!remaining);
     } catch (err) {
@@ -793,56 +798,9 @@ export default function OnboardingPage() {
           setReviewError(null);
           setOpen(false);
         }}
-        onSave={(sections, offerings) => void saveKnowledge(sections, offerings)}
+        onSave={(documents, offerings) => saveKnowledge(documents, offerings)}
         onDiscard={() => void discardKnowledge()}
       />
     </main>
   );
-}
-
-/**
- * Owner-typed offerings unioned with a draft document's candidates, for review.
- *
- * W-6: the precedence applied here is the server's, not a second opinion. The
- * rule is written down once, in `merge_offerings`
- * (`backend/app/onboarding/flow.py`): the document wins name, price and
- * description, and sources union. This function used to resolve the opposite
- * way - owner wins - so an uploaded price list and a chip-typed name produced
- * different answers depending on which surface you were looking at.
- *
- * It exists at all only because a file uploaded mid-interview posts to the
- * shared `/api/knowledge/drafts/upload` route, which does not fold candidates
- * into the onboarding record the way the URL turn does. Every other path
- * displays the list the server already merged.
- */
-function withCombinedOfferings(
-  record: KnowledgeRecord,
-  ownerOfferings: PendingOffering[],
-): KnowledgeRecord {
-  const merged = new Map<string, ReviewOffering>();
-  for (const item of ownerOfferings) merged.set(normalizeOfferingName(item.name), { ...item });
-  for (const item of record.offering_candidates ?? []) {
-    const key = normalizeOfferingName(item.name);
-    const owner = merged.get(key);
-    const options = [owner?.price_cents, item.price_cents].filter(
-      (price): price is number => price != null,
-    );
-    merged.set(key, {
-      ...item,
-      description: item.description || owner?.description || "",
-      price_cents: item.price_cents ?? owner?.price_cents ?? null,
-      sources: [...new Set([...(owner?.sources ?? []), ...item.sources])],
-      price_options: new Set(options).size > 1 ? [...new Set(options)] : undefined,
-    });
-  }
-  return { ...record, offering_candidates: [...merged.values()] };
-}
-
-function normalizeOfferingName(value: string): string {
-  return value
-    .normalize("NFKC")
-    .trim()
-    .toLowerCase()
-    .replace(/[\p{P}]/gu, " ")
-    .replace(/\s+/g, " ");
 }

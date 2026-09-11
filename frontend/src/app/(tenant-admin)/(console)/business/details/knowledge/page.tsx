@@ -7,6 +7,7 @@ import { apiFetch, ApiError } from "@/lib/api";
 import { ACCEPTED_UPLOAD_EXTENSIONS, describeUpload } from "@/lib/onboarding";
 import { KnowledgeDocument, ReviewSheet } from "./components/ReviewSheet";
 import {
+  buildWorkspace,
   sourceLabel,
   statusLine,
   type KnowledgeRecord,
@@ -69,7 +70,7 @@ export default function KnowledgePage() {
       setUrl("");
       await refresh();
       setPriceConflict(null);
-      setWorkspace(draft);
+      setWorkspace(buildWorkspace([draft], draft.offering_candidates ?? [], draft.id));
       setSheetOpen(true);
     } catch (err) {
       fail(err, "I couldn't read that page. Check the link, or send me a file instead.");
@@ -95,7 +96,7 @@ export default function KnowledgePage() {
       });
       await refresh();
       setPriceConflict(null);
-      setWorkspace(draft);
+      setWorkspace(buildWorkspace([draft], draft.offering_candidates ?? [], draft.id));
       setSheetOpen(true);
     } catch (err) {
       fail(err, "I couldn't read that file.");
@@ -105,18 +106,19 @@ export default function KnowledgePage() {
   }
 
   async function save(
-    sections: KnowledgeSection[],
+    documents: { document_id: string; sections: KnowledgeSection[] }[],
     offerings: PendingOffering[] = [],
     acceptPriceChanges = false,
-  ) {
-    if (!workspace) return;
+  ): Promise<PendingOffering[] | null> {
+    if (!workspace) return null;
+    const documentId = workspace.documents[0].id;
     setError(null);
     setWorking("Saving…");
     try {
-      await apiFetch<KnowledgeRecord>(`/api/knowledge/records/${workspace.id}`, {
+      await apiFetch<KnowledgeRecord>(`/api/knowledge/records/${documentId}`, {
         method: "PUT",
         body: JSON.stringify({
-          sections,
+          sections: documents[0]?.sections ?? [],
           offerings,
           accept_price_changes: acceptPriceChanges,
         }),
@@ -125,12 +127,14 @@ export default function KnowledgePage() {
       setWorkspace(null);
       setSheetOpen(false);
       await refresh();
+      return null;
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setPriceConflict(err.detail);
       } else {
         fail(err, "I couldn't save that.");
       }
+      return null;
     } finally {
       setWorking(null);
     }
@@ -161,7 +165,7 @@ export default function KnowledgePage() {
       // W-11b: only close/clear the sheet if the record just deleted is the
       // one it's showing - a row-level delete on a different, unrelated
       // document must not discard an in-progress edit elsewhere.
-      if (workspace?.id === record.id) {
+      if (workspace?.documents[0]?.id === record.id) {
         setWorkspace(null);
         setSheetOpen(false);
       }
@@ -178,13 +182,14 @@ export default function KnowledgePage() {
   async function open(record: KnowledgeRecord) {
     setPriceConflict(null);
     if (record.sections.length > 0) {
-      setWorkspace(record);
+      setWorkspace(buildWorkspace([record], record.offering_candidates ?? [], record.id));
       setSheetOpen(true);
       return;
     }
     setWorking("Reading it back…");
     try {
-      setWorkspace(await apiFetch<KnowledgeRecord>(`/api/knowledge/records/${record.id}`));
+      const fetched = await apiFetch<KnowledgeRecord>(`/api/knowledge/records/${record.id}`);
+      setWorkspace(buildWorkspace([fetched], fetched.offering_candidates ?? [], record.id));
       setSheetOpen(true);
     } catch (err) {
       fail(err, "I couldn't read that one back.");
@@ -380,12 +385,12 @@ export default function KnowledgePage() {
           setPriceConflict(null);
           setSheetOpen(false);
         }}
-        onSave={(sections, offerings, acceptPriceChanges) =>
-          void save(sections, offerings, acceptPriceChanges)
+        onSave={(documents, offerings, acceptPriceChanges) =>
+          save(documents, offerings, acceptPriceChanges)
         }
         onDiscard={() => {
           setPriceConflict(null);
-          if (workspace) void remove(workspace);
+          if (workspace) void remove(workspace.documents[0]);
         }}
       />
     </main>

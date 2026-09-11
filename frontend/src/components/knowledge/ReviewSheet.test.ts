@@ -62,7 +62,25 @@ describe("toWorkingOffering", () => {
       price_cents: 8900,
       sources: ["owner"],
     });
-    expect(working).toMatchObject({ priceNote: "", possibleMatches: [], priceOptions: [] });
+    expect(working).toMatchObject({
+      priceNote: "",
+      possibleMatches: [],
+      priceOptions: [],
+      support_state: "supported",
+      dirty: false,
+    });
+  });
+
+  it("passes W-11 supporting document ids and support state through", () => {
+    const working = toWorkingOffering(
+      candidate({
+        supporting_document_ids: ["doc-1"],
+        support_state: "orphaned",
+      }),
+    );
+    expect(working.supporting_document_ids).toEqual(["doc-1"]);
+    expect(working.support_state).toBe("orphaned");
+    expect(working.dirty).toBe(false);
   });
 });
 
