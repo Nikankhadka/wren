@@ -91,9 +91,16 @@ Detailed records live in [`spec/completed/`](spec/completed/).
     0030's legacy-safe metadata constraint merged via PR #34.
   - [x] W-11b: the retained review workspace (`ReviewSheet`'s `record` ->
     `workspace`/`open` split). Reviewed and merged to `development` via PR #32.
-  - [ ] W-11c: bounded-concurrency batch upload, `Replace`, offering
-    ordering/labels, pagination copy, and the privacy disclosures, not
-    started - both dependencies are merged. Start after W-13 and W-12.
+  - [x] W-11c: bounded-concurrency batch upload, `Replace`, offering
+    ordering/labels, pagination copy, and the privacy disclosures. 3-at-a-time
+    uploads capped at 5 files with in-place stamps and a single workspace
+    build; combined review sheet with a Sources panel (add/replace/remove),
+    per-document sections, and batch save with partial-failure retention;
+    reconcile and label policies mirrored from `flow.py` into a pure
+    `offerings.ts`; ready card and both disclosures verbatim; Business >
+    Knowledge retry-draft, Replace, and disclosure. 14 new deterministic
+    Playwright cases (desktop + mobile), 131 total e2e, `make check`, `make
+    ci`, and the eval gate all green.
 
 **Phase 13 specification amended four times.** 2026-09-05
 (`docs/phase13-walkthrough-refinement`): a second walkthrough round and its
@@ -105,8 +112,7 @@ and the non-terminal handoff contract, and 2026-09-08: the base contract and
 Amendment 4 were merged to `development` sequentially. **W-1 through W-9 are
 shipped, and the phase is closed** ([`spec/completed/13-walkthrough.md`](spec/completed/13-walkthrough.md)).
 W-11 is documented separately in Phase 15 and can now proceed independently from
-the merge dependency. It is partially implemented: W-11a and W-11b are merged,
-and W-11c remains outstanding.
+the merge dependency. It is fully implemented: W-11a, W-11b, and W-11c are merged.
 
 ## Known gaps and deliberate deferrals
 
