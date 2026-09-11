@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { brandStyle } from "@/lib/brand";
 import {
   customerSurfaceConfig,
   resolveStorefrontBySlug,
@@ -11,12 +10,11 @@ import { Storefront } from "./Storefront";
 
 /**
  * T-005/T-011/T-032: the customer surface, at `/{slug}` (D22 - the slug is a
- * path segment, not a subdomain). Resolves the tenant server-side so brand
- * never flashes to default, injects the tenant's accent override (frontend.md
- * section 5 - derived steps, AA contrast fallback handled inside brandStyle),
- * shows the calm not-found state for an unknown slug and the unavailable state
- * for a suspended tenant, then hands off to CustomerChat with the
- * tenant-configured greeting + starter chips.
+ * path segment, not a subdomain). Resolves the tenant server-side so its name
+ * and logo never flash to default (the stored accent is visually retired -
+ * D25), shows the calm not-found state for an unknown slug and the
+ * unavailable state for a suspended tenant, then hands off to CustomerChat
+ * with the tenant-configured greeting + starter chips.
  *
  * This is the app's only dynamic top-level segment, so it catches every path
  * the console's static routes do not. Next resolves static segments before
@@ -36,7 +34,6 @@ export default async function CustomerHome({
   const storefront = tenant.status === "active" ? await resolveStorefrontBySlug(slug) : null;
   const displayName = storefront?.name ?? (tenant.brand.display_name as string | undefined) ?? tenant.name;
   const logoUrl = tenant.brand.logo_url as string | undefined;
-  const accentOverride = brandStyle(tenant.brand);
   const { greeting, starterQuestions } = customerSurfaceConfig(tenant.customer);
 
   if (tenant.status === "suspended") {
@@ -57,7 +54,6 @@ export default async function CustomerHome({
   if (!storefront) {
     return (
       <main className="mx-auto flex h-dvh w-full max-w-[720px] flex-col">
-        {accentOverride ? <style>{accentOverride}</style> : null}
         <header className="flex items-center gap-3 border-b border-border px-4 py-4 sm:px-6">
           <BrandMark logoUrl={logoUrl} name={displayName} />
           <h1 className="text-title-3 font-semibold text-text">{displayName}</h1>
@@ -74,7 +70,6 @@ export default async function CustomerHome({
 
   return (
     <>
-      {accentOverride ? <style>{accentOverride}</style> : null}
       <Storefront
         slug={slug}
         logoUrl={logoUrl}

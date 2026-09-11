@@ -1008,7 +1008,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <main className="relative flex h-dvh min-h-0 flex-col overflow-hidden bg-surface">
+    <main className="relative isolate flex h-dvh min-h-0 flex-col overflow-hidden bg-surface">
       <ThreadVeil started={started} />
 
       <Thread

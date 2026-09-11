@@ -60,6 +60,8 @@
   --color-bubble-agent-in: var(--color-bubble-agent-in);
   --color-highlight: var(--color-highlight);
   --color-hairline: var(--color-hairline);
+  --background-image-brand: var(--gradient-brand);
+  --background-image-veil: var(--gradient-veil);
 
   --font-sans: var(--font-sans);
   --font-display: var(--font-display);

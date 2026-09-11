@@ -18,8 +18,8 @@ import type { WaitingRow } from "../lib/brief";
  * prototype - the row idiom below is the chats screen's `.chat-row`
  * (name / time / preview). The count pill is a solid `--color-highlight`
  * fill (the prototype's actual amber, `--amber-400`) with dark text, not
- * `Badge`'s pale-wash "warning" tone (`--amber-500`, the pale warning
- * yellow) - too light for text at weight or a saturated fill,
+ * `Badge`'s warning tone (`--amber-500`, now the dark ochre warning text on
+ * a pale wash) - that pair is for text-on-wash, not a solid fill,
  * where dark text on the solid `--amber-400` fill clears 8.6:1. It is also
  * the same token the Chats-list per-row attention dot already uses for
  * "wants the owner", so the notification count and the notification dot

@@ -131,6 +131,8 @@ consistent with the platform the code already ships. The repo, roles, and env
 names stay `wren` (renaming is churn with no user value - see the set README).
 The mobile-first structure does return - see D18.
 
+**Amended by D25 (2026-09-11):** the crimson primary is superseded; the Agencx name and Plus Jakarta Sans stand.
+
 ### D18: Mobile-first revival - the bottom tab bar returns from the planning prototype
 
 **Decision:** The tenant app is mobile-first. On phones (below `lg`) the two-tab
@@ -643,3 +645,63 @@ any of this when this entry was written. This ADR, and the tickets in
 `11-offerings-media.md`, are that recovery: reconstructed from the session's
 own transcript and independently re-verified against the current code before
 being written down, not taken on faith from either party.
+
+## D25: Soft Sakura color system
+
+**Date:** 2026-09-11 (founder-locked palette, rolled out on
+`feat/sakura-color-system`). **Status:** accepted. **Supersedes only D17's
+crimson primary** - the Agencx name and Plus Jakarta Sans stand.
+
+**Decision:** The visual identity is the locked Soft Sakura palette:
+
+| Role | Value |
+|---|---|
+| Blossom (selected nav, chips, human-agent bubbles, soft emphasis) | `#F3C3D6` |
+| Action / deep berry (primary actions, links, focus rings, outgoing bubbles, pressed) | `#8D2A58`; hover `#7B234D`; pressed `#6F1D45` |
+| Brand gradient | `#FFF3F8` -> `#F3BED3` |
+| Paper / surface / soft surface | `#FFF9FC` / `#FFFFFF` / `#F7F2F4` |
+| Muted text / tertiary text and strong border | `#655B60` / `#7D6E75` |
+| Ink | `#1A1A18` |
+| Success | `#176B45` on `#E7F5EC` |
+| Attention / pending / escalation | `#7A4A00` on `#FFF3D6` |
+| Count / highlight | `#F5A623` with dark ink |
+| Info / open / sent | `#245B78` on `#E7F1F8` |
+| Danger / error | `#A61B1B` on `#FDECEC` |
+| Draft / expired / neutral | grey (`bg-surface-sunken text-text-secondary`) |
+
+The role split is the point: **blossom carries selection and soft emphasis,
+deep berry carries action**. Red, amber, green, blue and grey keep distinct
+condition meanings, and every status pair clears WCAG AA on its own subtle
+fill. The neutral surfaces regain visible depth: paper `#FFF9FC`, surface
+`#FFFFFF`, soft/sunken `#F7F2F4`, containers `#F1EAED`/`#EAE2E6`. The brand
+gradient (`--gradient-brand`) is limited to two places: the fallback BrandMark
+monogram when a tenant has no logo, and the onboarding opening veil (login and
+onboarding share the thread; the veil uses `--gradient-veil`, the same stops
+with the top stop at zero alpha so the 56%-height overlay has no hard seam).
+
+**Why:** The crimson ramp was the last carried-over identity element that did
+not match the founder's locked palette, and the tokens-only path proves a full
+visual swap needs no component rewrite - the same load-bearing pattern D17
+proved. The old status stops were also the weak point: the pale warning amber
+and the crimson-on-subtle pairs failed AA at text weight, so the status ramps
+are rebuilt as explicit dark-on-pastel pairs. The per-tenant accent override is
+retired as visually inactive because tenant color had become a maintenance
+surface with no user value; tenant identity is carried by display name and
+logo.
+
+**Boundary:** No backend, database, request, response, or TypeScript API shape
+changes. `tenant_config.brand.accent` stays accepted, stored and returned for
+compatibility; it simply renders nothing, and `display_name` and `logo_url`
+keep working. Light mode only - the dark-mode block stays disabled, and this is
+not a dark-palette decision. No layout, typography, copy, flow, or state
+changes ship with it. This decision supersedes exactly one clause of D17 (the
+crimson primary). **The v6 preservation rule gets one explicit, color-only
+exception:** `agencx-prototype-v6.html` is recolored onto the locked palette
+(accent, status vars, accent washes, gradient, header comment) with no layout,
+copy, interaction, or state changes, and its neutral surfaces stay white.
+
+**Provenance.** The palette was locked by the founder and rolled out on
+`feat/sakura-color-system` (2026-09-11): `theme.css` rebuilt around it, a
+`frontend/src/styles/theme.test.ts` token and contrast contract added, the
+tenant accent override removed as a visual path, and the v6 prototype
+recolored in place. `docs/agencx/progress.md` records the rollout.

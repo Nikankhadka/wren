@@ -5,65 +5,75 @@
  * Rules (CI-enforced by frontend/scripts/check-tokens.mjs):
  *  - Raw color values (hex/rgb/hsl) may exist ONLY in this file.
  *  - Components use LAYER 2 (semantic) or LAYER 3 (component) tokens, never LAYER 1 primitives.
- *  - Tenant branding and future themes are variable overrides, never component changes.
+ *  - Future themes are variable overrides, never component changes; a tenant's
+ *    stored accent is no longer injected as a runtime override (D25).
  *
- * Palette: Material 3 style tonal role ramps (primary crimson, secondary cyan,
- * tertiary green, error, neutral + neutral-variant). Ramp step numbers are M3
- * tones (higher = lighter); Layer 2 selects tones per role and per theme.
+ * Palette: Material 3 style tonal role ramps (primary Soft Sakura, secondary
+ * blue, tertiary green, error, neutral + neutral-variant). Ramp step numbers
+ * are M3 tones (higher = lighter); Layer 2 selects tones per role and per theme.
  */
 
 /* ============ LAYER 1: PRIMITIVES (the only place raw values may live) ============ */
 :root {
-  /* primary - crimson, the brand accent ramp */
-  --primary-20: #67001B;
-  --primary-30: #8F0029;
-  --primary-35: #A80033;
-  --primary-40: #C1123F;
-  --primary-45: #E8385E;
-  --primary-60: #E14A69;
-  --primary-70: #F76F86;
-  --primary-80: #FFB2BC;
-  --primary-90: #FFD9DC;
-  --primary-95: #FFECEE;
+  /* primary - Soft Sakura: blossom tints above, deep berry actions below */
+  --primary-20: #4A1129; /* unused, deepest */
+  --primary-30: #6F1D45; /* pressed */
+  --primary-35: #7B234D; /* hover */
+  --primary-40: #8D2A58; /* action */
+  --primary-45: #A94A74; /* unused mid */
+  --primary-60: #C06E93; /* unused */
+  --primary-70: #D18FAD; /* unused */
+  --primary-80: #E0AAC3; /* unused */
+  --primary-90: #F3C3D6; /* blossom: subtle/container/bubble-agent */
+  --primary-95: #FBE4EE; /* unused pale tint */
 
-  /* secondary - cyan (info role) */
+  /* Status ramps. These stops are chosen as AA pairs (foreground on its
+     matching wash), pinned by theme.test.ts. */
+  /* secondary - blue (info role) */
   --secondary-30: #004F53;
-  --secondary-40: #00CAD1;
+  --secondary-40: #245B78;
   --secondary-80: #4DD9E2;
-  --secondary-90: #8EEFF4;
+  --secondary-90: #E7F1F8;
 
   /* tertiary - green (success role) */
   --tertiary-30: #00522F;
-  --tertiary-40: #006A45;
+  --tertiary-40: #176B45;
   --tertiary-45: #008558;
   --tertiary-80: #57DFA2;
-  --tertiary-90: #C2F2DA;
+  --tertiary-90: #E7F5EC;
 
   /* error - red (danger role) */
   --error-30: #93000A;
-  --error-40: #BA1A1A;
+  --error-40: #A61B1B;
   --error-80: #FFB4AB;
-  --error-90: #FFDAD6;
+  --error-90: #FDECEC;
 
-  /* amber - warm warning ramp (kept from the prior system) */
-  --amber-100: #F7EEDC;
+  /* amber - warm warning ramp (amber-500/100 form the AA warning pair) */
+  --amber-100: #FFF3D6;
   --amber-300: #D9B36A;
   --amber-400: #F5A623; /* prototype notification dot / rating / overdue */
-  --amber-500: #EFD96B;
+  --amber-500: #7A4A00;
 
-  /* neutral - surface steps (white) + text stack (warm greys) */
+  /* neutral - surface steps (paper to container) + text stack (warm greys) */
   --neutral-100: #FFFFFF;
-  --neutral-98:  #FFFFFF;
-  --neutral-96:  #FFFFFF;
-  --neutral-94:  #FFFFFF;
-  --neutral-92:  #FFFFFF;
+  --neutral-98:  #FFF9FC;
+  --neutral-96:  #F7F2F4;
+  --neutral-94:  #F1EAED;
+  --neutral-92:  #EAE2E6;
   --neutral-90:  #E5E2E1;
   --neutral-10:  #1A1A18;
 
   /* neutral-variant - secondary/tertiary text + strong borders */
-  --neutral-variant-30: #5C3F41;
-  --neutral-variant-50: #906F70;
+  --neutral-variant-30: #655B60;
+  --neutral-variant-50: #7D6E75;
   --neutral-variant-80: #D8C2C3;
+
+  /* Brand gradient (the fallback BrandMark monogram): deep blossom at the
+     bottom, near-paper at the top. The veil uses the same stops with the top
+     one at zero alpha - an opaque top stop on a 56%-height overlay would show
+     a hard seam against the page background. */
+  --gradient-brand: linear-gradient(to top, #F3BED3 0%, #FFF3F8 100%);
+  --gradient-veil: linear-gradient(to top, #F3BED3 0%, rgb(255 243 248 / 0) 100%);
 
   /* dark-surface neutral steps */
   --neutral-6:  #141313;
@@ -78,10 +88,10 @@
   --scrim: rgb(0 0 0 / 0.4);
 
   /* Channel triples. The prototype expresses every soft surface as ONE hue at an
-     alpha step (rgba(193,18,63,X) / rgba(26,26,24,X)), so the Layer 2 alpha
+     alpha step (rgba(141,42,88,X) / rgba(26,26,24,X)), so the Layer 2 alpha
      ladder derives from these two lines. Re-point the hue here and every step
      in the ladder follows - that is the whole point of keeping them. */
-  --primary-40-rgb: 193 18 63;
+  --primary-40-rgb: 141 42 88;
   --neutral-10-rgb: 26 26 24;
 
   --font-sans: var(--font-jakarta, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, ui-sans-serif, sans-serif);
@@ -151,7 +161,7 @@
   --color-accent-hover:          var(--primary-35);
   --color-accent-active:         var(--primary-30);
   --color-accent-subtle:         var(--primary-90);
-  --color-accent-container:      var(--primary-45); /* pairs with text-inverse: white on #E8385E ~4.5:1 */
+  --color-accent-container:      var(--primary-90); /* pairs with text-accent: berry on blossom */
   --color-focus-ring:            var(--primary-40);
 
   --color-success:        var(--tertiary-40);
@@ -172,7 +182,7 @@
      onboarding thread actually uses are defined - add a step when a screen
      needs it, never speculatively. */
   --color-accent-a07:  rgb(var(--primary-40-rgb) / 0.07);  /* chip :active fill */
-  --color-accent-a09:  rgb(var(--primary-40-rgb) / 0.09);  /* #s1-grad stop, action pill fill */
+  --color-accent-a09:  rgb(var(--primary-40-rgb) / 0.09);  /* tab pill / action pill fill (the veil is now --gradient-veil) */
   --color-accent-a12:  rgb(var(--primary-40-rgb) / 0.12);  /* inactive send circle (.sc) */
   --color-accent-a06:  rgb(var(--primary-40-rgb) / 0.06);  /* .se-input:focus fill */
   --color-accent-a16:  rgb(var(--primary-40-rgb) / 0.16);  /* idle code-cell border */
@@ -269,11 +279,11 @@
   --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --ease-push: cubic-bezier(0.25, 0.1, 0.25, 1);
 
-  /* chat bubble surfaces (inbound/outbound roles, re-tinted to crimson) */
+  /* chat bubble surfaces (inbound/outbound roles, re-tinted to the Sakura ramp) */
   --color-bubble-out: var(--primary-40);        /* outgoing (owner/customer) - filled */
-  --color-bubble-in: #F0EDED;                   /* incoming assistant - light neutral. A literal, not --neutral-94: that primitive also backs --color-surface-container (cards, containers) and is white by design - the bubble needs its own tint without re-tinting every container that shares the ramp step. */
-  --color-bubble-agent-in: var(--primary-95);   /* incoming human agent - light crimson */
-  --color-highlight: var(--amber-400);          /* prototype notification dot / rating / overdue - legible as dark-text-on-solid-fill (8.6:1), where the pale warning amber-500 (#EFD96B) fails as text or a solid fill */
+  --color-bubble-in: #F0EDED;                   /* incoming assistant - light neutral. A literal, not --neutral-94: that primitive also backs --color-surface-container (cards, containers) and carries its own container tint - the bubble needs its own neutral without re-tinting every container that shares the ramp step. */
+  --color-bubble-agent-in: var(--primary-90);   /* incoming human agent - blossom */
+  --color-highlight: var(--amber-400);          /* prototype notification dot / rating / overdue - legible as dark-text-on-solid-fill (8.6:1); amber-500 is now the dark ochre warning text, so the solid highlight keeps its own stop */
 }
 
 /* Dark mode overrides are disabled for now. See git history for the full dark
