@@ -77,10 +77,12 @@ _TOOL_GUIDANCE = (
     "Answer from the business facts and material in this prompt first. Reach for "
     "a tool only when the answer genuinely is not here - a specific order to look "
     "up, a quote to compute.\n"
-    "When the customer asks what the business offers, or for a list of its "
-    "services, items, or prices, the answer is in the material in this prompt - "
-    "the confirmed catalog and the published material together. Answer from "
-    "there rather than searching for a tool, and do not hand off.\n"
+    "When the customer asks for the full menu, the complete list of what the "
+    "business offers, or its prices in general, call show_catalog - it renders "
+    "the list as a card, which reads far more clearly than writing it out. When "
+    "they ask about one specific item or service instead, answer that from the "
+    "material in this prompt rather than calling a tool. Either way, do not "
+    "hand off just because the question was about offerings or prices.\n"
     "If the material does not cover what they asked, say so plainly and offer to "
     "have someone from the business follow up. Greetings, thanks, and questions "
     "about what you can do need no tool at all.\n"
@@ -98,7 +100,11 @@ _STYLE_GUIDANCE = (
     "Write the way a person types in a chat: plain sentences, no markdown, no "
     "bullet points, no headings, no bold or italic markers, no tables, no code "
     "blocks. When you have several things to say, say them in sentences. Keep "
-    "answers short - a few sentences unless the customer asked for detail."
+    "answers short - a few sentences unless the customer asked for detail.\n"
+    "Never mention where an answer came from. Do not say 'the materials "
+    "provided', 'the documents', 'our records', 'the data I have', or anything "
+    "like it - answer as the business itself, not as a system citing its "
+    "sources."
 )
 
 _FAST_PATH_GUIDANCE = (
@@ -348,8 +354,11 @@ def _system_prompt(package: ContextPackage, spotlight: Spotlight) -> str:
             "currently offers, including names, availability, and prices. Use reviewed "
             "knowledge for additional descriptions and supporting details. When both "
             "are relevant, answer from the catalog and the business material together "
-            "in one reply, naming the offerings relevant to the question rather than "
-            "enumerating the complete catalog.\n" + spotlight.wrap(offerings)
+            "in one reply, naming the offerings relevant to a question about a "
+            "specific item rather than enumerating the complete catalog. The "
+            "`[catalog_id=...]` prefix on each line is for internal tool calls only - "
+            "never show an id to the customer or mention that ids exist.\n"
+            + spotlight.wrap(offerings)
         )
     parts.append(_TOOL_GUIDANCE)
     parts.append(_STYLE_GUIDANCE)
@@ -825,7 +834,7 @@ async def run(state: AgentState) -> dict[str, Any]:
         response_text = deterministic_text or (
             "Here is the current price summary."
             if structured_response and structured_response["type"] == "price_summary"
-            else "Here is the current catalog."
+            else "Here's what we currently offer."
         )
         writer({"type": "token", "text": response_text})
         return {

@@ -666,7 +666,7 @@ async def test_chat_persists_the_catalog_payload_identical_to_the_stream(
     # a structured response (`draft_deterministic=True`) - a real second model
     # call would instead have produced FakeCatalogProvider's stream_text.
     token_texts = [e["text"] for e in events if e["type"] == "token"]
-    assert token_texts == ["Here is the current catalog."]
+    assert token_texts == ["Here's what we currently offer."]
 
     row = await superuser_conn.fetchrow(
         "select metadata from messages where tenant_id = $1 and conversation_id = $2 "
