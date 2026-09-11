@@ -96,7 +96,6 @@ export function CustomerChat({
   // Starter chips only make sense before the customer has said anything -
   // hidden the moment the first real message goes out, never shown again.
   const [showStarters, setShowStarters] = useState(starterQuestions.length > 0);
-  const abortRef = useRef<AbortController | null>(null);
   // Cursor for the transcript poll: the created_at of the newest message we
   // have already fetched. Starts undefined so the first poll fetches the whole
   // tail once, then narrows each tick.
@@ -185,15 +184,11 @@ export function CustomerChat({
       { role: "assistant", text: "", streaming: true },
     ]);
 
-    const controller = new AbortController();
-    abortRef.current = controller;
-
     try {
       const res = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slug, conversation_id: conversationId, message: trimmed }),
-        signal: controller.signal,
       });
       if (!res.ok || !res.body) throw new Error("chat request failed");
 
@@ -269,29 +264,13 @@ export function CustomerChat({
           }
         }
       }
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
-        // Customer-initiated stop. Keep whatever text streamed in, but a stop
-        // before the first token would otherwise leave an empty bubble behind
-        // forever - drop it instead of just marking it done.
-        setMessages((prev) => {
-          const last = prev[prev.length - 1];
-          if (last && last.role === "assistant" && last.text === "") {
-            return prev.slice(0, -1);
-          }
-          const next = [...prev];
-          if (last) next[next.length - 1] = { ...last, streaming: false };
-          return next;
-        });
-      } else {
-        updateLastAssistant(() => ({
-          text: "Something went wrong just then. Try again?",
-          error: true,
-          streaming: false,
-        }));
-      }
+    } catch {
+      updateLastAssistant(() => ({
+        text: "Something went wrong just then. Try again?",
+        error: true,
+        streaming: false,
+      }));
     } finally {
-      abortRef.current = null;
       setBusy(false);
     }
   }
@@ -299,10 +278,6 @@ export function CustomerChat({
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     void send(input);
-  }
-
-  function handleStop() {
-    abortRef.current?.abort();
   }
 
   return (
@@ -362,15 +337,12 @@ export function CustomerChat({
                 autoFocus
               />
             </div>
-            {busy ? (
-              <Button type="button" variant="secondary" onClick={handleStop}>
-                Stop
-              </Button>
-            ) : (
-              <Button type="submit" loading={busy} aria-label="Send">
-                <Icon name="send" size={20} />
-              </Button>
-            )}
+            {/* No stop affordance: the customer never interrupts the
+                assistant's own reply, so the send icon stays put rather than
+                swapping to a control that would let them. */}
+            <Button type="submit" disabled={busy} aria-label="Send">
+              <Icon name="send" size={20} />
+            </Button>
           </div>
         </form>
       )}
