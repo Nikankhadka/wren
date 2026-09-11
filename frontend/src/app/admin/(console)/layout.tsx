@@ -79,7 +79,7 @@ export default function PlatformConsoleLayout({ children }: { children: ReactNod
                 className={[
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-body-sm font-medium transition-colors duration-(--duration-fast)",
                   active
-                    ? "bg-accent-container text-text-inverse"
+                    ? "bg-accent-container text-accent"
                     : "text-text-secondary hover:bg-surface-container hover:text-text",
                 ].join(" ")}
               >
@@ -93,7 +93,7 @@ export default function PlatformConsoleLayout({ children }: { children: ReactNod
           <li key={label}>
             <span
               aria-disabled="true"
-              className="flex items-center justify-between rounded-md px-3 py-2 text-body-sm font-medium text-text-tertiary"
+              className="flex items-center justify-between rounded-md px-3 py-2 text-body-sm font-medium text-text-secondary"
             >
               {label}
               <span className="rounded-full bg-surface px-2 py-0.5 text-caption font-medium text-text-tertiary">

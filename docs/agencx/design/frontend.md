@@ -3,23 +3,24 @@
 The implementation truth for UI. The pixel standard of
 `docs/agencx/design/conventions.md`
 section 6 applies to everything here. Design language: **Material 3 tonal
-clarity** - white surfaces, a **crimson primary** with cyan and green
-functional accents, generous whitespace, Plus Jakarta Sans throughout (D17).
+clarity** - paper and white surfaces, a **Soft Sakura identity** (deep berry
+action, blossom emphasis) with amber, green, blue and red functional statuses,
+generous whitespace, Plus Jakarta Sans throughout (D17 name and font, D25).
 
 The system below is the shipped Wren frontend carried forward; the Agencx
-changes are the three-screen manifest (S1/S2/S3), the font swap, the
-failover typing indicator (P-5), and the mobile-first app chrome (D18). The
-pre-Agencx prototype's teal accent, cleaning copy, and Hivee emblem stay
-retired and archived (D17); its mobile-first structure returns as the tenant
-app's bottom tab bar (D18).
+changes are the three-screen manifest (S1/S2/S3), the font swap, the Soft
+Sakura color system (D25), the failover typing indicator (P-5), and the
+mobile-first app chrome (D18). The pre-Agencx prototype's teal accent, cleaning
+copy, and Hivee emblem stay retired and archived (D17); its mobile-first
+structure returns as the tenant app's bottom tab bar (D18).
 
 ## 1. The one hard rule: nothing is hardcoded
 
 **No raw color, font, radius, shadow, or duration value ever appears in a
 component, page, or Tailwind class.** Every visual decision routes through CSS
 custom properties in exactly one file: `frontend/src/styles/theme.css`.
-Changing the whole look means editing only that file (or overriding its
-variables at runtime for tenant branding).
+Changing the whole look means editing only that file. Per-tenant color
+overrides are no longer a runtime path (D25).
 
 Three token layers:
 
@@ -38,41 +39,48 @@ Rules:
    (`frontend/scripts/check-tokens.mjs`, `npm run check:tokens`) fails the build
    if a color literal appears anywhere else under `src/`. It machine-enforces
    colors; the rest of rule 1 is enforced in review.
-3. Dark mode, tenant branding, and any future theme are **variable overrides**,
-   never component changes.
+3. Dark mode (currently disabled) and any future theme are **variable
+   overrides**, never component changes; tenant branding is name and logo only,
+   not a color override (D25).
 
 ## 2. Theme file (`frontend/src/styles/theme.css`)
 
-Layer 1 is a Material 3 tonal ramp set: each role (primary crimson, secondary
-cyan, tertiary green, error, neutral) is a ramp of tone steps (higher number =
-lighter); Layer 2 picks a tone per role and per theme. Dark mode is a
-systematic derivation (lighter tone of the same ramp), not a parallel palette.
+Layer 1 is a Material 3 tonal ramp set: each role (primary Sakura, secondary
+blue, tertiary green, error red, amber, neutral) is a ramp of tone steps
+(higher number = lighter); Layer 2 picks a tone per role. Dark-mode overrides
+are disabled; any future theme is a variable override, never a parallel
+component palette.
 
-The crimson primary ramp is shipped and unchanged from the Wren rebrand
-(`--primary-40:#BA0036` accent, `--primary-90/95` subtle fills). The one Agencx
-token change is the font:
+The primary ramp is rebuilt around the locked Soft Sakura identity (D25):
+`--primary-40:#8D2A58` is the action berry, `--primary-35:#7B234D` hover,
+`--primary-30:#6F1D45` pressed, and `--primary-90:#F3C3D6` the blossom subtle
+fill. The D17 font change stands:
 
 ```
 --font-sans: var(--font-plus-jakarta, ...sans-serif);
 ```
 
 wired via `next/font/google` Plus Jakarta Sans in `layout.tsx` (replacing Inter;
-`display: "swap"`). Component code is untouched - the swap is a re-point, the
-same load-bearing pattern the Wren rebrand proved.
+`display: "swap"`). Component code is untouched - the color swap is a re-point
+of tokens, the same load-bearing pattern the Wren rebrand proved.
 
-**Colour convention (semantic status colours).** Crimson is the **brand** primary
-and is reserved for brand accents only: primary buttons, active tab/nav, links,
-focus rings, the monogram, and progress fill on brand surfaces. It is never used
-for a *status* meaning. Status is expressed with the standard semantic ramp,
-routed through the semantic tokens (Layer 2) and the `Badge` `STATUS_TONE` map:
+**Colour convention (semantic status colours).** Deep berry (`#8D2A58`) is the
+**brand action** colour and is reserved for action and emphasis: primary
+buttons, links, focus rings, outgoing bubbles, pressed states, and the monogram
+initial. Blossom (`#F3C3D6`) is the soft brand surface: selected navigation,
+chips, human-agent bubbles, accent containers. Neither is used for a *status*
+meaning. Status is expressed with the standard semantic ramp, routed through
+the semantic tokens (Layer 2) and the `Badge` `STATUS_TONE` map:
 
-- **Green** (`--color-success`): approved, success, complete, paid, ready,
-  resolved, active, delivered, confirmed.
-- **Red** (`--color-danger`): cancelled, declined, failed, suspended, rejected,
-  refunded, error.
-- **Amber** (`--color-warning`, shipped `#EFD96B`): pending, warning, overdue,
-  in-progress, provisioning, processing, claimed, escalated, outstanding.
-- **Neutral / info** (grey, or `--color-info` - shipped cyan `#00CAD1` -
+- **Green** (`--color-success`, `#176B45` on `#E7F5EC`): approved, success,
+  complete, paid, ready, resolved, active, delivered, confirmed.
+- **Red** (`--color-danger`, `#A61B1B` on `#FDECEC`): cancelled, declined,
+  failed, suspended, rejected, refunded, error.
+- **Amber** (`--color-warning`, `#7A4A00` on `#FFF3D6`): pending, warning,
+  overdue, in-progress, provisioning, processing, claimed, escalated,
+  outstanding. `--color-highlight` (`#F5A623` with dark ink) is the count and
+  notification fill, never a warning text colour.
+- **Neutral / info** (grey, or `--color-info` - `#245B78` on `#E7F1F8` -
   where a distinct info colour is wanted): open, sent, draft, neutral - any
   status without a clear good/bad/pending charge.
 
@@ -85,33 +93,38 @@ tenant's "In Progress" - three keys for one concept is how one of them silently
 goes grey. **Shipped is amber, not green**: on its way is not arrived, and the
 customer waiting is the one who would notice. **Landed in B-3.**
 
-**The one crimson exception, and why it is not a status (B-3).** The Chats list
-marks a conversation being handled with a crimson dot and one that wants the
+**The one berry exception, and why it is not a status (B-3).** The Chats list
+marks a conversation being handled with a berry dot and one that wants the
 owner with amber (`.bdot-t` / `.bdot-a` in the prototype, where `--c-teal` is a
-legacy name holding the crimson value). That looks like it contradicts the rule
+legacy name holding the berry value). That looks like it contradicts the rule
 above, and does not: "we have this one" carries no good/bad/pending charge - it
-is the brand saying it is present, the same role crimson plays in progress fill
-on a brand surface. Green would be wrong for a live conversation, since green
-means resolved. Nothing else may borrow crimson for a status.
+is the brand saying it is present, the same role deep berry plays in progress
+fill on a brand surface. Green would be wrong for a live conversation, since
+green means resolved. Nothing else may borrow berry for a status.
 
-**Lighter primary - SHIPPED (O-5, was B-3 US-1).** The brand accent is
-`#C1123F` (a touch lighter than the original `#BA0036`, still crimson, white-text
-AA on primary), with the derived ramp hover `#A80033`, active `#8F0029`,
-accent-container `#E8385E`; subtle `#FFD9DC`/`#FFECEE` unchanged. Landed with
-O-5 rather than B-3, because the onboarding thread is ported from a prototype
-carrying that exact ramp. `--neutral-10` also moved to the prototype's warmer
-ink `#1A1A18`.
+**Soft Sakura - SHIPPED (D25, supersedes the O-5 crimson).** The brand action
+is `#8D2A58` (deep berry), with hover `#7B234D` and active/pressed `#6F1D45`;
+subtle and accent-container are the blossom `#F3C3D6`, which pairs with
+`text-accent` (berry on blossom), not `text-inverse`. `--neutral-10` stays the
+prototype's warmer ink `#1A1A18`. The O-5 ramp landed first (`#C1123F`,
+`#A80033`, `#8F0029`, `#E8385E`) because the onboarding thread is ported from a
+prototype carrying that exact ramp; D25 replaces it with the founder's locked
+palette and retires the per-tenant accent override (section 5).
 
-**The alpha ladder (O-5).** The prototype expresses every soft surface as one
-hue at an alpha step, so `theme.css` carries two channel triples -
-`--primary-40-rgb` and `--neutral-10-rgb` - and derives a ladder from them:
+**The alpha ladder (O-5; re-pointed by D25).** The prototype expresses every
+soft surface as one hue at an alpha step, so `theme.css` carries two channel
+triples - `--primary-40-rgb` (now `141 42 88`, the berry) and
+`--neutral-10-rgb` - and derives a ladder from them:
 `--color-accent-a07/09/12/16/28/45/50` and
 `--color-ink-a05/07/12/35/40`. These are named by alpha step rather than by role
 because the prototype reuses each step in several places; a numeric name stays
 honest where an invented role vocabulary would not. Only steps a shipped screen
-uses are defined - add one when a screen needs it, never speculatively. Note
-that `--color-ink-a40` (the prototype's `--c-muted`) is what thread surfaces use
-for muted text, NOT the mauve `--color-text-tertiary`.
+uses are defined - add one when a screen needs it, never speculatively.
+`--color-accent-a09` is the tab/action pill wash, no longer the opening veil
+(the veil is `--gradient-veil`, the brand gradient with its top stop at zero
+alpha so the 56%-height overlay has no hard seam, D25). Note that
+`--color-ink-a40` (the prototype's `--c-muted`) is what thread surfaces use for
+muted text, NOT the mauve `--color-text-tertiary`.
 
 **Thread tokens (O-5).** The onboarding thread's type (`--text-lede`,
 `--text-lede-q`, `--text-bubble`), geometry (`--radius-bubble-lg`,
@@ -126,9 +139,10 @@ utility and silently does nothing; the form that reads a token is
 (`animate-rise`, `animate-beat-in`) are declared in `globals.css` and used
 directly.
 
-**Dark mode:** the two dark blocks (`:root[data-theme="dark"]` and the
-`prefers-color-scheme` media block) must stay literally identical - a header
-comment states this ("edit both or neither"); treat it as load-bearing.
+**Dark mode is disabled.** No `:root[data-theme="dark"]` block and no
+`prefers-color-scheme` media block ship; `theme.css` points at git history for
+the old palette and says light mode only (D25). Re-enabling is a deliberate
+change, not a derivation.
 
 ## 3. Tailwind wiring (Tailwind v4)
 
@@ -137,7 +151,7 @@ Tailwind utilities via `@theme inline` - self-referential mappings
 (`--color-x: var(--color-x)`), the `theme.css` import stays **unlayered**. Both
 are load-bearing. Components use `bg-surface`, `text-text-secondary`,
 `border-border`, `bg-accent-container`, `rounded-md`, etc. Arbitrary values like
-`bg-[#BA0036]` are what the CI grep forbids.
+`bg-[#8D2A58]` are what the CI grep forbids.
 
 ## 4. Typography, spacing, motion
 
@@ -157,20 +171,18 @@ are load-bearing. Components use `bg-surface`, `text-text-secondary`,
 - **Motion:** `--duration-fast` hover/press, `--duration-base` enter/exit;
   `--ease-out` everywhere; honors `prefers-reduced-motion`.
 
-## 5. Per-tenant branding (runtime, data-driven)
+## 5. Per-tenant branding (name and logo only, D25)
 
-`tenant_config.brand` carries at most `{"accent": "#RRGGBB", "display_name":
-"...", "logo_url": "..."}`.
+`tenant_config.brand` still carries at most `{"accent": "#RRGGBB",
+"display_name": "...", "logo_url": "..."}`. `accent` stays accepted, stored and
+returned for compatibility, but it renders nothing: the color override is
+retired and `src/lib/brand.ts` no longer exists. The backend never validated
+the hex - the field was always free-form data, and the frontend was the only
+thing that read it.
 
-- The customer surface's server layout injects a scoped override:
-  `<style>:root{--color-accent:{validated};...}</style>`.
-- The backend validates `accent` as a hex color at write time; the frontend
-  derives hover/active/subtle steps from it (`src/lib/brand.ts`) and falls back
-  to the default ramp if contrast fails WCAG AA (4.5:1).
-- The override applies to the customer surface only; console and platform always
-  keep crimson.
-- Logo and display name render in the chat header. That is the entire branding
-  surface - no per-tenant CSS, no per-tenant components.
+- Display name and logo render in the chat header. That is the entire branding
+  surface - no per-tenant CSS, no per-tenant components, no per-tenant color.
+- Console, platform and customer surfaces all use the same locked palette.
 
 ## 6. Component library (`frontend/src/components/ui/`)
 
@@ -195,7 +207,7 @@ Every component takes only semantic tokens. Each lists its required states.
 | `ScreenTopbar` (O-3) | `.dst-topbar`: 58px, back control, title, optional trailing action, hairline rule | default |
 | `RowLink` (O-3) | `.bh-row`: icon, label, chevron, hairline - a hub screen's list of destinations | default, pressed |
 | `FileDropzone` | drag target; accepted PDF, DOCX, MD/TXT/CSV/JSON. **Images are refused** - nothing in the stack reads one (no OCR, no vision call), founder ruling 2026-08-22; a vision call on the provider seam is the upgrade path | idle, drag-over, uploading, done, rejected |
-| `ChatBubble` | the OPERATOR thread idiom: customer (accent-subtle, right), assistant (surface, left), human_agent (info-subtle), system (centered caption); 18px radius, tip at the top | static, streaming |
+| `ChatBubble` | the OPERATOR thread idiom, all roles on bubble tokens: customer (berry `bubble-out`, right), assistant (neutral `bubble-in`, left), human_agent (blossom `bubble-agent-in`), system (centered caption); 18px radius, tip at the top | static, streaming |
 | `Thread` (O-5) | the ONBOARDING thread idiom, a separate design: `Thread`, `LedeMessage`, `AgentLine` (bare prose), `OwnerBubble` (20px, tip bottom-right), `TypingLine`, `ThreadPill`, `ThreadVeil`. Never merge with `ChatBubble` | static, streaming, pending |
 | `StreamingText` | renders SSE tokens, `aria-live="polite"` | streaming, done, interrupted |
 | `TypingIndicator` | **NEW (P-5):** three pulsing dots (600-800ms) shown while a turn is in flight, sustained through the failover window - never a spinner, never a blank | active |
@@ -295,8 +307,8 @@ primitives in `frontend/src/components/ui/Thread.tsx`, ported from the
 prototype's ONBOARDING screen. The thread IS the screen: `/onboarding` renders
 chrome-free (no sidebar, no hamburger header), there is no title, and there is no
 progress surface of any kind. Assistant turns are bare prose; only the owner's
-turns get a bubble. A crimson veil (`#s1-grad`) sits over the bottom 56% and
-fades for good once the owner has answered once.
+turns get a bubble. A brand-gradient veil (`#s1-grad`) sits over the bottom 56%
+and fades for good once the owner has answered once.
 
 `Thread.tsx` is deliberately NOT `ChatBubble`: the operator thread's two-bubble
 idiom (18px radius, tip at the top) and the onboarding thread's idiom (bare prose
@@ -331,7 +343,7 @@ forward.)
 
 | State | Spec |
 |---|---|
-| Resolving tenant | full-page skeleton; no flash of default branding (brand injected server-side) |
+| Resolving tenant | full-page skeleton; no flash of default branding while the tenant resolves |
 | Login / no valid session | chat surface present with the agent's first message already rendered - no welcome screen |
 | Opening message | held behind the typing indicator for 820ms, then revealed as the lede - static messages are paced like streamed ones (section 9). Never re-paced for restored history |
 | Bad email typed | one calm line under the composer from the server; typed text kept |
@@ -347,7 +359,7 @@ forward.)
 and steps into them. Ported from the prototype's `chats` and `renderThreadScreen`
 screens: the **All / Action needed / Unread** filter row, where "Action needed"
 *is* the escalation queue; `chat-row` with name, relative time, a status dot
-(amber = the assistant asked for you, crimson = it is handling this) and a
+(amber = the assistant asked for you, berry = it is handling this) and a
 one-line preview that shows the assistant's own summary of what the customer
 wants; and in the thread, the "Handling" / "You're replying" status with the
 take-over and hand-back pills and their symmetrical `thr-pill` stamps. Built on
@@ -552,8 +564,8 @@ codebase, responsive; no native app, no PWA shell in Stage 1.
 - Active tab: **accent text on a 9% accent wash** (`bg-accent-a09 text-accent`)
   with the filled Material Symbol; inactive: `text-ink-a40` with the outlined
   glyph. This is the prototype's `.tab.active` and it deliberately differs from
-  the sidebar's saturated accent-container pill: three of these sit side by
-  side on a small surface, where a saturated fill repeated three times reads as
+  the sidebar's solid blossom `accent-container` pill: three of these sit side
+  by side on a small surface, where a solid fill repeated three times reads as
   loud. The sidebar has room the bar does not, and keeps its own idiom
 - The bar is **persistent, including over drill-downs**: in the prototype
   `#screen-layer` is z-index 20 and stops 64px short of the bottom while
@@ -567,8 +579,8 @@ codebase, responsive; no native app, no PWA shell in Stage 1.
 - Structural reference: the reworked prototype
   (`docs/agencx/design/prototypes/agencx-prototype-v6.html`) is trusted for
   screen inventory, states, interaction vocabulary, and the bottom tab bar
-  pattern, now carrying the shipped crimson identity, the monogram mark, and
-  the Sababa reference tenant (D17, D18). The companion storefront surface
+  pattern, now carrying the shipped Soft Sakura identity, the monogram mark, and
+  the Sababa reference tenant (D17, D18, D25). The companion storefront surface
   (`docs/archive/prototypes/agencx-storefront-customer-v3.html`) is a retired pre-D18 surface kept for
   storefront interaction vocabulary only
 
@@ -624,7 +636,7 @@ stating, because each is a way the continuity could be lost by accident:
 
 ## 10. Accessibility and quality bar
 
-- WCAG AA contrast on every token pair, plus the runtime brand check (section 5)
+- WCAG AA contrast on every token pair, pinned by the theme contract test (`src/styles/theme.test.ts`)
 - Full keyboard navigation; `:focus-visible` ring on every interactive element;
   focus traps in modals
 - `aria-live` for streaming and toasts; labeled forms; table semantics

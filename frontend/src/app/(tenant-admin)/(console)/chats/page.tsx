@@ -153,7 +153,7 @@ export default function ChatsPage() {
                 </span>
                 {/* "Action needed" in words, reading exactly like the filter
                     chip above that selects for it - a bare amber dot named the
-                    state to nobody. Crimson dot = the assistant is handling it
+                    state to nobody. Berry dot = the assistant is handling it
                     itself. Nothing = nothing pending. */}
                 {row.needs_attention ? (
                   <span

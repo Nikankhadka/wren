@@ -103,6 +103,14 @@ Detailed records live in [`spec/completed/`](spec/completed/).
     Knowledge retry-draft, Replace, and disclosure. 14 new deterministic
     Playwright cases (desktop + mobile), 131 total e2e, `make check`, `make
     ci`, and the eval gate all green.
+- [x] Soft Sakura color rollout (2026-09-11): replace the crimson brand system
+  with the locked Soft Sakura palette in `theme.css` (blossom `#F3C3D6`, action
+  `#8D2A58`, restored paper/surface depth, AA status pairs), retire the
+  per-tenant accent override as visually inactive while `brand.accent` stays
+  accepted/stored/returned, recolor the v6 prototype color-only (no layout,
+  copy, interaction, or state changes), and record D25 with the docs
+  reconciled. New `frontend/src/styles/theme.test.ts` pins the token contract,
+  and an e2e case proves both demo tenants render the same accent.
 
 **Phase 13 specification amended four times.** 2026-09-05
 (`docs/phase13-walkthrough-refinement`): a second walkthrough round and its

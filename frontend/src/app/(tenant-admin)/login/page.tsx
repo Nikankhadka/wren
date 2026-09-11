@@ -62,7 +62,7 @@ const OPENING_PACE_MS = 820;
  *
  * This is the first half of the same conversation the onboarding interview
  * continues, so it renders on the same thread primitives as /onboarding: the
- * prototype's full-bleed thread, bare-prose agent turns, crimson owner bubbles
+ * prototype's full-bleed thread, bare-prose agent turns, berry owner bubbles
  * and pinned composer. The send circle dims rather than disappears until the
  * email parses - design/frontend.md section 6: "the inactive send state is the
  * only validation signal - no red error text".
@@ -213,7 +213,7 @@ export default function LoginPage() {
   const openingShown = opened || phase === "code";
 
   return (
-    <main className="relative flex h-dvh min-h-0 flex-col overflow-hidden bg-surface">
+    <main className="relative isolate flex h-dvh min-h-0 flex-col overflow-hidden bg-surface">
       <ThreadVeil started={phase === "code"} />
 
       <Thread label="Sign-in conversation" watch={phase} data-testid="login-thread">

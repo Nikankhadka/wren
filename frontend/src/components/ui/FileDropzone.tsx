@@ -56,7 +56,7 @@ export function FileDropzone({ accept, disabled, onFiles }: FileDropzoneProps) {
       ].join(" ")}
     >
       <p className="text-body-sm font-medium text-text">Drop a file here, or click to browse</p>
-      <p className="text-footnote text-text-secondary">Accepted: {accept}</p>
+      <p className="text-footnote text-text">Accepted: {accept}</p>
       <input
         ref={inputRef}
         type="file"

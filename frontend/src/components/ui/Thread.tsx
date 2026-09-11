@@ -162,7 +162,7 @@ export function ThreadPill({ children }: { children: ReactNode }) {
 }
 
 /**
- * The crimson veil (`#s1-grad`): a gradient over the bottom of the screen that
+ * The brand veil (`#s1-grad`): a gradient over the bottom of the screen that
  * fades away for good once the owner has answered once. Purely decorative.
  */
 export function ThreadVeil({ started }: { started: boolean }) {
@@ -170,7 +170,7 @@ export function ThreadVeil({ started }: { started: boolean }) {
     <div
       aria-hidden="true"
       className={[
-        "pointer-events-none absolute inset-x-0 bottom-0 h-[56%] bg-gradient-to-t from-accent-a09 to-transparent",
+        "pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-[56%] bg-veil",
         "transition-opacity duration-(--duration-veil) ease-out",
         started ? "opacity-0" : "opacity-100",
       ].join(" ")}

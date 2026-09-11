@@ -14,13 +14,9 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const SRC = join(ROOT, "src");
-// brand.ts computes CSS overrides FROM tenant-supplied runtime hex (T-032) -
-// not a hardcoded design decision, the exact "at runtime, overriding its
-// variables" case frontend.md section 1 itself carves out. Its literals are
-// pure-function math (contrast ratios, HSL derivation) and its own test
-// fixtures, not design-system color choices. Still needs a real allowlist
-// entry rather than silently loosening the regex, per the guard's own
-// "strict beats clever" stance above.
+// The theme contract test pins the approved palette values (and their WCAG
+// pairs) as hex literals by design - it is the one place that must name the
+// raw values to prove them.
 // format.ts derives a conversation's short reference from the head of its uuid
 // (`#4F9A2C`), which is six hex characters after a hash by construction - the
 // same shape as a color, and unavoidably so, since being a literal prefix of
@@ -29,8 +25,7 @@ const SRC = join(ROOT, "src");
 // loosened, per "strict beats clever".
 const ALLOWED = new Set([
   "src/styles/theme.css",
-  "src/lib/brand.ts",
-  "src/lib/brand.test.ts",
+  "src/styles/theme.test.ts",
   "src/lib/format.ts",
   "src/lib/format.test.ts",
 ]);

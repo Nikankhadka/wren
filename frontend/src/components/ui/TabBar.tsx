@@ -45,8 +45,8 @@ export function isTabActive(item: TabItem, pathname: string): boolean {
  * still reaches the bottom of the screen on a home-indicator device.
  *
  * The active idiom is the prototype's - accent text on a 9% accent wash - not
- * the sidebar's saturated accent-container pill. Three of these sit side by
- * side on a small surface and a saturated fill repeated three times reads as
+ * the sidebar's solid accent-container pill. Three of these sit side by
+ * side on a small surface and a solid fill repeated three times reads as
  * loud; the sidebar has room the bar does not. frontend.md section 7 records
  * the divergence.
  */
