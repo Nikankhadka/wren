@@ -100,6 +100,37 @@ async def client(app_pool: None) -> AsyncIterator[httpx.AsyncClient]:
         yield ac
 
 
+# --- GoTrue service token selection ---------------------------------------------
+
+
+def test_gotrue_service_token_prefers_the_real_service_role_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Hosted projects on asymmetric signing keys 401 a minted HS256 token, so
+    the real key wins whenever the environment carries one."""
+    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "real-service-role-key")
+    get_settings.cache_clear()
+    try:
+        assert seed_demo._gotrue_service_token() == "real-service-role-key"
+    finally:
+        get_settings.cache_clear()
+
+
+def test_gotrue_service_token_mints_from_the_jwt_secret_without_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Local dev has no service role key; the symmetric-secret mint is what the
+    local GoTrue accepts."""
+    monkeypatch.delenv("SUPABASE_SERVICE_ROLE_KEY", raising=False)
+    get_settings.cache_clear()
+    try:
+        token = seed_demo._gotrue_service_token()
+    finally:
+        get_settings.cache_clear()
+    payload = jwt.decode(token, TEST_JWT_SECRET, algorithms=["HS256"])
+    assert payload["role"] == "service_role"
+
+
 # --- all three tenants + data ----------------------------------------------------
 
 

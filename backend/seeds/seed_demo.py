@@ -204,6 +204,24 @@ CreateAuthUser = Callable[[str, str], Awaitable[UUID]]
 # --- GoTrue Admin API: the default create_auth_user (tests inject a fake) -------
 
 
+def _gotrue_service_token() -> str:
+    """The bearer GoTrue's Admin API accepts.
+
+    Prefer the real ``SUPABASE_SERVICE_ROLE_KEY`` when set: hosted projects
+    that sign sessions with asymmetric keys (ES256/RS256) reject a locally
+    minted HS256 service token with 401, and the real key is the only way in
+    (same reason the deployed backend presents it - deploy.md step 1). Local
+    dev has no service role key and mints from the symmetric JWT secret, which
+    is what local GoTrue expects.
+    """
+    settings = get_settings()
+    if settings.supabase_service_role_key:
+        return settings.supabase_service_role_key
+    if settings.supabase_jwt_secret:
+        return mint_key("service_role", settings.supabase_jwt_secret)
+    return ""
+
+
 def _make_gotrue_create_auth_user() -> CreateAuthUser:
     """Build the default create_auth_user from settings (GoTrue Admin API).
 
@@ -216,13 +234,13 @@ def _make_gotrue_create_auth_user() -> CreateAuthUser:
     """
     settings = get_settings()
     base = settings.supabase_url.rstrip("/")
-    secret = settings.supabase_jwt_secret
-    if not base or not secret:
+    service_token = _gotrue_service_token()
+    if not base or not service_token:
         raise RuntimeError(
-            "SUPABASE_URL and SUPABASE_JWT_SECRET must be set to seed demo auth "
-            "users (run scripts/demo.sh, or inject create_auth_user in tests)."
+            "SUPABASE_URL plus either SUPABASE_SERVICE_ROLE_KEY or "
+            "SUPABASE_JWT_SECRET must be set to seed demo auth users "
+            "(run scripts/demo.sh, or inject create_auth_user in tests)."
         )
-    service_token = mint_key("service_role", secret)
     headers = {
         "Authorization": f"Bearer {service_token}",
         "apikey": service_token,
