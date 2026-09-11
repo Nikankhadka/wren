@@ -33,7 +33,7 @@ export function MetricCard({ label, value, loading, error, icon, trend, footer }
       <div className="flex items-start justify-between gap-3">
         <p className="text-body-sm font-medium text-text-secondary">{label}</p>
         {icon ? (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent-subtle text-accent">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent-subtle text-accent-active">
             <Icon name={icon} size={18} />
           </span>
         ) : null}

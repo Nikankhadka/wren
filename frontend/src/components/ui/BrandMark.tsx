@@ -1,9 +1,9 @@
 /**
  * Tenant brand mark: the tenant's logo when set, otherwise a monogram avatar
- * (first letter of the display name on the brand gradient in the accent
- * color). Used by the customer chat header and the tenant-admin console
+ * (first letter of the display name on the Airbnb CTA gradient in inverse
+ * text). Used by the customer chat header and the tenant-admin console
  * sidebar. The gradient is fixed - the tenant's stored accent is no longer
- * injected (D25); the berry initial on the pale end passes AA on its own.
+ * injected (D25); the white initial passes AA on every gradient stop (D26).
  */
 export function BrandMark({ logoUrl, name }: { logoUrl?: string | null; name: string }) {
   if (logoUrl) {
@@ -16,7 +16,7 @@ export function BrandMark({ logoUrl, name }: { logoUrl?: string | null; name: st
   return (
     <span
       aria-hidden
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-body-sm font-semibold text-accent"
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-body-sm font-semibold text-text-inverse"
     >
       {initial}
     </span>

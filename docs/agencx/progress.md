@@ -111,6 +111,16 @@ Detailed records live in [`spec/completed/`](spec/completed/).
   copy, interaction, or state changes), and record D25 with the docs
   reconciled. New `frontend/src/styles/theme.test.ts` pins the token contract,
   and an e2e case proves both demo tenants render the same accent.
+- [x] Airbnb color rollout (2026-09-11): supersede Soft Sakura with the Airbnb
+  color system in `theme.css` (Rausch `#FF385C` action, deep red text stop
+  `#B4004E`, CTA gradient `#E61E4D -> #E31C5F -> #D70466`, soft red `#FFD1DA`,
+  Airbnb greys, and status ramps rebuilt as Airbnb-adjacent AA dark-on-pastel
+  pairs). Usage moves to Airbnb discipline: gradient text-bearing CTAs, accent
+  text actions and chips, flat red icon fills, soft accent washes on the
+  Business cards, neutral chrome, and white bordered fields with ink focus in
+  all forms. `theme.test.ts` re-pinned with a gradient-stop AA check; the
+  storefront e2e accent pin updated to Rausch; the v6 prototype recolored
+  color-only; D26 recorded superseding D25.
 
 **Phase 13 specification amended four times.** 2026-09-05
 (`docs/phase13-walkthrough-refinement`): a second walkthrough round and its

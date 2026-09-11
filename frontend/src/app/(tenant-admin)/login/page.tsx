@@ -255,7 +255,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={handleWrongEmail}
-                  className="flex min-h-11 items-center px-1 text-accent"
+                  className="flex min-h-11 items-center px-1 text-accent-active"
                 >
                   Wrong email?
                 </button>
@@ -274,7 +274,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => void submitEmail(email, true)}
                 disabled={secondsLeft > 0 || busy}
-                className="mx-auto flex min-h-11 items-center justify-center px-3 text-center text-meta text-accent disabled:pointer-events-none disabled:text-ink-a40"
+                className="mx-auto flex min-h-11 items-center justify-center px-3 text-center text-meta text-accent-active disabled:pointer-events-none disabled:text-ink-a40"
               >
                 {secondsLeft > 0 ? `Resend in ${secondsLeft}s` : "Resend code"}
               </button>

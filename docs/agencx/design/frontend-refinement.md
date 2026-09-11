@@ -34,11 +34,12 @@ build.
 
 ## 2. Shared presentation layer (RF-1)
 
-The refinement keeps the shipped design language: Material 3 tonal clarity,
-paper and white surfaces, the Soft Sakura identity (deep berry `#8D2A58`,
-blossom `#F3C3D6`, D25), amber/green/blue/red functional statuses, Plus Jakarta
-Sans, generous whitespace. The color system is already Sakura; RF-1 refines, it
-does not rebrand. Changes must preserve routes and flow order.
+The refinement keeps the shipped design language: Airbnb colour discipline,
+white surfaces and cool greys, the Rausch action red (`#FF385C`) with the deep
+red text stop and soft red washes, amber/green/teal/red functional statuses,
+Plus Jakarta Sans, generous whitespace. D26 superseded D25's Soft Sakura
+palette, so the color system follows D26; RF-1 refines structure and does not
+rebrand it. Changes must preserve routes and flow order.
 
 - **Typography.** The shipped scale (caption through display, `text-*`
   utilities) stays. Refinement covers hierarchy and rhythm only: consistent

@@ -45,7 +45,8 @@ export function isTabActive(item: TabItem, pathname: string): boolean {
  * still reaches the bottom of the screen on a home-indicator device.
  *
  * The active idiom is the prototype's - accent text on a 9% accent wash - not
- * the sidebar's solid accent-container pill. Three of these sit side by
+ * the sidebar's solid surface-container pill (Airbnb's desktop nav idiom).
+ * Three of these sit side by
  * side on a small surface and a solid fill repeated three times reads as
  * loud; the sidebar has room the bar does not. frontend.md section 7 records
  * the divergence.
@@ -66,7 +67,7 @@ export function TabBar({ items, pathname }: { items: TabItem[]; pathname: string
             aria-label={item.count ? `${item.label}, ${item.count} waiting` : undefined}
             className={[
               "mx-tab-inset-x my-tab-inset flex h-tab flex-1 flex-col items-center justify-center gap-[3px] rounded-tab transition-colors duration-(--duration-fast)",
-              active ? "bg-accent-a09 text-accent" : "text-ink-a40",
+              active ? "bg-accent-a09 text-accent-active" : "text-ink-a40",
             ].join(" ")}
           >
             <span className="relative">

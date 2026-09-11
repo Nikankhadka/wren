@@ -125,7 +125,7 @@ export default function ConsoleLayout({ children }: { children: ReactNode }) {
                   className={[
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-body-sm font-medium transition-colors duration-(--duration-fast)",
                     active
-                      ? "bg-accent-container text-accent"
+                      ? "bg-surface-container text-text"
                       : "text-text-secondary hover:bg-surface-container hover:text-text",
                   ].join(" ")}
                 >

@@ -70,7 +70,7 @@ function VideoMedia({ media }: { media: NonNullable<StorefrontData["offerings"][
     );
   }
   return (
-    <a href={media.url} target="_blank" rel="noreferrer" className="block rounded-card bg-surface-container p-6 text-center text-action text-accent">
+    <a href={media.url} target="_blank" rel="noreferrer" className="block rounded-card bg-surface-container p-6 text-center text-action text-accent-active">
       Open video
     </a>
   );
@@ -328,7 +328,7 @@ export function Storefront({
             ) : null}
             {selected.description ? <p className="text-prose text-text-secondary">{selected.description}</p> : null}
             {selected.price_cents !== null ? <p className="text-title-2 font-semibold text-text">{priceLabel(selected.price_cents)}</p> : null}
-            <button type="button" onClick={() => { setChatOpen(true); composerRef.current?.(`Tell me about ${selected.name}`); setSelected(null); }} className="w-full rounded-field bg-accent px-4 py-3 text-action font-medium text-text-inverse">Ask about this</button>
+            <button type="button" onClick={() => { setChatOpen(true); composerRef.current?.(`Tell me about ${selected.name}`); setSelected(null); }} className="w-full rounded-field bg-brand px-4 py-3 text-action font-medium text-text-inverse hover:brightness-95 active:brightness-90">Ask about this</button>
           </div>
         ) : null}
       </Sheet>

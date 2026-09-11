@@ -298,7 +298,7 @@ export function CustomerChat({
               <button
                 type="button"
                 onClick={() => void send(messages[index - 1]?.text ?? "")}
-                className="mt-1 block text-footnote font-medium text-accent hover:text-accent-hover"
+                className="mt-1 block text-footnote font-medium text-accent-active hover:underline"
               >
                 Retry
               </button>

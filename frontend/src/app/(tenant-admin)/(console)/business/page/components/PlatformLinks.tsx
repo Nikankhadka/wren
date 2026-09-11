@@ -109,7 +109,7 @@ export function PlatformLinks({ links, onSaved }: PlatformLinksProps) {
               <span className="w-full text-center text-eyebrow text-ink-a40">
                 {platform.label}
               </span>
-              <span className="text-center text-eyebrow text-accent">
+              <span className="text-center text-eyebrow text-accent-active">
                 {saved ? "Open" : "Add"}
               </span>
             </button>
@@ -129,7 +129,7 @@ export function PlatformLinks({ links, onSaved }: PlatformLinksProps) {
                 target="_blank"
                 rel="noopener noreferrer"
                 data-testid="booking-link-open"
-                className="shrink-0 rounded-chip bg-accent px-3.5 py-2 text-chip font-medium text-text-inverse active:opacity-85"
+                className="shrink-0 rounded-chip bg-brand px-3.5 py-2 text-chip font-medium text-text-inverse hover:brightness-95 active:brightness-90"
               >
                 Open
               </a>
@@ -139,7 +139,7 @@ export function PlatformLinks({ links, onSaved }: PlatformLinksProps) {
                 onClick={() => void save(editing, "")}
                 aria-label="Remove this link"
                 data-testid="booking-link-remove"
-                className="shrink-0 rounded-chip border-[1.5px] border-accent-a28 p-2 text-accent active:bg-accent-a07"
+                className="shrink-0 rounded-chip border-[1.5px] border-border p-2 text-text-secondary active:bg-surface-sunken"
               >
                 <Icon name="delete" size={16} />
               </button>
@@ -162,13 +162,13 @@ export function PlatformLinks({ links, onSaved }: PlatformLinksProps) {
               inputMode="url"
               aria-label="Link address"
               data-testid="booking-link-input"
-              className="min-w-0 flex-1 rounded-field border border-hairline bg-surface px-3.5 py-2.5 text-body-sm text-text placeholder:text-ink-a40 outline-none focus-visible:border-accent-a35"
+              className="min-w-0 flex-1 rounded-field border border-border bg-surface px-3.5 py-2.5 text-body-sm text-text placeholder:text-ink-a40 outline-none focus-visible:border-text"
             />
             <button
               type="submit"
               disabled={busy || !draft.trim()}
               data-testid="booking-link-save"
-              className="shrink-0 rounded-chip bg-accent px-3.5 py-2 text-chip font-medium text-text-inverse active:opacity-85 disabled:opacity-50"
+              className="shrink-0 rounded-chip bg-brand px-3.5 py-2 text-chip font-medium text-text-inverse hover:brightness-95 active:brightness-90 disabled:opacity-50"
             >
               Save
             </button>

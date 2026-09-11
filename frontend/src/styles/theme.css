@@ -8,91 +8,95 @@
  *  - Future themes are variable overrides, never component changes; a tenant's
  *    stored accent is no longer injected as a runtime override (D25).
  *
- * Palette: Material 3 style tonal role ramps (primary Soft Sakura, secondary
- * blue, tertiary green, error, neutral + neutral-variant). Ramp step numbers
- * are M3 tones (higher = lighter); Layer 2 selects tones per role and per theme.
+ * Palette: Airbnb color system (D26, supersedes D25). Primary is Rausch red,
+ * secondary teal (info/links), tertiary green (success), error, amber, and
+ * cool Airbnb neutrals. Ramp step numbers are M3 tones (higher = lighter);
+ * Layer 2 selects tones per role and per theme.
  */
 
 /* ============ LAYER 1: PRIMITIVES (the only place raw values may live) ============ */
 :root {
-  /* primary - Soft Sakura: blossom tints above, deep berry actions below */
-  --primary-20: #4A1129; /* unused, deepest */
-  --primary-30: #6F1D45; /* pressed */
-  --primary-35: #7B234D; /* hover */
-  --primary-40: #8D2A58; /* action */
-  --primary-45: #A94A74; /* unused mid */
-  --primary-60: #C06E93; /* unused */
-  --primary-70: #D18FAD; /* unused */
-  --primary-80: #E0AAC3; /* unused */
-  --primary-90: #F3C3D6; /* blossom: subtle/container/bubble-agent */
-  --primary-95: #FBE4EE; /* unused pale tint */
+  /* primary - Airbnb Rausch red: deep reds for action below, pink tints above */
+  --primary-20: #8C0026; /* unused, deepest */
+  --primary-30: #B4004E; /* pressed; deep-red text on soft tints */
+  --primary-35: #E31C5F; /* hover (also the CTA gradient mid-stop) */
+  --primary-40: #FF385C; /* action: current Airbnb Rausch */
+  --primary-45: #FF5A5F; /* unused, classic Rausch */
+  --primary-60: #FF7A85; /* unused */
+  --primary-70: #FF99A2; /* unused */
+  --primary-80: #FFB3BA; /* unused */
+  --primary-90: #FFD1DA; /* soft brand tint: subtle/container/bubble-agent */
+  --primary-95: #FFE8ED; /* unused pale tint */
 
   /* Status ramps. These stops are chosen as AA pairs (foreground on its
-     matching wash), pinned by theme.test.ts. */
-  /* secondary - blue (info role) */
-  --secondary-30: #004F53;
-  --secondary-40: #245B78;
-  --secondary-80: #4DD9E2;
-  --secondary-90: #E7F1F8;
+     matching wash), pinned by theme.test.ts. The exact Airbnb values
+     (#008489, #008A05) sit at the -45 anchor but fail 4.5 on their own
+     washes, so the semantic token is one step darker. */
+  /* secondary - teal (info role, also links) */
+  --secondary-30: #005F64;
+  --secondary-40: #007A7F;
+  --secondary-45: #008489; /* unused, exact Airbnb teal */
+  --secondary-80: #4DC4CC;
+  --secondary-90: #E6F4F5;
 
   /* tertiary - green (success role) */
-  --tertiary-30: #00522F;
-  --tertiary-40: #176B45;
-  --tertiary-45: #008558;
-  --tertiary-80: #57DFA2;
-  --tertiary-90: #E7F5EC;
+  --tertiary-30: #005E03;
+  --tertiary-40: #007A04;
+  --tertiary-45: #008A05; /* unused, exact Airbnb green */
+  --tertiary-80: #4CC952;
+  --tertiary-90: #E6F5E7;
 
-  /* error - red (danger role) */
-  --error-30: #93000A;
-  --error-40: #A61B1B;
-  --error-80: #FFB4AB;
-  --error-90: #FDECEC;
+  /* error - red (danger role; Airbnb error red) */
+  --error-30: #8F2407;
+  --error-40: #C13515;
+  --error-80: #FFB4A9;
+  --error-90: #FDEDEA;
 
   /* amber - warm warning ramp (amber-500/100 form the AA warning pair) */
   --amber-100: #FFF3D6;
-  --amber-300: #D9B36A;
-  --amber-400: #F5A623; /* prototype notification dot / rating / overdue */
-  --amber-500: #7A4A00;
+  --amber-300: #E8B84C;
+  --amber-400: #FFB400; /* highlight fill: notification dot / rating / overdue */
+  --amber-500: #8A5A00;
 
-  /* neutral - surface steps (paper to container) + text stack (warm greys) */
+  /* neutral - surface steps (paper to container) + text stack (cool greys) */
   --neutral-100: #FFFFFF;
-  --neutral-98:  #FFF9FC;
-  --neutral-96:  #F7F2F4;
-  --neutral-94:  #F1EAED;
-  --neutral-92:  #EAE2E6;
-  --neutral-90:  #E5E2E1;
-  --neutral-10:  #1A1A18;
+  --neutral-98:  #FFFFFF;
+  --neutral-96:  #F7F7F7;
+  --neutral-94:  #F0F0F0;
+  --neutral-92:  #EBEBEB;
+  --neutral-90:  #DDDDDD;
+  --neutral-10:  #222222;
 
   /* neutral-variant - secondary/tertiary text + strong borders */
-  --neutral-variant-30: #655B60;
-  --neutral-variant-50: #7D6E75;
-  --neutral-variant-80: #D8C2C3;
+  --neutral-variant-30: #717171;
+  --neutral-variant-50: #767676;
+  --neutral-variant-80: #B0B0B0; /* unused, Airbnb disabled grey */
 
-  /* Brand gradient (the fallback BrandMark monogram): deep blossom at the
-     bottom, near-paper at the top. The veil uses the same stops with the top
-     one at zero alpha - an opaque top stop on a 56%-height overlay would show
-     a hard seam against the page background. */
-  --gradient-brand: linear-gradient(to top, #F3BED3 0%, #FFF3F8 100%);
-  --gradient-veil: linear-gradient(to top, #F3BED3 0%, rgb(255 243 248 / 0) 100%);
+  /* Brand gradient: the signature Airbnb CTA gradient, worn by the primary
+     button and the fallback BrandMark monogram. The veil is the soft blush
+     wash with its top stop at zero alpha - an opaque top stop on a
+     56%-height overlay would show a hard seam against the page background. */
+  --gradient-brand: linear-gradient(to right, #E61E4D 0%, #E31C5F 50%, #D70466 100%);
+  --gradient-veil: linear-gradient(to top, #FFD1DA 0%, rgb(255 232 237 / 0) 100%);
 
   /* dark-surface neutral steps */
-  --neutral-6:  #141313;
-  --neutral-8:  #1B1919;
-  --neutral-12: #211F20;
-  --neutral-17: #2B2929;
-  --neutral-22: #363334;
-  --neutral-30: #4A4646;
-  --neutral-80: #C9C6C5;
+  --neutral-6:  #0F0F0F;
+  --neutral-8:  #1A1A1A;
+  --neutral-12: #262626;
+  --neutral-17: #2E2E2E;
+  --neutral-22: #3D3D3D;
+  --neutral-30: #4A4A4A;
+  --neutral-80: #C7C7C7;
 
   --white: #FFFFFF;
   --scrim: rgb(0 0 0 / 0.4);
 
   /* Channel triples. The prototype expresses every soft surface as ONE hue at an
-     alpha step (rgba(141,42,88,X) / rgba(26,26,24,X)), so the Layer 2 alpha
+     alpha step (rgba(255,56,92,X) / rgba(34,34,34,X)), so the Layer 2 alpha
      ladder derives from these two lines. Re-point the hue here and every step
      in the ladder follows - that is the whole point of keeping them. */
-  --primary-40-rgb: 141 42 88;
-  --neutral-10-rgb: 26 26 24;
+  --primary-40-rgb: 255 56 92;
+  --neutral-10-rgb: 34 34 34;
 
   --font-sans: var(--font-jakarta, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, ui-sans-serif, sans-serif);
   --font-display: var(--font-jakarta, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, ui-sans-serif, sans-serif);
@@ -161,7 +165,7 @@
   --color-accent-hover:          var(--primary-35);
   --color-accent-active:         var(--primary-30);
   --color-accent-subtle:         var(--primary-90);
-  --color-accent-container:      var(--primary-90); /* pairs with text-accent: berry on blossom */
+  --color-accent-container:      var(--primary-90); /* pairs with text-accent-active: deep red on soft pink */
   --color-focus-ring:            var(--primary-40);
 
   --color-success:        var(--tertiary-40);
@@ -182,17 +186,17 @@
      onboarding thread actually uses are defined - add a step when a screen
      needs it, never speculatively. */
   --color-accent-a07:  rgb(var(--primary-40-rgb) / 0.07);  /* chip :active fill */
-  --color-accent-a09:  rgb(var(--primary-40-rgb) / 0.09);  /* tab pill / action pill fill (the veil is now --gradient-veil) */
+  --color-accent-a09:  rgb(var(--primary-40-rgb) / 0.09);  /* tab pill / action pill fill (the veil is --gradient-veil) */
   --color-accent-a12:  rgb(var(--primary-40-rgb) / 0.12);  /* inactive send circle (.sc) */
   --color-accent-a06:  rgb(var(--primary-40-rgb) / 0.06);  /* .se-input:focus fill */
   --color-accent-a16:  rgb(var(--primary-40-rgb) / 0.16);  /* idle code-cell border */
-  --color-accent-a20:  rgb(var(--primary-40-rgb) / 0.20);  /* .se-add dashed rule */
+  --color-accent-a20:  rgb(var(--primary-40-rgb) / 0.20);  /* dashed add rule, dashed platform tiles */
   --color-accent-a28:  rgb(var(--primary-40-rgb) / 0.28);  /* chip border */
   --color-accent-a35:  rgb(var(--primary-40-rgb) / 0.35);  /* .se-input:focus border */
   --color-accent-a45:  rgb(var(--primary-40-rgb) / 0.45);  /* filled code-cell border */
   --color-accent-a50:  rgb(var(--primary-40-rgb) / 0.50);  /* inactive send arrow */
 
-  /* The prototype's --c-muted is warm ink at 40%, NOT the mauve
+  /* The prototype's --c-muted is ink at 40%, NOT the grey
      --color-text-tertiary. Every muted string on a thread surface uses these. */
   --color-ink-a05:  rgb(var(--neutral-10-rgb) / 0.05);  /* .sys-pill fill */
   --color-ink-a07:  rgb(var(--neutral-10-rgb) / 0.07);  /* pill inner divider */
@@ -216,11 +220,9 @@
 
   --gutter: 24px;
 
-  /* The prototype's screen rules are black at 4-6% depending on the element
-     (`.dst-topbar` .05, `.set-section` .06, `.set-field-row` .04). One step
-     rather than three: at these alphas the difference is not visible, and three
+  /* One hairline step: at these alphas the difference is not visible, and
      near-identical tokens would only invite picking the wrong one. */
-  --color-hairline: rgb(0 0 0 / 0.05);
+  --color-hairline: var(--neutral-92);
 
   --radius-field: 14px;          /* .se-input, .se-save-btn */
   --size-topbar: 58px;           /* .dst-topbar */
@@ -279,11 +281,14 @@
   --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --ease-push: cubic-bezier(0.25, 0.1, 0.25, 1);
 
-  /* chat bubble surfaces (inbound/outbound roles, re-tinted to the Sakura ramp) */
-  --color-bubble-out: var(--primary-40);        /* outgoing (owner/customer) - filled */
-  --color-bubble-in: #F0EDED;                   /* incoming assistant - light neutral. A literal, not --neutral-94: that primitive also backs --color-surface-container (cards, containers) and carries its own container tint - the bubble needs its own neutral without re-tinting every container that shares the ramp step. */
-  --color-bubble-agent-in: var(--primary-90);   /* incoming human agent - blossom */
-  --color-highlight: var(--amber-400);          /* prototype notification dot / rating / overdue - legible as dark-text-on-solid-fill (8.6:1); amber-500 is now the dark ochre warning text, so the solid highlight keeps its own stop */
+  /* chat bubble surfaces (inbound/outbound roles). Outgoing stays the brand
+     red, as the prototype's `.u-bubble` does: a strong red anchor, not another
+     pass of grey. It is the Rausch hover stop because flat #FF385C cannot
+     carry white body text (3.52:1); #E31C5F clears AA at 4.57:1. */
+  --color-bubble-out: var(--primary-35);        /* outgoing (owner/customer) - brand red */
+  --color-bubble-in: #F7F7F7;                   /* incoming assistant - light neutral. A literal, not --neutral-96: that primitive also backs --color-surface-sunken (cards, containers) and carries its own container role - the bubble needs its own neutral without re-tinting every container that shares the ramp step. */
+  --color-bubble-agent-in: var(--primary-90);   /* incoming human agent - soft pink */
+  --color-highlight: var(--amber-400);          /* prototype notification dot / rating / overdue - legible as dark-text-on-solid-fill (8.9:1); amber-500 is the dark ochre warning text, so the solid highlight keeps its own stop */
 }
 
 /* Dark mode overrides are disabled for now. See git history for the full dark

@@ -274,7 +274,7 @@ export default function KnowledgePage() {
                 inputMode="url"
                 disabled={working !== null}
                 data-testid="knowledge-url-input"
-                className="min-w-0 flex-1 rounded-field border-[length:var(--border-chip)] border-transparent bg-surface-container px-[18px] py-3.5 text-field text-text placeholder:text-ink-a40 outline-none transition-colors duration-(--duration-fast) focus:border-accent-a35 focus:bg-accent-a06 disabled:opacity-50"
+                className="min-w-0 flex-1 rounded-field border-[length:var(--border-chip)] border-border bg-surface px-[18px] py-3.5 text-field text-text placeholder:text-ink-a40 outline-none transition-colors duration-(--duration-fast) focus:border-text disabled:opacity-50"
               />
               <button
                 type="button"
@@ -293,7 +293,7 @@ export default function KnowledgePage() {
               onClick={() => fileRef.current?.click()}
               disabled={working !== null}
               data-testid="knowledge-add-document"
-              className="mt-1 flex w-full items-center gap-2 border-t border-dashed border-accent-a20 py-3.5 text-action font-medium text-accent active:opacity-60 disabled:opacity-50"
+              className="mt-1 flex w-full items-center gap-2 border-t border-dashed border-accent-a20 py-3.5 text-action font-medium text-accent-active active:opacity-60 disabled:opacity-50"
             >
               <Icon name="add" size={16} />
               Add a document
@@ -348,7 +348,7 @@ export default function KnowledgePage() {
                       Read it back before it answers anything
                     </span>
                   </span>
-                  <span aria-hidden="true" className="text-accent">
+                  <span aria-hidden="true" className="text-accent-active">
                     <Icon name="chevron_right" size={20} />
                   </span>
                 </button>
@@ -398,7 +398,7 @@ export default function KnowledgePage() {
                           disabled={working !== null}
                           aria-label={`Try ${sourceLabel(record)} again`}
                           data-testid="knowledge-retry"
-                          className="flex size-icon-btn items-center justify-center rounded-full text-accent active:opacity-60"
+                          className="flex size-icon-btn items-center justify-center rounded-full text-accent-active active:opacity-60"
                         >
                           <Icon name="refresh" size={18} />
                         </button>
@@ -413,7 +413,7 @@ export default function KnowledgePage() {
                           disabled={working !== null}
                           aria-label={`Replace ${sourceLabel(record)}`}
                           data-testid="knowledge-replace"
-                          className="flex size-icon-btn items-center justify-center rounded-full text-accent active:opacity-60"
+                          className="flex size-icon-btn items-center justify-center rounded-full text-accent-active active:opacity-60"
                         >
                           <Icon name="swap_horiz" size={18} />
                         </button>
@@ -442,7 +442,7 @@ export default function KnowledgePage() {
                   </div>
 
                   <details className="mt-3">
-                    <summary className="cursor-pointer text-action font-medium text-accent">
+                    <summary className="cursor-pointer text-action font-medium text-accent-active">
                       What I read from this
                     </summary>
                     <KnowledgeDocument sections={record.sections} />

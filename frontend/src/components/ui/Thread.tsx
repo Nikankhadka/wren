@@ -109,13 +109,15 @@ export function AgentLine({
 }
 
 /**
- * An owner turn (`.u-bubble`): filled accent, right-aligned, tip bottom-right.
+ * An owner turn (`.u-bubble`): filled brand red, right-aligned, tip bottom-right.
+ * `bg-bubble-out` is the Rausch shade that can carry white body text
+ * (`--primary-35`, 4.57:1); flat `--color-accent` would fail AA.
  * `break-words` because a pasted URL is a normal turn here (O-3) and one
  * unbreakable token would otherwise run straight past the screen edge.
  */
 export function OwnerBubble({ children }: { children: ReactNode }) {
   return (
-    <div className="animate-rise-fast mt-thread-gap max-w-[78%] self-end break-words rounded-[var(--radius-bubble-lg)_var(--radius-bubble-lg)_var(--radius-bubble-tip)_var(--radius-bubble-lg)] bg-accent px-4 py-2.5 text-bubble text-text-inverse">
+    <div className="animate-rise-fast mt-thread-gap max-w-[78%] self-end break-words rounded-[var(--radius-bubble-lg)_var(--radius-bubble-lg)_var(--radius-bubble-tip)_var(--radius-bubble-lg)] bg-bubble-out px-4 py-2.5 text-bubble text-text-inverse">
       {children}
     </div>
   );

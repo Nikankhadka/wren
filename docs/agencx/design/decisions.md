@@ -649,8 +649,9 @@ being written down, not taken on faith from either party.
 ## D25: Soft Sakura color system
 
 **Date:** 2026-09-11 (founder-locked palette, rolled out on
-`feat/sakura-color-system`). **Status:** accepted. **Supersedes only D17's
-crimson primary** - the Agencx name and Plus Jakarta Sans stand.
+`feat/sakura-color-system`). **Status:** accepted; superseded by D26 (2026-09-11),
+which replaces the Soft Sakura palette with the Airbnb color system. **Supersedes
+only D17's crimson primary** - the Agencx name and Plus Jakarta Sans stand.
 
 **Decision:** The visual identity is the locked Soft Sakura palette:
 
@@ -705,3 +706,69 @@ copy, interaction, or state changes, and its neutral surfaces stay white.
 `frontend/src/styles/theme.test.ts` token and contrast contract added, the
 tenant accent override removed as a visual path, and the v6 prototype
 recolored in place. `docs/agencx/progress.md` records the rollout.
+
+## D26: Airbnb color system
+
+**Date:** 2026-09-11 (founder-locked, rolled out on
+`feat/airbnb-color-system`). **Status:** accepted. **Supersedes D25's palette
+and usage split** - D25's retirement of the per-tenant accent override, the
+Agencx name, and Plus Jakarta Sans all stand.
+
+**Decision:** The visual identity is the Airbnb color system:
+
+| Role | Value |
+|---|---|
+| Brand action / primary red (Rausch) | `#FF385C`; hover `#E31C5F`; pressed `#B4004E` |
+| Text-bearing primary CTA | the Airbnb gradient `#E61E4D -> #E31C5F -> #D70466` (`--gradient-brand`), white text |
+| Soft brand wash / selection / human-agent bubble | `#FFD1DA`, paired with deep red text |
+| Outgoing chat bubble | `#E31C5F` (white text; flat Rausch cannot carry text at AA) |
+| Incoming chat bubbles | assistant `#F7F7F7`, human agent `#FFD1DA` |
+| Info / open / sent | `#007A7F` on `#E6F4F5` (Airbnb teal `#008489` one step darker for AA) |
+| Success | `#007A04` on `#E6F5E7` (Airbnb green `#008A05` one step darker) |
+| Attention / pending / escalation | `#8A5A00` on `#FFF3D6` |
+| Count / highlight | `#FFB400` with dark ink |
+| Danger / error | `#C13515` on `#FDEDEA` |
+| Ink / secondary text / tertiary text / disabled | `#222222` / `#717171` / `#767676` / `#B0B0B0` |
+| Surfaces | white `#FFFFFF`, sunken `#F7F7F7`, container `#F0F0F0`, container-high and hairline `#EBEBEB`, border `#DDDDDD` |
+
+**Usage strategy.** Accent means action, and it is the interactive text color:
+links and text actions use the deep accent (`text-accent-active`, `#B4004E`),
+chips and suggestion pills keep the accent border (`accent-a28`) and accent
+wash on hover/press, send circles and the storefront FAB are flat Rausch icon
+fills, and the outgoing chat bubble is brand red. Flat `#FF385C` never carries
+text (3.52:1 on white); text-bearing CTAs ride the gradient (every stop clears
+4.5:1 with white) or the deep stop. Teal is the info *status* color only
+(Badge), never a link color - D17's retired teal was the pre-Agencx identity
+accent and is a different thing. Neutrals do the chrome: white surfaces and
+cards, `#F7F7F7`/`#F0F0F0` panels, `#DDDDDD` borders, grey sidebar active nav.
+Forms follow the Airbnb field idiom: white fields with a visible border on
+white cards, and focus darkens the field border to ink instead of the old pink
+fill.
+
+**Why:** The founder chose Airbnb's palette and its colour discipline over the
+Soft Sakura berry: Rausch is the action red, the gradient is reserved for the
+highest-intent CTA, and the rest of the interface is neutral so the red reads
+as emphasis rather than decoration. The status ramps are rebuilt as
+Airbnb-adjacent dark-on-pastel pairs that keep WCAG AA; the exact Airbnb teal
+and green are one step too light to carry text on their own washes, so they
+stay as ramp anchors. The load-bearing token architecture is unchanged: the
+swap is a re-point of Layer 1 and Layer 2, with no component rewrites beyond
+class-level usage moves.
+
+**Boundary:** No backend, database, request, response, or TypeScript API shape
+changes. `tenant_config.brand.accent` stays accepted, stored and returned for
+compatibility and continues to render nothing; display name and logo keep
+working. Light mode only. No layout, typography, copy, flow, or state changes.
+`--gradient-brand` is reused as the CTA gradient and `--gradient-veil` becomes
+the blush onboarding veil; `--color-accent-a20` is deleted with both of its
+consumers moved to neutral borders. No new semantic tokens. **The v6
+preservation rule gets one color-only exception:** `agencx-prototype-v6.html`
+is recolored onto the Airbnb palette with no layout, copy, interaction, or
+state changes.
+
+**Provenance.** Rolled out on `feat/airbnb-color-system` (2026-09-11):
+`theme.css` re-pointed, `theme.test.ts` re-pinned with the same AA gate plus a
+gradient-stop check, usage moved at component level (primary Button gradient,
+accent chips and text actions, neutral chrome, Airbnb form fields), the
+storefront e2e accent pin updated to Rausch, and the v6 prototype recolored in
+place. `docs/agencx/progress.md` records the rollout.

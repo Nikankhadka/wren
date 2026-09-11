@@ -111,7 +111,7 @@ export default function ChatsPage() {
             data-testid={`chats-filter-${option.id}`}
             className={
               filter === option.id
-                ? "shrink-0 rounded-chip border-[1.5px] border-accent-subtle bg-accent-subtle px-3.5 py-1.5 text-chip text-accent"
+                ? "shrink-0 rounded-chip border-[1.5px] border-accent-subtle bg-accent-subtle px-3.5 py-1.5 text-chip text-accent-active"
                 : "shrink-0 rounded-chip border-[1.5px] border-hairline px-3.5 py-1.5 text-chip text-text-secondary"
             }
           >

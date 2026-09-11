@@ -97,7 +97,7 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
       <ScreenTopbar title={customerName} backHref="/chats" />
       <p
         data-testid="thread-status"
-        className={`px-5 pb-2 text-footnote ${takenOver ? "text-text-secondary" : "text-accent"}`}
+        className={`px-5 pb-2 text-footnote ${takenOver ? "text-text-secondary" : "text-accent-active"}`}
       >
         {stopped ? "Stopped" : takenOver ? "You're replying" : "Handling"}
       </p>
@@ -135,7 +135,7 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
               disabled={working}
               data-testid={takenOver ? "hand-back" : "take-over"}
               onClick={() => void act(takenOver ? "handback" : "takeover")}
-              className="inline-block rounded-full bg-accent-subtle px-3.5 py-1.5 text-chip font-medium text-accent disabled:opacity-50"
+              className="inline-block rounded-full bg-accent-subtle px-3.5 py-1.5 text-chip font-medium text-accent-active disabled:opacity-50"
             >
               {takenOver ? "Hand back to Agencx" : "Take over this conversation"}
             </button>

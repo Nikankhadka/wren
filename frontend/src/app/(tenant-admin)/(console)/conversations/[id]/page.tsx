@@ -78,7 +78,7 @@ export default function ConversationDetailPage() {
           action={
             <Link
               href="/conversations"
-              className="text-body-sm font-medium text-accent hover:text-accent-hover"
+              className="text-body-sm font-medium text-accent-active hover:underline"
             >
               Back to conversations
             </Link>
@@ -103,7 +103,7 @@ export default function ConversationDetailPage() {
       <div className="flex flex-col gap-2">
         <Link
           href="/conversations"
-          className="text-footnote font-medium text-accent hover:text-accent-hover"
+          className="text-footnote font-medium text-accent-active hover:underline"
         >
           &larr; Conversations
         </Link>

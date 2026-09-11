@@ -2,17 +2,19 @@
 
 The implementation truth for UI. The pixel standard of
 `docs/agencx/design/conventions.md`
-section 6 applies to everything here. Design language: **Material 3 tonal
-clarity** - paper and white surfaces, a **Soft Sakura identity** (deep berry
-action, blossom emphasis) with amber, green, blue and red functional statuses,
-generous whitespace, Plus Jakarta Sans throughout (D17 name and font, D25).
+section 6 applies to everything here. Design language: **Airbnb colour
+discipline** - white surfaces and cool greys, a **Rausch red action colour**
+(the CTA gradient for text-bearing primary buttons, the deep red stop for text
+actions) with amber, green, teal and red functional statuses, generous
+whitespace, Plus Jakarta Sans throughout (D17 name and font, D26).
 
 The system below is the shipped Wren frontend carried forward; the Agencx
-changes are the three-screen manifest (S1/S2/S3), the font swap, the Soft
-Sakura color system (D25), the failover typing indicator (P-5), and the
-mobile-first app chrome (D18). The pre-Agencx prototype's teal accent, cleaning
-copy, and Hivee emblem stay retired and archived (D17); its mobile-first
-structure returns as the tenant app's bottom tab bar (D18).
+changes are the three-screen manifest (S1/S2/S3), the font swap, the Airbnb
+color system (D26, superseding D25), the failover typing indicator (P-5), and
+the mobile-first app chrome (D18). The pre-Agencx prototype's teal accent,
+cleaning copy, and Hivee emblem stay retired and archived (D17); its
+mobile-first structure returns as the tenant app's bottom tab bar (D18).
+D26's teal is the info status role, not a return of that identity accent.
 
 ## 1. The one hard rule: nothing is hardcoded
 
@@ -45,15 +47,15 @@ Rules:
 
 ## 2. Theme file (`frontend/src/styles/theme.css`)
 
-Layer 1 is a Material 3 tonal ramp set: each role (primary Sakura, secondary
-blue, tertiary green, error red, amber, neutral) is a ramp of tone steps
-(higher number = lighter); Layer 2 picks a tone per role. Dark-mode overrides
-are disabled; any future theme is a variable override, never a parallel
-component palette.
+Layer 1 is a Material 3 tonal ramp set: each role (primary Airbnb red,
+secondary teal, tertiary green, error red, amber, neutral) is a ramp of tone
+steps (higher number = lighter); Layer 2 picks a tone per role. Dark-mode
+overrides are disabled; any future theme is a variable override, never a
+parallel component palette.
 
-The primary ramp is rebuilt around the locked Soft Sakura identity (D25):
-`--primary-40:#8D2A58` is the action berry, `--primary-35:#7B234D` hover,
-`--primary-30:#6F1D45` pressed, and `--primary-90:#F3C3D6` the blossom subtle
+The primary ramp is rebuilt around the Airbnb identity (D26):
+`--primary-40:#FF385C` is the action red, `--primary-35:#E31C5F` hover,
+`--primary-30:#B4004E` pressed, and `--primary-90:#FFD1DA` the soft brand
 fill. The D17 font change stands:
 
 ```
@@ -64,25 +66,31 @@ wired via `next/font/google` Plus Jakarta Sans in `layout.tsx` (replacing Inter;
 `display: "swap"`). Component code is untouched - the color swap is a re-point
 of tokens, the same load-bearing pattern the Wren rebrand proved.
 
-**Colour convention (semantic status colours).** Deep berry (`#8D2A58`) is the
-**brand action** colour and is reserved for action and emphasis: primary
-buttons, links, focus rings, outgoing bubbles, pressed states, and the monogram
-initial. Blossom (`#F3C3D6`) is the soft brand surface: selected navigation,
-chips, human-agent bubbles, accent containers. Neither is used for a *status*
-meaning. Status is expressed with the standard semantic ramp, routed through
-the semantic tokens (Layer 2) and the `Badge` `STATUS_TONE` map:
+**Colour convention (action accent + semantic status colours).** Deep red
+(`text-accent-active`, `#B4004E`) is the **brand action** colour and carries
+interactive text: links, text actions, chips, focus rings, and the sender
+label on a human-agent bubble. Flat Rausch (`--color-accent`, `#FF385C`) never
+carries text (3.52:1 on white) - it fills icon-only controls (send circles,
+the storefront FAB, the thinking dots) and its gradient (`bg-brand`, all stops
+clear 4.5:1 with white) fills text-bearing primary buttons and the BrandMark
+monogram. The soft red wash (`#FFD1DA`, and the accent-a06/a07/a09 alpha
+washes) is the brand surface: chips, selected filters, human-agent bubbles,
+the Business page cards, and accent containers. None of these is used for a
+*status* meaning. Status is expressed with the standard semantic ramp, routed
+through the semantic tokens (Layer 2) and the `Badge` `STATUS_TONE` map:
 
-- **Green** (`--color-success`, `#176B45` on `#E7F5EC`): approved, success,
+- **Green** (`--color-success`, `#007A04` on `#E6F5E7`): approved, success,
   complete, paid, ready, resolved, active, delivered, confirmed.
-- **Red** (`--color-danger`, `#A61B1B` on `#FDECEC`): cancelled, declined,
+- **Red** (`--color-danger`, `#C13515` on `#FDEDEA`): cancelled, declined,
   failed, suspended, rejected, refunded, error.
-- **Amber** (`--color-warning`, `#7A4A00` on `#FFF3D6`): pending, warning,
+- **Amber** (`--color-warning`, `#8A5A00` on `#FFF3D6`): pending, warning,
   overdue, in-progress, provisioning, processing, claimed, escalated,
-  outstanding. `--color-highlight` (`#F5A623` with dark ink) is the count and
+  outstanding. `--color-highlight` (`#FFB400` with dark ink) is the count and
   notification fill, never a warning text colour.
-- **Neutral / info** (grey, or `--color-info` - `#245B78` on `#E7F1F8` -
+- **Neutral / info** (grey, or `--color-info` - `#007A7F` on `#E6F4F5` -
   where a distinct info colour is wanted): open, sent, draft, neutral - any
-  status without a clear good/bad/pending charge.
+  status without a clear good/bad/pending charge. Teal is the info status
+  role only, never a link colour.
 
 When a screen needs a status the component maps the status string to a tone via
 `toneForStatus` (Badge.tsx) - never a hardcoded hex. Unknown/tenant-defined
@@ -93,38 +101,38 @@ tenant's "In Progress" - three keys for one concept is how one of them silently
 goes grey. **Shipped is amber, not green**: on its way is not arrived, and the
 customer waiting is the one who would notice. **Landed in B-3.**
 
-**The one berry exception, and why it is not a status (B-3).** The Chats list
-marks a conversation being handled with a berry dot and one that wants the
+**The one red-dot exception, and why it is not a status (B-3).** The Chats list
+marks a conversation being handled with a red dot and one that wants the
 owner with amber (`.bdot-t` / `.bdot-a` in the prototype, where `--c-teal` is a
-legacy name holding the berry value). That looks like it contradicts the rule
+legacy name holding the brand value). That looks like it contradicts the rule
 above, and does not: "we have this one" carries no good/bad/pending charge - it
-is the brand saying it is present, the same role deep berry plays in progress
-fill on a brand surface. Green would be wrong for a live conversation, since
-green means resolved. Nothing else may borrow berry for a status.
+is the brand saying it is present, the same role red plays in the send circle.
+Green would be wrong for a live conversation, since green means resolved.
+Nothing else may borrow the action red for a status.
 
-**Soft Sakura - SHIPPED (D25, supersedes the O-5 crimson).** The brand action
-is `#8D2A58` (deep berry), with hover `#7B234D` and active/pressed `#6F1D45`;
-subtle and accent-container are the blossom `#F3C3D6`, which pairs with
-`text-accent` (berry on blossom), not `text-inverse`. `--neutral-10` stays the
-prototype's warmer ink `#1A1A18`. The O-5 ramp landed first (`#C1123F`,
-`#A80033`, `#8F0029`, `#E8385E`) because the onboarding thread is ported from a
-prototype carrying that exact ramp; D25 replaces it with the founder's locked
-palette and retires the per-tenant accent override (section 5).
+**Airbnb palette - SHIPPED (D26, supersedes Soft Sakura D25).** The brand
+action is `#FF385C` (Rausch), with hover `#E31C5F` and active/pressed
+`#B4004E`; subtle and accent-container are the soft red `#FFD1DA`, which pairs
+with `text-accent-active` (deep red on soft red), not `text-inverse`. The text
+stack is Airbnb's cool grey `#222222` / `#717171` / `#767676`. Flat `#FF385C`
+is a fill-only colour: text-bearing CTAs ride `--gradient-brand`
+(`#E61E4D -> #E31C5F -> #D70466`) and text actions use `text-accent-active`.
+D26 also retires the per-tenant accent override (section 5).
 
-**The alpha ladder (O-5; re-pointed by D25).** The prototype expresses every
+**The alpha ladder (O-5; re-pointed by D26).** The prototype expresses every
 soft surface as one hue at an alpha step, so `theme.css` carries two channel
-triples - `--primary-40-rgb` (now `141 42 88`, the berry) and
-`--neutral-10-rgb` - and derives a ladder from them:
-`--color-accent-a07/09/12/16/28/45/50` and
+triples - `--primary-40-rgb` (now `255 56 92`, Rausch) and `--neutral-10-rgb`
+(now `34 34 34`) - and derives a ladder from them:
+`--color-accent-a07/09/12/16/20/28/45/50` and
 `--color-ink-a05/07/12/35/40`. These are named by alpha step rather than by role
 because the prototype reuses each step in several places; a numeric name stays
 honest where an invented role vocabulary would not. Only steps a shipped screen
 uses are defined - add one when a screen needs it, never speculatively.
 `--color-accent-a09` is the tab/action pill wash, no longer the opening veil
-(the veil is `--gradient-veil`, the brand gradient with its top stop at zero
-alpha so the 56%-height overlay has no hard seam, D25). Note that
+(the veil is `--gradient-veil`, the soft blush wash with its top stop at zero
+alpha so the 56%-height overlay has no hard seam, D26). Note that
 `--color-ink-a40` (the prototype's `--c-muted`) is what thread surfaces use for
-muted text, NOT the mauve `--color-text-tertiary`.
+muted text, NOT the grey `--color-text-tertiary`.
 
 **Thread tokens (O-5).** The onboarding thread's type (`--text-lede`,
 `--text-lede-q`, `--text-bubble`), geometry (`--radius-bubble-lg`,
@@ -151,7 +159,7 @@ Tailwind utilities via `@theme inline` - self-referential mappings
 (`--color-x: var(--color-x)`), the `theme.css` import stays **unlayered**. Both
 are load-bearing. Components use `bg-surface`, `text-text-secondary`,
 `border-border`, `bg-accent-container`, `rounded-md`, etc. Arbitrary values like
-`bg-[#8D2A58]` are what the CI grep forbids.
+`bg-[#FF385C]` are what the CI grep forbids.
 
 ## 4. Typography, spacing, motion
 
@@ -190,8 +198,8 @@ Every component takes only semantic tokens. Each lists its required states.
 
 | Component | Notes | Required states |
 |---|---|---|
-| `Button` | primary / secondary / ghost / destructive; sm/md | default, hover, active, focus ring, disabled, loading |
-| `Input`, `Textarea`, `Select` | label above, help/error below; the inactive send state is the only validation signal - no red error text | default, focus, error, disabled |
+| `Button` | primary (rides the CTA gradient `bg-brand`, brightness hover) / secondary / ghost / destructive; sm/md | default, hover, active, focus ring, disabled, loading |
+| `Input`, `Textarea`, `Select` | label above, help/error below; white field with a visible border, focus darkens the border to ink (D26); the inactive send state is the only validation signal - no red error text | default, focus, error, disabled |
 | `CommandPill` | `command` (send circle appears with text) and `field` (circle always present, dimmed until valid) variants; the pill carries the focus ring, never a rectangle inside it; `.pill-plus` opens the file picker where attaching is offered (O-3) | empty, typing, armed, busy/stop, disabled, attach |
 | `Card` | surface + border + radius-lg + shadow-1 | default, interactive |
 | `Table` | sticky header, row hover | loading, empty, error |
@@ -207,7 +215,7 @@ Every component takes only semantic tokens. Each lists its required states.
 | `ScreenTopbar` (O-3) | `.dst-topbar`: 58px, back control, title, optional trailing action, hairline rule | default |
 | `RowLink` (O-3) | `.bh-row`: icon, label, chevron, hairline - a hub screen's list of destinations | default, pressed |
 | `FileDropzone` | drag target; accepted PDF, DOCX, MD/TXT/CSV/JSON. **Images are refused** - nothing in the stack reads one (no OCR, no vision call), founder ruling 2026-08-22; a vision call on the provider seam is the upgrade path | idle, drag-over, uploading, done, rejected |
-| `ChatBubble` | the OPERATOR thread idiom, all roles on bubble tokens: customer (berry `bubble-out`, right), assistant (neutral `bubble-in`, left), human_agent (blossom `bubble-agent-in`), system (centered caption); 18px radius, tip at the top | static, streaming |
+| `ChatBubble` | the OPERATOR thread idiom, all roles on bubble tokens: customer (brand red `bubble-out`, right), assistant (neutral `bubble-in`, left), human_agent (soft red `bubble-agent-in`), system (centered caption); 18px radius, tip at the top | static, streaming |
 | `Thread` (O-5) | the ONBOARDING thread idiom, a separate design: `Thread`, `LedeMessage`, `AgentLine` (bare prose), `OwnerBubble` (20px, tip bottom-right), `TypingLine`, `ThreadPill`, `ThreadVeil`. Never merge with `ChatBubble` | static, streaming, pending |
 | `StreamingText` | renders SSE tokens, `aria-live="polite"` | streaming, done, interrupted |
 | `TypingIndicator` | **NEW (P-5):** three pulsing dots (600-800ms) shown while a turn is in flight, sustained through the failover window - never a spinner, never a blank | active |
@@ -307,7 +315,7 @@ primitives in `frontend/src/components/ui/Thread.tsx`, ported from the
 prototype's ONBOARDING screen. The thread IS the screen: `/onboarding` renders
 chrome-free (no sidebar, no hamburger header), there is no title, and there is no
 progress surface of any kind. Assistant turns are bare prose; only the owner's
-turns get a bubble. A brand-gradient veil (`#s1-grad`) sits over the bottom 56%
+turns get a bubble. A soft blush veil (`#s1-grad`) sits over the bottom 56%
 and fades for good once the owner has answered once.
 
 `Thread.tsx` is deliberately NOT `ChatBubble`: the operator thread's two-bubble
@@ -359,7 +367,7 @@ forward.)
 and steps into them. Ported from the prototype's `chats` and `renderThreadScreen`
 screens: the **All / Action needed / Unread** filter row, where "Action needed"
 *is* the escalation queue; `chat-row` with name, relative time, a status dot
-(amber = the assistant asked for you, berry = it is handling this) and a
+(amber = the assistant asked for you, red = it is handling this) and a
 one-line preview that shows the assistant's own summary of what the customer
 wants; and in the thread, the "Handling" / "You're replying" status with the
 take-over and hand-back pills and their symmetrical `thr-pill` stamps. Built on
@@ -561,10 +569,10 @@ codebase, responsive; no native app, no PWA shell in Stage 1.
   64px but the tab inside it is a 48px pill inset 8px vertically and 24px
   horizontally - that inset is what makes the active state read as a pill
   rather than a full-height block, and it is easy to lose
-- Active tab: **accent text on a 9% accent wash** (`bg-accent-a09 text-accent`)
+- Active tab: **accent text on a 9% accent wash** (`bg-accent-a09 text-accent-active`)
   with the filled Material Symbol; inactive: `text-ink-a40` with the outlined
   glyph. This is the prototype's `.tab.active` and it deliberately differs from
-  the sidebar's solid blossom `accent-container` pill: three of these sit side
+  the sidebar's solid surface-container pill (the Airbnb desktop nav idiom): three of these sit side
   by side on a small surface, where a solid fill repeated three times reads as
   loud. The sidebar has room the bar does not, and keeps its own idiom
 - The bar is **persistent, including over drill-downs**: in the prototype
@@ -579,7 +587,7 @@ codebase, responsive; no native app, no PWA shell in Stage 1.
 - Structural reference: the reworked prototype
   (`docs/agencx/design/prototypes/agencx-prototype-v6.html`) is trusted for
   screen inventory, states, interaction vocabulary, and the bottom tab bar
-  pattern, now carrying the shipped Soft Sakura identity, the monogram mark, and
+  pattern, now carrying the shipped Airbnb identity, the monogram mark, and
   the Sababa reference tenant (D17, D18, D25). The companion storefront surface
   (`docs/archive/prototypes/agencx-storefront-customer-v3.html`) is a retired pre-D18 surface kept for
   storefront interaction vocabulary only

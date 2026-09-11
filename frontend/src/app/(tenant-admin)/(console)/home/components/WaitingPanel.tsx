@@ -92,7 +92,7 @@ export function WaitingPanel({ rows }: { rows: WaitingRow[] }) {
           type="button"
           data-testid="waiting-panel-toggle"
           onClick={() => setExpanded((value) => !value)}
-          className={`block w-full border-t border-hairline px-[18px] py-2.5 text-center text-chip text-accent active:bg-surface-sunken${fitsAtLarge ? " lg:hidden" : ""}`}
+          className={`block w-full border-t border-hairline px-[18px] py-2.5 text-center text-chip text-accent-active active:bg-surface-sunken${fitsAtLarge ? " lg:hidden" : ""}`}
         >
           {expanded ? "Show fewer" : `Show all ${rows.length}`}
         </button>

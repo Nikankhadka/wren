@@ -2,9 +2,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 /**
- * The theme contract test: pins the approved Soft Sakura palette and proves
- * every foreground/background pair the design relies on clears WCAG AA. Raw
- * hex lives here by design - this file is where the approved values are named
+ * The theme contract test: pins the approved Airbnb palette and proves every
+ * foreground/background pair the design relies on clears WCAG AA. Raw hex
+ * lives here by design - this file is where the approved values are named
  * and checked, and it is allowlisted in scripts/check-tokens.mjs.
  */
 
@@ -50,101 +50,111 @@ function contrastRatio(a: string, b: string): number {
 
 const APPROVED: Record<string, string> = {
   // Layer 1: the full primary ramp + the channel triple the alpha ladder uses.
-  "primary-20": "#4A1129",
-  "primary-30": "#6F1D45",
-  "primary-35": "#7B234D",
-  "primary-40": "#8D2A58",
-  "primary-45": "#A94A74",
-  "primary-60": "#C06E93",
-  "primary-70": "#D18FAD",
-  "primary-80": "#E0AAC3",
-  "primary-90": "#F3C3D6",
-  "primary-95": "#FBE4EE",
-  "primary-40-rgb": "141 42 88",
+  "primary-20": "#8C0026",
+  "primary-30": "#B4004E",
+  "primary-35": "#E31C5F",
+  "primary-40": "#FF385C",
+  "primary-45": "#FF5A5F",
+  "primary-60": "#FF7A85",
+  "primary-70": "#FF99A2",
+  "primary-80": "#FFB3BA",
+  "primary-90": "#FFD1DA",
+  "primary-95": "#FFE8ED",
+  "primary-40-rgb": "255 56 92",
 
   // Layer 2: semantic mappings, resolved through Layer 1.
-  "color-bg": "#FFF9FC",
+  "color-bg": "#FFFFFF",
   "color-surface": "#FFFFFF",
-  "color-surface-sunken": "#F7F2F4",
-  "color-surface-container": "#F1EAED",
-  "color-surface-container-high": "#EAE2E6",
-  "color-border": "#E5E2E1",
-  "color-border-strong": "#7D6E75",
-  "color-text": "#1A1A18",
-  "color-text-secondary": "#655B60",
-  "color-text-tertiary": "#7D6E75",
+  "color-surface-sunken": "#F7F7F7",
+  "color-surface-container": "#F0F0F0",
+  "color-surface-container-high": "#EBEBEB",
+  "color-border": "#DDDDDD",
+  "color-border-strong": "#767676",
+  "color-text": "#222222",
+  "color-text-secondary": "#717171",
+  "color-text-tertiary": "#767676",
   "color-text-inverse": "#FFFFFF",
-  "color-accent": "#8D2A58",
-  "color-accent-hover": "#7B234D",
-  "color-accent-active": "#6F1D45",
-  "color-accent-subtle": "#F3C3D6",
-  "color-accent-container": "#F3C3D6",
-  "color-focus-ring": "#8D2A58",
-  "color-success": "#176B45",
-  "color-success-subtle": "#E7F5EC",
-  "color-warning": "#7A4A00",
+  "color-accent": "#FF385C",
+  "color-accent-hover": "#E31C5F",
+  "color-accent-active": "#B4004E",
+  "color-accent-subtle": "#FFD1DA",
+  "color-accent-container": "#FFD1DA",
+  "color-focus-ring": "#FF385C",
+  "color-success": "#007A04",
+  "color-success-subtle": "#E6F5E7",
+  "color-warning": "#8A5A00",
   "color-warning-subtle": "#FFF3D6",
-  "color-danger": "#A61B1B",
-  "color-danger-subtle": "#FDECEC",
-  "color-info": "#245B78",
-  "color-info-subtle": "#E7F1F8",
-  "color-bubble-out": "#8D2A58",
-  "color-bubble-in": "#F0EDED",
-  "color-bubble-agent-in": "#F3C3D6",
-  "color-highlight": "#F5A623",
+  "color-danger": "#C13515",
+  "color-danger-subtle": "#FDEDEA",
+  "color-info": "#007A7F",
+  "color-info-subtle": "#E6F4F5",
+  "color-bubble-out": "#E31C5F",
+  "color-bubble-in": "#F7F7F7",
+  "color-bubble-agent-in": "#FFD1DA",
+  "color-highlight": "#FFB400",
 };
 
-describe("Soft Sakura token contract", () => {
+describe("Airbnb token contract", () => {
   it.each(Object.entries(APPROVED))("--%s is %s", (name, value) => {
     expect(resolve(name)).toBe(value);
   });
 
-  it("gradient-brand keeps both locked stops", () => {
+  it("gradient-brand keeps all three locked stops", () => {
     const gradient = resolve("gradient-brand");
-    expect(gradient).toContain("#F3BED3");
-    expect(gradient).toContain("#FFF3F8");
+    expect(gradient).toContain("#E61E4D");
+    expect(gradient).toContain("#E31C5F");
+    expect(gradient).toContain("#D70466");
   });
 
   it("gradient-veil keeps the locked bottom stop and fades the top", () => {
     const gradient = resolve("gradient-veil");
-    expect(gradient).toContain("#F3BED3");
-    expect(gradient).toContain("rgb(255 243 248 / 0)");
+    expect(gradient).toContain("#FFD1DA");
+    expect(gradient).toContain("rgb(255 232 237 / 0)");
   });
 });
 
 const AA = 4.5;
 const AA_NON_TEXT = 3;
 
-const AA_PAIRS: Array<[string, string]> = [
-  ["color-text", "color-bg"],
-  ["color-text", "color-surface"],
-  ["color-text-secondary", "color-bg"],
-  ["color-text-secondary", "color-surface"],
-  ["color-text-secondary", "color-surface-sunken"],
-  ["color-text-tertiary", "color-surface"],
-  ["color-text-tertiary", "color-bg"],
-  ["color-text-inverse", "color-accent"],
-  ["color-text-inverse", "color-danger"],
-  ["color-text-inverse", "color-bubble-out"],
-  ["color-accent", "color-accent-subtle"],
-  ["color-accent-active", "color-accent-subtle"],
-  ["color-accent", "color-accent-container"],
-  ["color-text", "color-bubble-agent-in"],
-  ["color-text", "color-bubble-in"],
-  ["color-text", "color-highlight"],
-  ["color-success", "color-success-subtle"],
-  ["color-warning", "color-warning-subtle"],
-  ["color-danger", "color-danger-subtle"],
-  ["color-info", "color-info-subtle"],
-];
-
 describe("WCAG AA text pairs", () => {
+  const AA_PAIRS: Array<[string, string]> = [
+    ["color-text", "color-bg"],
+    ["color-text", "color-surface"],
+    ["color-text-secondary", "color-bg"],
+    ["color-text-secondary", "color-surface"],
+    ["color-text-secondary", "color-surface-sunken"],
+    ["color-text-tertiary", "color-surface"],
+    ["color-text-tertiary", "color-bg"],
+    ["color-text-inverse", "color-accent-hover"],
+    ["color-text-inverse", "color-accent-active"],
+    ["color-text-inverse", "color-danger"],
+    ["color-text-inverse", "color-bubble-out"],
+    ["color-accent-active", "color-accent-subtle"],
+    ["color-accent-active", "color-bubble-agent-in"],
+    ["color-text", "color-bubble-agent-in"],
+    ["color-text", "color-bubble-in"],
+    ["color-text", "color-highlight"],
+    ["color-success", "color-success-subtle"],
+    ["color-warning", "color-warning-subtle"],
+    ["color-danger", "color-danger-subtle"],
+    ["color-info", "color-info-subtle"],
+  ];
+
   it.each(AA_PAIRS)("%s on %s clears AA", (foreground, background) => {
     const ratio = contrastRatio(resolve(foreground), resolve(background));
     expect(
       ratio,
       `${foreground} on ${background} = ${ratio.toFixed(2)}:1`
     ).toBeGreaterThanOrEqual(AA);
+  });
+
+  it("every CTA gradient stop clears AA with inverse text", () => {
+    const stops = resolve("gradient-brand").match(/#[0-9A-F]{6}/gi) ?? [];
+    expect(stops).toHaveLength(3);
+    for (const stop of stops) {
+      const ratio = contrastRatio(stop, resolve("color-text-inverse"));
+      expect(ratio, `${stop} with inverse text = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(AA);
+    }
   });
 });
 

@@ -19,7 +19,7 @@ export function BriefCard({ item }: { item: BriefItem }) {
           <Link
             key={chip.label}
             href={chip.href}
-            className="whitespace-nowrap rounded-chip border-[1.5px] border-accent-a28 px-3.5 py-1.5 text-chip text-accent transition-colors duration-(--duration-fast) active:bg-accent-a07"
+            className="whitespace-nowrap rounded-chip border-[1.5px] border-accent-a28 px-3.5 py-1.5 text-chip text-accent-active transition-colors duration-(--duration-fast) active:bg-accent-a07"
           >
             {chip.label}
           </Link>

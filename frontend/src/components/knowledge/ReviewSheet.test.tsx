@@ -163,7 +163,7 @@ describe("review toolbar", () => {
     expect(html).not.toContain("Review all");
     expect(html).not.toContain("Edit offerings");
     expect(html).toContain(
-      '<span></span><button type="button" class="text-action font-medium text-accent">Add offering</button>',
+      '<span></span><button type="button" class="text-action font-medium text-accent-active">Add offering</button>',
     );
   });
 
