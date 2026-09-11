@@ -3,12 +3,15 @@
 The production image ships without sentence-transformers, so the deployed stack
 runs EMBEDDER=google. That makes an external service responsible for a value the
 database constrains: knowledge_chunks.embedding is vector(384) (migration 0010),
-and text-embedding-004 is natively 768. The width therefore depends on the API
+and gemini-embedding-001 is natively 3072. The width therefore depends on the API
 honouring outputDimensionality, which is exactly the kind of thing that fails
-silently after a provider-side change. These tests pin the contract: the right
-implementation is selected by env, the request carries the dimension, a wrong
-width is refused with an actionable message rather than surfacing as a Postgres
-type error at insert time, and truncated vectors come back normalized.
+silently after a provider-side change - and did: the batch endpoint ignores the
+field when it is nested under embedContentConfig, so every ingest failed with a
+3072-dim guard error until the request moved it to the top level. These tests pin
+the contract: the right implementation is selected by env, the request carries
+the dimension at the level the API honours, a wrong width is refused with an
+actionable message rather than surfacing as a Postgres type error at insert time,
+and truncated vectors come back normalized.
 """
 
 from __future__ import annotations
@@ -28,7 +31,7 @@ def _settings(**overrides: object) -> Settings:
     base: dict[str, object] = {
         "embedder": "google",
         "llm_api_key": "test-key",
-        "google_embed_model": "text-embedding-004",
+        "google_embed_model": "gemini-embedding-001",
         "embedding_dim": 384,
     }
     base.update(overrides)
@@ -81,8 +84,10 @@ async def test_embed_requests_the_schema_dimension_and_normalizes() -> None:
 
     body = json.loads(seen[0].content)
     assert seen[0].headers["x-goog-api-key"] == "test-key"
-    assert "text-embedding-004:batchEmbedContents" in str(seen[0].url)
-    assert body["requests"][0]["embedContentConfig"]["outputDimensionality"] == 384
+    assert "gemini-embedding-001:batchEmbedContents" in str(seen[0].url)
+    # Top-level: the API ignores the nested embedContentConfig form.
+    assert body["requests"][0]["outputDimensionality"] == 384
+    assert "embedContentConfig" not in body["requests"][0]
     assert body["requests"][0]["content"]["parts"] == [{"text": "hello"}]
 
     assert len(vectors[0]) == 384
@@ -111,14 +116,14 @@ async def test_embed_preserves_input_order() -> None:
 
 async def test_embed_refuses_a_width_the_schema_cannot_hold() -> None:
     """The failure this exists for: the endpoint ignores outputDimensionality and
-    hands back the model's native 768."""
+    hands back the model's native 3072."""
     embedder = GoogleEmbedder(_settings())
     _stub(
         embedder,
-        lambda _r: httpx.Response(200, json={"embeddings": [{"values": [0.1] * 768}]}),
+        lambda _r: httpx.Response(200, json={"embeddings": [{"values": [0.1] * 3072}]}),
     )
 
-    with pytest.raises(ValueError, match="768-dim"):
+    with pytest.raises(ValueError, match="3072-dim"):
         await embedder.embed(["hello"])
 
 

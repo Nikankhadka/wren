@@ -159,10 +159,11 @@ class GoogleEmbedder(Embedder):
                     {
                         "model": f"models/{self._model}",
                         "content": {"parts": [{"text": text}]},
-                        # Nested, not the deprecated top-level field of the same
-                        # name. A server that ignored it would return the model's
-                        # native width, which the guard below catches.
-                        "embedContentConfig": {"outputDimensionality": self._expected_dim},
+                        # Top-level, not nested under `embedContentConfig`: the
+                        # batch endpoint silently ignores the nested form for
+                        # gemini-embedding-001 and returns the model's native
+                        # 3072 dims (observed against the live API 2026-09-12).
+                        "outputDimensionality": self._expected_dim,
                     }
                     for text in texts
                 ]
