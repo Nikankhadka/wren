@@ -77,7 +77,7 @@ test("a pasted link is read back as sections, then saved", async ({
   // this record: the demo tenant may already carry others.
   const saved = page.locator("article").filter({ hasText: EDITED });
   await expect(saved).toBeVisible({ timeout: 30_000 });
-  await saved.getByText("View reviewed document").click();
+  await saved.getByText("What I read from this").click();
   await expect(saved.getByText(EDITED)).toBeVisible();
   await expect(saved.getByText("Answering from this")).toBeVisible();
   await expect(page.getByTestId("knowledge-error")).toHaveCount(0);

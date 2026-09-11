@@ -382,6 +382,13 @@ export default function KnowledgePage() {
                       >
                         {statusLine(record)}
                       </p>
+                      {record.offering_candidates && record.offering_candidates.length > 0 ? (
+                        <p className="mt-0.5 text-meta text-ink-a40">
+                          {record.offering_candidates.length === 1
+                            ? "1 offering came from this"
+                            : `${record.offering_candidates.length} offerings came from this`}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       {record.status === "failed" ? (
@@ -436,7 +443,7 @@ export default function KnowledgePage() {
 
                   <details className="mt-3">
                     <summary className="cursor-pointer text-action font-medium text-accent">
-                      View reviewed document
+                      What I read from this
                     </summary>
                     <KnowledgeDocument sections={record.sections} />
                   </details>
